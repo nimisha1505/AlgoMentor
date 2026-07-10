@@ -1,0 +1,17 @@
+# Dependency directories
+node_modules/
+
+# Output directories
+dist/
+build/
+coverage/
+
+# Environment files
+.env
+*.env
+*.env.*
+
+# Documentation and standard files
+README.md
+package-lock.json
+package.json

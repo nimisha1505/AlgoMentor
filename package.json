@@ -1,0 +1,17 @@
+{
+  "name": "algomentor",
+  "version": "1.0.0",
+  "description": "An AI-powered DSA learning platform designed to help students master coding problems, explore progressive hints, analyze code complexity, and track learning progress.",
+  "private": true,
+  "type": "module",
+  "keywords": [
+    "algomentor",
+    "dsa",
+    "ai",
+    "learning-platform",
+    "mern",
+    "gemini"
+  ],
+  "author": "",
+  "license": "ISC"
+}
