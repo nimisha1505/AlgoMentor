@@ -20,12 +20,12 @@ const userCodeReviewSchema = z
   .object({
     summary: nonEmptyString,
     isCorrect: z.boolean(),
-    strengths: z.array(z.string()).default([]),
-    bugs: z.array(z.string()).default([]),
-    missedEdgeCases: z.array(z.string()).default([]),
+    strengths: z.array(nonEmptyString).default([]),
+    bugs: z.array(nonEmptyString).default([]),
+    missedEdgeCases: z.array(nonEmptyString).default([]),
     timeComplexity: nonEmptyString,
     spaceComplexity: nonEmptyString,
-    improvements: z.array(z.string()).default([]),
+    improvements: z.array(nonEmptyString).default([]),
     correctedCode: z.string().default(''),
   })
   .strict();
@@ -36,8 +36,8 @@ const comparisonRowSchema = z
     approach: nonEmptyString,
     timeComplexity: nonEmptyString,
     spaceComplexity: nonEmptyString,
-    advantages: z.array(z.string()),
-    disadvantages: z.array(z.string()),
+    advantages: z.array(nonEmptyString),
+    disadvantages: z.array(nonEmptyString),
     interviewSuitability: nonEmptyString,
   })
   .strict();
@@ -45,8 +45,8 @@ const comparisonRowSchema = z
 // Complete, strict validation schema for AI analysis results
 const analysisResultSchema = z
   .object({
-    problemExplanation: z.string().optional(),
-    inputOutput: z.string().optional(),
+    problemExplanation: nonEmptyString.optional(),
+    inputOutput: nonEmptyString.optional(),
     exampleExplanation: z
       .array(
         z
@@ -80,7 +80,7 @@ const analysisResultSchema = z
     pattern: z
       .object({
         name: nonEmptyString,
-        clues: z.array(z.string()).min(1),
+        clues: z.array(nonEmptyString).min(1),
         reason: nonEmptyString,
       })
       .strict()
@@ -96,7 +96,7 @@ const analysisResultSchema = z
       )
       .min(1)
       .optional(),
-    pseudocode: z.array(z.string()).min(1).optional(),
+    pseudocode: z.array(nonEmptyString).min(1).optional(),
     userCodeReview: userCodeReviewSchema.optional(),
     approaches: z.array(approachSchema).min(1).optional(),
     approachExplanations: z
@@ -147,7 +147,7 @@ const analysisResultSchema = z
       .object({
         approach: nonEmptyString,
         input: nonEmptyString,
-        steps: z.array(z.string()).min(1),
+        steps: z.array(nonEmptyString).min(1),
         output: nonEmptyString,
       })
       .strict()
@@ -171,6 +171,10 @@ const analysisResultSchema = z
  * Ensures the response matches the list of requested sections exactly.
  */
 const parseAnalysisResult = ({ rawResult, requestedSections }) => {
+  if (!Array.isArray(requestedSections) || requestedSections.length === 0) {
+    throw new Error('requestedSections must be a non-empty array');
+  }
+
   let parsedObj;
 
   if (typeof rawResult === 'string') {
@@ -426,8 +430,64 @@ const analysisResultJsonSchema = {
   additionalProperties: false,
 };
 
+const SUPPORTED_SECTIONS = [
+  'problemExplanation',
+  'inputOutput',
+  'exampleExplanation',
+  'constraints',
+  'edgeCases',
+  'pattern',
+  'hints',
+  'pseudocode',
+  'userCodeReview',
+  'approaches',
+  'approachExplanations',
+  'codes',
+  'complexities',
+  'dryRun',
+  'comparison',
+  'interviewExplanation',
+];
+
+/**
+ * Builds a dynamic JSON schema restricting Gemini output to only the requested sections.
+ * Deep-clones base property schemas to prevent unintended mutation.
+ */
+const buildRequestedAnalysisJsonSchema = (requestedSections) => {
+  if (!Array.isArray(requestedSections) || requestedSections.length === 0) {
+    throw new Error('requestedSections must be a non-empty array');
+  }
+
+  const seen = new Set();
+  for (const section of requestedSections) {
+    if (!SUPPORTED_SECTIONS.includes(section)) {
+      throw new Error(`Unsupported analysis section: ${section}`);
+    }
+    if (seen.has(section)) {
+      throw new Error(`Duplicate analysis section: ${section}`);
+    }
+    seen.add(section);
+  }
+
+  const requestedProperties = {};
+  for (const section of requestedSections) {
+    const baseProp = analysisResultJsonSchema.properties[section];
+    if (baseProp) {
+      requestedProperties[section] = JSON.parse(JSON.stringify(baseProp));
+    }
+  }
+
+  return {
+    type: 'object',
+    properties: requestedProperties,
+    required: [...requestedSections],
+    additionalProperties: false,
+  };
+};
+
 export {
   analysisResultSchema,
   parseAnalysisResult,
   analysisResultJsonSchema,
+  buildRequestedAnalysisJsonSchema,
 };

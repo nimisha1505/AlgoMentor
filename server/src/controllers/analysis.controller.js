@@ -3,6 +3,7 @@ import { Analysis } from '../models/analysis.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { processAnalysis } from '../services/analysisProcessor.service.js';
 
 /**
  * Request AI analysis for a saved DSA problem.
@@ -75,21 +76,151 @@ const startProblemAnalysis = asyncHandler(async (req, res) => {
   problem.status = 'queued';
   await problem.save();
 
-  return res.status(201).json(
+  // Synchronous for now; this can later move to a background job queue.
+  const completedAnalysis = await processAnalysis(analysis._id);
+
+  return res.status(200).json(
     new ApiResponse(
-      201,
+      200,
       {
         analysis: {
-          _id: analysis._id,
-          problem: analysis.problem,
-          status: analysis.status,
-          requestedSections: analysis.requestedSections,
-          createdAt: analysis.createdAt,
+          _id: completedAnalysis._id,
+          problem: completedAnalysis.problem,
+          status: completedAnalysis.status,
+          requestedSections: completedAnalysis.requestedSections,
+          result: completedAnalysis.result,
+          modelName: completedAnalysis.modelName,
+          usage: completedAnalysis.usage,
+          createdAt: completedAnalysis.createdAt,
+          completedAt: completedAnalysis.completedAt,
         },
       },
-      'Analysis queued successfully'
+      'Analysis completed successfully'
     )
   );
 });
 
-export { startProblemAnalysis };
+/**
+ * Retrieve a specific AI analysis by ID.
+ * Excludes owner and __v fields.
+ */
+const getAnalysisById = asyncHandler(async (req, res) => {
+  const { analysisId } = req.validatedParams;
+
+  const analysis = await Analysis.findOne({
+    _id: analysisId,
+    owner: req.user._id,
+  }).select('-owner -__v');
+
+  if (!analysis) {
+    throw new ApiError(404, 'Analysis not found');
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { analysis }, 'Analysis fetched successfully'));
+});
+
+/**
+ * Retrieve paginated AI analysis history for a specific Problem.
+ * Excludes result, inputSnapshot, owner, and __v from output list.
+ */
+const getProblemAnalyses = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+  const { page, limit, status, sort } = req.validatedQuery;
+
+  // Confirm the problem exists and belongs to the user
+  const problem = await Problem.findOne({
+    _id: problemId,
+    owner: req.user._id,
+  }).select('_id');
+
+  if (!problem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  const filter = {
+    problem: problem._id,
+    owner: req.user._id,
+  };
+
+  if (status) {
+    filter.status = status;
+  }
+
+  const skip = (page - 1) * limit;
+  const sortDirection = sort === 'oldest' ? 1 : -1;
+
+  const analyses = await Analysis.find(filter)
+    .sort({ createdAt: sortDirection })
+    .skip(skip)
+    .limit(limit)
+    .select(
+      'problem status requestedSections provider modelName promptVersion usage errorMessage processingStartedAt completedAt createdAt updatedAt'
+    );
+
+  const totalAnalyses = await Analysis.countDocuments(filter);
+  const totalPages = Math.ceil(totalAnalyses / limit);
+  const hasNextPage = page < totalPages;
+  const hasPreviousPage = page > 1;
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        analyses,
+        pagination: {
+          page,
+          limit,
+          totalAnalyses,
+          totalPages,
+          hasNextPage,
+          hasPreviousPage,
+        },
+      },
+      'Analyses fetched successfully'
+    )
+  );
+});
+
+/**
+ * Retrieve the latest AI analysis for a specific Problem.
+ * Excludes owner and __v fields.
+ */
+const getLatestProblemAnalysis = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+
+  // Confirm the problem exists and belongs to the user
+  const problem = await Problem.findOne({
+    _id: problemId,
+    owner: req.user._id,
+  }).select('_id');
+
+  if (!problem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  const analysis = await Analysis.findOne({
+    problem: problem._id,
+    owner: req.user._id,
+  })
+    .sort({ createdAt: -1 })
+    .select('-owner -__v');
+
+  if (!analysis) {
+    throw new ApiError(404, 'Analysis not found');
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { analysis }, 'Latest analysis fetched successfully')
+    );
+});
+
+export {
+  startProblemAnalysis,
+  getAnalysisById,
+  getProblemAnalyses,
+  getLatestProblemAnalysis,
+};

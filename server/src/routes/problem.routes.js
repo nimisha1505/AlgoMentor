@@ -8,6 +8,8 @@ import {
 } from '../controllers/problem.controller.js';
 import {
   startProblemAnalysis,
+  getProblemAnalyses,
+  getLatestProblemAnalysis,
 } from '../controllers/analysis.controller.js';
 import {
   createProblemSchema,
@@ -17,6 +19,7 @@ import {
 } from '../validators/problem.validator.js';
 import {
   startAnalysisSchema,
+  analysisListQuerySchema,
 } from '../validators/analysis.validator.js';
 import {
   validate,
@@ -32,6 +35,23 @@ router.get('/', verifyJWT, validateQuery(problemListQuerySchema), getMyProblems)
 
 // Route to handle new problem creation (requires authentication and Zod validation)
 router.post('/', verifyJWT, validate(createProblemSchema), createProblem);
+
+// Route to fetch the latest AI analysis for a specific problem
+router.get(
+  '/:problemId/analyses/latest',
+  verifyJWT,
+  validateParams(problemIdParamSchema),
+  getLatestProblemAnalysis
+);
+
+// Route to retrieve paginated AI analysis history for a specific problem
+router.get(
+  '/:problemId/analyses',
+  verifyJWT,
+  validateParams(problemIdParamSchema),
+  validateQuery(analysisListQuerySchema),
+  getProblemAnalyses
+);
 
 // Route to request AI analysis for a specific saved problem
 router.post(
