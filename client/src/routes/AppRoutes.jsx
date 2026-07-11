@@ -9,6 +9,10 @@ import HomePage from '../pages/HomePage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import RegisterPage from '../pages/RegisterPage.jsx';
 import DashboardPage from '../pages/DashboardPage.jsx';
+import NewAnalysisPage from '../pages/NewAnalysisPage.jsx';
+import MyProblemsPage from '../pages/MyProblemsPage.jsx';
+import ProblemDetailPage from '../pages/ProblemDetailPage.jsx';
+import AnalysisDetailPage from '../pages/AnalysisDetailPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
 /**
@@ -33,6 +37,10 @@ const AppRoutes = () => {
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/problems/new" element={<NewAnalysisPage />} />
+          <Route path="/problems" element={<MyProblemsPage />} />
+          <Route path="/problems/:problemId" element={<ProblemDetailPage />} />
+          <Route path="/analyses/:analysisId" element={<AnalysisDetailPage />} />
         </Route>
       </Route>
 

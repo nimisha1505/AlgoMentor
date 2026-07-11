@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
 import { PlusCircle, Database, History } from 'lucide-react';
 
@@ -51,9 +52,9 @@ const DashboardPage = () => {
           <p className="action-card-desc">
             Define a new DSA challenge and request customized AI mentor guidance.
           </p>
-          <button className="btn btn-outline btn-sm" disabled>
+          <Link to="/problems/new" className="btn btn-outline btn-sm">
             Launch Builder
-          </button>
+          </Link>
         </div>
 
         <div className="action-card">
@@ -62,9 +63,9 @@ const DashboardPage = () => {
           <p className="action-card-desc">
             Access your personal library of saved coding questions and implementations.
           </p>
-          <button className="btn btn-outline btn-sm" disabled>
+          <Link to="/problems" className="btn btn-outline btn-sm">
             View Saved
-          </button>
+          </Link>
         </div>
 
         <div className="action-card">
@@ -73,9 +74,9 @@ const DashboardPage = () => {
           <p className="action-card-desc">
             Explore past AI evaluations, tokens usage, and learning progress.
           </p>
-          <button className="btn btn-outline btn-sm" disabled>
+          <Link to="/problems" className="btn btn-outline btn-sm">
             Show History
-          </button>
+          </Link>
         </div>
       </section>
     </div>

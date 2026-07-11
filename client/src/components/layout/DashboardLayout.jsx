@@ -23,28 +23,20 @@ const DashboardLayout = () => {
               Dashboard
             </NavLink>
             <NavLink
-              to="/dashboard"
+              to="/problems/new"
               className={({ isActive }) =>
-                isActive ? 'sidebar-link' : 'sidebar-link'
+                isActive ? 'sidebar-link active' : 'sidebar-link'
               }
             >
               New Analysis
             </NavLink>
             <NavLink
-              to="/dashboard"
+              to="/problems"
               className={({ isActive }) =>
-                isActive ? 'sidebar-link' : 'sidebar-link'
+                isActive ? 'sidebar-link active' : 'sidebar-link'
               }
             >
               My Problems
-            </NavLink>
-            <NavLink
-              to="/dashboard"
-              className={({ isActive }) =>
-                isActive ? 'sidebar-link' : 'sidebar-link'
-              }
-            >
-              Profile
             </NavLink>
           </nav>
         </aside>
