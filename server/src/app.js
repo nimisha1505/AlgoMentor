@@ -3,6 +3,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middlewares/error.middleware.js';
 import { authRouter } from './routes/auth.routes.js';
+import { problemRouter } from './routes/problem.routes.js';
 
 const app = express();
 
@@ -31,6 +32,9 @@ app.get('/api/v1/health', (req, res) => {
 
 // Authentication routes
 app.use('/api/v1/auth', authRouter);
+
+// Problems routes
+app.use('/api/v1/problems', problemRouter);
 
 // Global error handling middleware
 app.use(errorHandler);
