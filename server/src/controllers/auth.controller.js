@@ -45,4 +45,84 @@ const registerUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(201, createdUser, 'User registered successfully'));
 });
 
-export { registerUser };
+/**
+ * Log in an existing user.
+ * Validates credentials, sets accessToken/refreshToken HTTP-only cookies, and returns safe user data.
+ */
+const loginUser = asyncHandler(async (req, res) => {
+  const { email, password } = req.body;
+
+  // Find user by email and explicitly select password and refreshToken (since select: false is set in schema)
+  const user = await User.findOne({ email }).select('+password +refreshToken');
+
+  if (!user) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  // Verify the password using model instance method
+  const isPasswordValid = await user.isPasswordCorrect(password);
+
+  if (!isPasswordValid) {
+    throw new ApiError(401, 'Invalid email or password');
+  }
+
+  // Generate tokens
+  const accessToken = user.generateAccessToken();
+  const refreshToken = user.generateRefreshToken();
+
+  // Save refresh token to user document
+  user.refreshToken = refreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  // Get user info excluding password and refresh token
+  const safeUser = await User.findById(user._id).select('-password -refreshToken');
+
+  // Shared cookie configurations
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+
+  return res
+    .status(200)
+    .cookie('accessToken', accessToken, cookieOptions)
+    .cookie('refreshToken', refreshToken, cookieOptions)
+    .json(
+      new ApiResponse(
+        200,
+        { user: safeUser },
+        'User logged in successfully'
+      )
+    );
+});
+
+/**
+ * Log out a user.
+ * Clears access and refresh tokens from cookies and user document.
+ */
+const logoutUser = asyncHandler(async (req, res) => {
+  await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        refreshToken: '',
+      },
+    },
+    { new: true }
+  );
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+
+  return res
+    .status(200)
+    .clearCookie('accessToken', cookieOptions)
+    .clearCookie('refreshToken', cookieOptions)
+    .json(new ApiResponse(200, {}, 'User logged out successfully'));
+});
+
+export { registerUser, loginUser, logoutUser };
