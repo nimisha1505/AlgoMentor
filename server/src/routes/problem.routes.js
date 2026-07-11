@@ -7,11 +7,17 @@ import {
   deleteProblem,
 } from '../controllers/problem.controller.js';
 import {
+  startProblemAnalysis,
+} from '../controllers/analysis.controller.js';
+import {
   createProblemSchema,
   problemListQuerySchema,
   problemIdParamSchema,
   updateProblemSchema,
 } from '../validators/problem.validator.js';
+import {
+  startAnalysisSchema,
+} from '../validators/analysis.validator.js';
 import {
   validate,
   validateQuery,
@@ -26,6 +32,15 @@ router.get('/', verifyJWT, validateQuery(problemListQuerySchema), getMyProblems)
 
 // Route to handle new problem creation (requires authentication and Zod validation)
 router.post('/', verifyJWT, validate(createProblemSchema), createProblem);
+
+// Route to request AI analysis for a specific saved problem
+router.post(
+  '/:problemId/analyses',
+  verifyJWT,
+  validateParams(problemIdParamSchema),
+  validate(startAnalysisSchema),
+  startProblemAnalysis
+);
 
 // Route to fetch a specific problem by ID
 router.get(
