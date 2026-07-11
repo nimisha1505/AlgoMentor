@@ -1,4 +1,5 @@
 import express from 'express';
+import { errorHandler } from './middlewares/error.middleware.js';
 
 const app = express();
 
@@ -12,5 +13,8 @@ app.get('/api/v1/health', (req, res) => {
     message: 'Server is healthy and running',
   });
 });
+
+// Global error handling middleware
+app.use(errorHandler);
 
 export { app };
