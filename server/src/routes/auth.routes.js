@@ -1,7 +1,8 @@
 import { Router } from 'express';
-import { registerUser, loginUser, logoutUser, getCurrentUser, refreshAccessToken, updateProfile } from '../controllers/auth.controller.js';
+import { registerUser, loginUser, logoutUser, getCurrentUser, refreshAccessToken, updateProfile, changePassword } from '../controllers/auth.controller.js';
 import { registerSchema, loginSchema } from '../validators/auth.validator.js';
 import { updateProfileSchema } from '../validators/profile.validator.js';
+import { changePasswordSchema } from '../validators/password.validator.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
@@ -24,5 +25,8 @@ router.post('/refresh-token', refreshAccessToken);
 
 // Route to update authenticated user's profile information
 router.patch('/profile', verifyJWT, validate(updateProfileSchema), updateProfile);
+
+// Route to change user password (requires JWT verification)
+router.patch('/change-password', verifyJWT, validate(changePasswordSchema), changePassword);
 
 export { router as authRouter };

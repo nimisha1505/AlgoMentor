@@ -241,6 +241,48 @@ const updateProfile = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * Change user password.
+ * Validates current password, updates it via .save() (triggering pre-save hook), and revokes active tokens.
+ */
+const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user._id).select('+password +refreshToken');
+
+  if (!user) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  const isPasswordValid = await user.isPasswordCorrect(currentPassword);
+
+  if (!isPasswordValid) {
+    throw new ApiError(400, 'Current password is incorrect');
+  }
+
+  user.password = newPassword;
+  user.refreshToken = '';
+  await user.save();
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+
+  return res
+    .status(200)
+    .clearCookie('accessToken', cookieOptions)
+    .clearCookie('refreshToken', cookieOptions)
+    .json(
+      new ApiResponse(
+        200,
+        {},
+        'Password changed successfully. Please log in again'
+      )
+    );
+});
+
 export {
   registerUser,
   loginUser,
@@ -248,4 +290,5 @@ export {
   getCurrentUser,
   refreshAccessToken,
   updateProfile,
+  changePassword,
 };
