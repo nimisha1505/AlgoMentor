@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { errorHandler } from './middlewares/error.middleware.js';
+import { authRouter } from './routes/auth.routes.js';
 
 const app = express();
 
@@ -27,6 +28,9 @@ app.get('/api/v1/health', (req, res) => {
     message: 'Server is healthy and running',
   });
 });
+
+// Authentication routes
+app.use('/api/v1/auth', authRouter);
 
 // Global error handling middleware
 app.use(errorHandler);
