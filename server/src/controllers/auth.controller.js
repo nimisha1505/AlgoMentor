@@ -1,3 +1,4 @@
+import jwt from 'jsonwebtoken';
 import { User } from '../models/user.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
@@ -125,4 +126,126 @@ const logoutUser = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, 'User logged out successfully'));
 });
 
-export { registerUser, loginUser, logoutUser };
+/**
+ * Get current authenticated user details.
+ */
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { user: req.user },
+        'Current user fetched successfully'
+      )
+    );
+});
+
+/**
+ * Refresh user access token using the stored refresh token.
+ * Generates and sets a new pair of access and refresh tokens in secure cookies.
+ */
+const refreshAccessToken = asyncHandler(async (req, res) => {
+  const incomingRefreshToken = req.cookies?.refreshToken;
+
+  if (!incomingRefreshToken) {
+    throw new ApiError(401, 'Refresh token is required');
+  }
+
+  let decodedToken;
+  try {
+    decodedToken = jwt.verify(
+      incomingRefreshToken,
+      process.env.REFRESH_TOKEN_SECRET
+    );
+  } catch (error) {
+    throw new ApiError(401, 'Invalid or expired refresh token');
+  }
+
+  const user = await User.findById(decodedToken?._id).select('+refreshToken');
+
+  if (!user) {
+    throw new ApiError(401, 'Invalid refresh token');
+  }
+
+  if (incomingRefreshToken !== user.refreshToken) {
+    throw new ApiError(401, 'Refresh token has been revoked');
+  }
+
+  const accessToken = user.generateAccessToken();
+  const newRefreshToken = user.generateRefreshToken();
+
+  user.refreshToken = newRefreshToken;
+  await user.save({ validateBeforeSave: false });
+
+  const cookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  };
+
+  return res
+    .status(200)
+    .cookie('accessToken', accessToken, cookieOptions)
+    .cookie('refreshToken', newRefreshToken, cookieOptions)
+    .json(new ApiResponse(200, {}, 'Access token refreshed successfully'));
+});
+
+/**
+ * Update authenticated user's profile details.
+ * Prevents duplicates on username changes and updates only provided fields.
+ */
+const updateProfile = asyncHandler(async (req, res) => {
+  const { fullName, username, bio, avatarUrl } = req.body;
+
+  const updateData = {};
+
+  if (fullName !== undefined) updateData.fullName = fullName;
+  if (bio !== undefined) updateData.bio = bio;
+  if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+
+  if (username !== undefined) {
+    // Check if the username is taken by any other user
+    const existingUser = await User.findOne({
+      username,
+      _id: { $ne: req.user._id },
+    });
+
+    if (existingUser) {
+      throw new ApiError(409, 'Username is already taken');
+    }
+
+    updateData.username = username;
+  }
+
+  // Update only provided fields in the user document
+  const updatedUser = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: updateData,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  ).select('-password -refreshToken');
+
+  if (!updatedUser) {
+    throw new ApiError(404, 'User not found');
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, { user: updatedUser }, 'Profile updated successfully')
+    );
+});
+
+export {
+  registerUser,
+  loginUser,
+  logoutUser,
+  getCurrentUser,
+  refreshAccessToken,
+  updateProfile,
+};

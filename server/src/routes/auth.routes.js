@@ -1,6 +1,7 @@
 import { Router } from 'express';
-import { registerUser, loginUser, logoutUser } from '../controllers/auth.controller.js';
+import { registerUser, loginUser, logoutUser, getCurrentUser, refreshAccessToken, updateProfile } from '../controllers/auth.controller.js';
 import { registerSchema, loginSchema } from '../validators/auth.validator.js';
+import { updateProfileSchema } from '../validators/profile.validator.js';
 import { validate } from '../middlewares/validate.middleware.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
 
@@ -14,5 +15,14 @@ router.post('/login', validate(loginSchema), loginUser);
 
 // Route to handle user logout (requires JWT verification)
 router.post('/logout', verifyJWT, logoutUser);
+
+// Route to fetch current authenticated user profile
+router.get('/current-user', verifyJWT, getCurrentUser);
+
+// Route to refresh access and refresh tokens
+router.post('/refresh-token', refreshAccessToken);
+
+// Route to update authenticated user's profile information
+router.patch('/profile', verifyJWT, validate(updateProfileSchema), updateProfile);
 
 export { router as authRouter };
