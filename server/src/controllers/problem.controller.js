@@ -1,6 +1,7 @@
 import { Problem } from '../models/problem.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { ApiError } from '../utils/ApiError.js';
 
 /**
  * Create and save a new DSA Problem draft.
@@ -84,4 +85,108 @@ const getMyProblems = asyncHandler(async (req, res) => {
   );
 });
 
-export { createProblem, getMyProblems };
+/**
+ * Retrieve details of a specific problem owned by the authenticated user.
+ */
+const getProblemById = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+
+  const problem = await Problem.findOne({
+    _id: problemId,
+    owner: req.user._id,
+  });
+
+  if (!problem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, { problem }, 'Problem fetched successfully'));
+});
+
+/**
+ * Update a specific problem owned by the authenticated user.
+ * Filters request parameters and resets status to 'draft'.
+ */
+const updateProblem = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+  const {
+    title,
+    problemStatement,
+    constraints,
+    examples,
+    language,
+    code,
+    requestedSections,
+  } = req.body;
+
+  const updateData = {};
+
+  if (title !== undefined) updateData.title = title;
+  if (problemStatement !== undefined) updateData.problemStatement = problemStatement;
+  if (constraints !== undefined) updateData.constraints = constraints;
+  if (examples !== undefined) updateData.examples = examples;
+  if (language !== undefined) updateData.language = language;
+  if (code !== undefined) updateData.code = code;
+  if (requestedSections !== undefined) updateData.requestedSections = requestedSections;
+
+  // Mark status as 'draft' upon edits
+  updateData.status = 'draft';
+
+  const updatedProblem = await Problem.findOneAndUpdate(
+    {
+      _id: problemId,
+      owner: req.user._id,
+    },
+    {
+      $set: updateData,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  if (!updatedProblem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { problem: updatedProblem },
+        'Problem updated successfully'
+      )
+    );
+});
+
+/**
+ * Delete a specific problem owned by the authenticated user.
+ */
+const deleteProblem = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+
+  const problem = await Problem.findOneAndDelete({
+    _id: problemId,
+    owner: req.user._id,
+  });
+
+  if (!problem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, 'Problem deleted successfully'));
+});
+
+export {
+  createProblem,
+  getMyProblems,
+  getProblemById,
+  updateProblem,
+  deleteProblem,
+};

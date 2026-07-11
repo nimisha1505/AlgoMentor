@@ -146,3 +146,125 @@ const problemListQuerySchema = z
   .strict();
 
 export { problemListQuerySchema };
+
+// Schema for validating MongoId param
+const problemIdParamSchema = z
+  .object({
+    problemId: z
+      .string({
+        error: () => 'Invalid problem ID',
+      })
+      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid problem ID'),
+  })
+  .strict();
+
+// Schema for validating DSA problem update requests
+const updateProblemSchema = z
+  .object({
+    title: z
+      .string({ error: () => 'Problem title must be a string' })
+      .trim()
+      .min(3, 'Problem title must be at least 3 characters')
+      .max(120, 'Problem title cannot exceed 120 characters')
+      .optional(),
+    problemStatement: z
+      .string({ error: () => 'Problem statement must be a string' })
+      .trim()
+      .min(10, 'Problem statement must be at least 10 characters')
+      .max(20000, 'Problem statement cannot exceed 20000 characters')
+      .optional(),
+    constraints: z
+      .array(
+        z
+          .string({ error: () => 'Constraint must be a string' })
+          .trim()
+          .max(500, 'Constraint text cannot exceed 500 characters')
+      )
+      .max(50, 'Cannot exceed 50 constraints')
+      .optional(),
+    examples: z
+      .array(
+        z
+          .object({
+            input: z
+              .string({ error: () => 'Input must be a string' })
+              .trim()
+              .min(1, 'Example input must not be empty')
+              .max(3000, 'Example input cannot exceed 3000 characters'),
+            output: z
+              .string({ error: () => 'Output must be a string' })
+              .trim()
+              .min(1, 'Example output must not be empty')
+              .max(3000, 'Example output cannot exceed 3000 characters'),
+            explanation: z
+              .string({ error: () => 'Explanation must be a string' })
+              .trim()
+              .max(5000, 'Example explanation cannot exceed 5000 characters')
+              .default('')
+              .optional(),
+          })
+          .strict()
+      )
+      .max(20, 'Cannot exceed 20 examples')
+      .optional(),
+    language: z
+      .enum(['cpp', 'java', 'python', 'javascript', 'c', 'other'])
+      .optional(),
+    code: z
+      .string({ error: () => 'Code must be a string' })
+      .max(30000, 'User code snippet cannot exceed 30000 characters')
+      .optional(),
+    requestedSections: z
+      .array(
+        z.enum([
+          'problemExplanation',
+          'inputOutput',
+          'exampleExplanation',
+          'constraints',
+          'edgeCases',
+          'pattern',
+          'hints',
+          'pseudocode',
+          'userCodeReview',
+          'approaches',
+          'approachExplanations',
+          'codes',
+          'complexities',
+          'dryRun',
+          'comparison',
+          'interviewExplanation',
+        ])
+      )
+      .min(1, 'At least one requested section is required')
+      .refine((arr) => new Set(arr).size === arr.length, {
+        message: 'Duplicate requested sections are not allowed',
+      })
+      .optional(),
+  })
+  .strict()
+  .refine(
+    (data) => {
+      // Require at least one editable field
+      return Object.keys(data).some((key) => data[key] !== undefined);
+    },
+    {
+      message: 'At least one field must be provided for update',
+    }
+  )
+  .refine(
+    (data) => {
+      if (
+        data.requestedSections &&
+        data.requestedSections.includes('userCodeReview')
+      ) {
+        return data.code !== undefined && data.code.trim().length > 0;
+      }
+      return true;
+    },
+    {
+      message: 'Code is required when user code review is requested',
+      path: ['code'],
+    }
+  );
+
+export { problemIdParamSchema, updateProblemSchema };
