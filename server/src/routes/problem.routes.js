@@ -33,6 +33,7 @@ import {
   validateParams,
 } from '../middlewares/validate.middleware.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
+import { analysisLimiter } from '../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -72,6 +73,7 @@ router.get(
 router.post(
   '/:problemId/analyses',
   verifyJWT,
+  analysisLimiter,
   validateParams(problemIdParamSchema),
   validate(startAnalysisSchema),
   startProblemAnalysis

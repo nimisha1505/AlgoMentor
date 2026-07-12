@@ -77,7 +77,15 @@ const startProblemAnalysis = asyncHandler(async (req, res) => {
   await problem.save();
 
   // Synchronous for now; this can later move to a background job queue.
-  const completedAnalysis = await processAnalysis(analysis._id);
+  let completedAnalysis;
+  try {
+    completedAnalysis = await processAnalysis(analysis._id);
+  } catch (err) {
+    completedAnalysis = await Analysis.findById(analysis._id);
+    if (!completedAnalysis) {
+      throw err;
+    }
+  }
 
   return res.status(200).json(
     new ApiResponse(
@@ -91,6 +99,7 @@ const startProblemAnalysis = asyncHandler(async (req, res) => {
           result: completedAnalysis.result,
           modelName: completedAnalysis.modelName,
           usage: completedAnalysis.usage,
+          errorMessage: completedAnalysis.errorMessage || '',
           createdAt: completedAnalysis.createdAt,
           completedAt: completedAnalysis.completedAt,
         },

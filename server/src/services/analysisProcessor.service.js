@@ -2,6 +2,11 @@ import { Analysis } from '../models/analysis.model.js';
 import { Problem } from '../models/problem.model.js';
 import { generateProblemAnalysis } from './geminiAnalysis.service.js';
 import { updatePatternProgressFromAnalysis } from './patternProgress.service.js';
+import {
+  checkAndReserveAnalysisUsage,
+  recordTokenUsage,
+  releaseReservedAnalysisUsage,
+} from './aiUsage.service.js';
 
 /**
  * Atomic processing executor for AI analysis records.
@@ -31,6 +36,7 @@ const processAnalysis = async (analysisId) => {
     throw new Error('Analysis is not available for processing');
   }
 
+  let geminiRequestStarted = false;
   try {
     // 2. Transition related problem status to processing inside the try block
     await Problem.findOneAndUpdate(
@@ -45,11 +51,18 @@ const processAnalysis = async (analysisId) => {
       }
     );
 
+    // Reserve daily analysis limits
+    await checkAndReserveAnalysisUsage(analysis.owner);
+    geminiRequestStarted = true;
+
     // 3. Initiate analysis generation with Gemini API
     const genResult = await generateProblemAnalysis({
       inputSnapshot: analysis.inputSnapshot,
       requestedSections: analysis.requestedSections,
     });
+
+    // Record token counts on success
+    await recordTokenUsage(analysis.owner, genResult.usage);
 
     // 4. Save results on success
     const completedAnalysis = await Analysis.findByIdAndUpdate(
@@ -101,6 +114,14 @@ const processAnalysis = async (analysisId) => {
 
     return completedAnalysis;
   } catch (error) {
+    if (!geminiRequestStarted) {
+      try {
+        await releaseReservedAnalysisUsage(analysis.owner);
+      } catch (releaseErr) {
+        console.error('Failed to refund reserved analysis quota:', releaseErr);
+      }
+    }
+
     // 5. Build defensive, safe error message
     const rawErrorMessage =
       error instanceof Error && error.message

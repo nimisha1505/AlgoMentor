@@ -241,9 +241,8 @@ const NewAnalysisPage = () => {
       navigate(`/analyses/${analysis._id}`);
     } catch (error) {
       const errMsg = getApiErrorMessage(error);
-      if (!problemId) {
-        setGeneralError(errMsg);
-      } else {
+      setGeneralError(errMsg);
+      if (problemId) {
         setPartialFailure(true);
       }
       setIsSubmitting(false);

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { getPracticeDashboard, getPracticeRecommendations } from '../api/practice.api.js';
+import { getPracticeDashboard, getPracticeRecommendations, getAiUsage } from '../api/practice.api.js';
 import { getLatestProblemAnalysis } from '../api/analysis.api.js';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import Loader from '../components/common/Loader.jsx';
@@ -14,6 +14,7 @@ const DashboardPage = () => {
 
   const [dashboardData, setDashboardData] = useState(null);
   const [recommendationData, setRecommendationData] = useState(null);
+  const [usageData, setUsageData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [openLoadings, setOpenLoadings] = useState({});
@@ -25,12 +26,17 @@ const DashboardPage = () => {
       setIsLoading(true);
       setError('');
       try {
-        const [dash, recs] = await Promise.all([
+        const [dash, recs, usage] = await Promise.all([
           getPracticeDashboard(),
           getPracticeRecommendations(),
+          getAiUsage().catch((e) => {
+            console.error('Failed to load usage limits:', e);
+            return null;
+          }),
         ]);
         setDashboardData(dash);
         setRecommendationData(recs);
+        setUsageData(usage);
       } catch (err) {
         console.error('Failed to load dashboard data:', err);
         setError('Could not retrieve practice data. Please refresh or retry.');
@@ -291,6 +297,29 @@ const DashboardPage = () => {
               <span>Analyse now</span>
             </Link>
           </section>
+
+          {/* AI Usage Limits */}
+          {usageData && (
+            <section className="dashboard-card-panel">
+              <h3 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '16px' }}>Daily AI Usage</h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Analyses used today:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{usageData.analysisRequests} / {usageData.limits?.analysisRequests}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Follow-ups used today:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{usageData.followUpRequests} / {usageData.limits?.followUpRequests}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Remaining analyses:</span>
+                  <strong style={{ color: usageData.remaining?.analysisRequests === 0 ? 'var(--danger)' : 'var(--success)' }}>
+                    {usageData.remaining?.analysisRequests}
+                  </strong>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Weak Patterns List */}
           <section className="dashboard-card-panel">

@@ -33,4 +33,14 @@ const verifyJWT = asyncHandler(async (req, res, next) => {
   next();
 });
 
-export { verifyJWT };
+/**
+ * Middleware to verify that the logged-in user is an administrator.
+ */
+const verifyAdmin = asyncHandler(async (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    throw new ApiError(403, 'Forbidden: Admin access required');
+  }
+  next();
+});
+
+export { verifyJWT, verifyAdmin };

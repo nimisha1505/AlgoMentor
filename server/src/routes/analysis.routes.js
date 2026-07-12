@@ -5,6 +5,7 @@ import { analysisIdParamSchema } from '../validators/analysis.validator.js';
 import { getAnalysisById } from '../controllers/analysis.controller.js';
 import { createAnalysisFollowUpSchema } from '../validators/analysisFollowUp.validator.js';
 import { createAnalysisFollowUp, getAnalysisFollowUps } from '../controllers/analysisFollowUp.controller.js';
+import { followUpLimiter } from '../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -12,6 +13,7 @@ const router = Router();
 router.post(
   '/:analysisId/follow-ups',
   verifyJWT,
+  followUpLimiter,
   validateParams(analysisIdParamSchema),
   validate(createAnalysisFollowUpSchema),
   createAnalysisFollowUp

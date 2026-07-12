@@ -18,4 +18,12 @@ const getPracticeRecommendations = async ({ limit = 10 } = {}) => {
   return response.data.data;
 };
 
-export { getPracticeDashboard, getPracticeRecommendations };
+/**
+ * Fetch UTC daily AI usage limits and statistics.
+ */
+const getAiUsage = async () => {
+  const response = await axiosClient.get('/practice/usage');
+  return response.data.data;
+};
+
+export { getPracticeDashboard, getPracticeRecommendations, getAiUsage };

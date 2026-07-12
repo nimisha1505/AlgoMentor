@@ -4,6 +4,11 @@ import { generateAnalysisFollowUp } from '../services/analysisFollowUp.service.j
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
+import {
+  checkAndReserveFollowUpUsage,
+  recordTokenUsage,
+  releaseReservedFollowUpUsage,
+} from '../services/aiUsage.service.js';
 
 /**
  * Creates a new student follow-up question and generates an AI answer.
@@ -21,32 +26,51 @@ const createAnalysisFollowUp = asyncHandler(async (req, res) => {
     throw new ApiError(404, 'Completed analysis not found');
   }
 
-  // Call Gemini follow-up service
-  const { answer, modelName, usage } = await generateAnalysisFollowUp({
-    analysis,
-    question,
-    mode,
-  });
+  let geminiRequestStarted = false;
+  try {
+    // Reserve daily follow-up limit
+    await checkAndReserveFollowUpUsage(req.user._id);
+    geminiRequestStarted = true;
 
-  // Save new follow-up attempt in database
-  const followUp = await AnalysisFollowUp.create({
-    analysis: analysis._id,
-    problem: analysis.problem,
-    owner: req.user._id,
-    question,
-    mode,
-    answer,
-    modelName,
-    usage,
-  });
+    // Call Gemini follow-up service
+    const { answer, modelName, usage } = await generateAnalysisFollowUp({
+      analysis,
+      question,
+      mode,
+    });
 
-  const followUpObj = followUp.toObject();
-  delete followUpObj.owner;
-  delete followUpObj.__v;
+    // Record token counts on success
+    await recordTokenUsage(req.user._id, usage);
 
-  return res
-    .status(201)
-    .json(new ApiResponse(201, { followUp: followUpObj }, 'Follow-up answered successfully'));
+    // Save new follow-up attempt in database
+    const followUp = await AnalysisFollowUp.create({
+      analysis: analysis._id,
+      problem: analysis.problem,
+      owner: req.user._id,
+      question,
+      mode,
+      answer,
+      modelName,
+      usage,
+    });
+
+    const followUpObj = followUp.toObject();
+    delete followUpObj.owner;
+    delete followUpObj.__v;
+
+    return res
+      .status(201)
+      .json(new ApiResponse(201, { followUp: followUpObj }, 'Follow-up answered successfully'));
+  } catch (error) {
+    if (!geminiRequestStarted) {
+      try {
+        await releaseReservedFollowUpUsage(req.user._id);
+      } catch (releaseErr) {
+        console.error('Failed to refund reserved follow-up quota:', releaseErr);
+      }
+    }
+    throw error;
+  }
 });
 
 /**

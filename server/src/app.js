@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.routes.js';
 import { problemRouter } from './routes/problem.routes.js';
 import { analysisRouter } from './routes/analysis.routes.js';
 import { practiceRouter } from './routes/practice.routes.js';
+import { adminRouter } from './routes/admin.routes.js';
 
 const app = express();
 
@@ -43,6 +44,9 @@ app.use('/api/v1/analyses', analysisRouter);
 
 // Practice dashboard and recommendations routes
 app.use('/api/v1/practice', practiceRouter);
+
+// Admin routes
+app.use('/api/v1/admin', adminRouter);
 
 // Global error handling middleware
 app.use(errorHandler);

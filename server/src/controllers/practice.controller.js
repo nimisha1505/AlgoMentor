@@ -5,6 +5,7 @@ import { StudentPatternProfile } from '../models/studentPatternProfile.model.js'
 import { getPersonalisedRecommendations } from '../services/practiceRecommendation.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { getUserUsageSummary } from '../services/aiUsage.service.js';
 
 /**
  * Fetch student progress dashboard data including problem counts,
@@ -121,4 +122,14 @@ const getPracticeRecommendations = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, { recommendations, weakPatterns }, 'Recommendations fetched successfully'));
 });
 
-export { getPracticeDashboard, getPracticeRecommendations };
+/**
+ * Retrieve the AI Usage summary for the current UTC day.
+ */
+const getAiUsage = asyncHandler(async (req, res) => {
+  const summary = await getUserUsageSummary(req.user._id);
+  return res.status(200).json(
+    new ApiResponse(200, summary, 'Usage statistics fetched successfully')
+  );
+});
+
+export { getPracticeDashboard, getPracticeRecommendations, getAiUsage };
