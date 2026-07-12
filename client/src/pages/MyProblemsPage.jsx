@@ -7,19 +7,19 @@ import StatusBadge from '../components/common/StatusBadge.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { Search, RotateCw, Trash2, BookOpen, ExternalLink, Calendar } from 'lucide-react';
+import { Search, RotateCw, Trash2, BookOpen, ExternalLink, PlusCircle } from 'lucide-react';
 
 const MyProblemsPage = () => {
   const navigate = useNavigate();
 
-  // Filter and pagination states
+  // Search & Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [language, setLanguage] = useState('');
   const [status, setStatus] = useState('');
   const [page, setPage] = useState(1);
 
-  // Data states
+  // Data
   const [problems, setProblems] = useState([]);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -30,10 +30,9 @@ const MyProblemsPage = () => {
     hasPreviousPage: false,
   });
 
-  // UX states
+  // Loadings
   const [isLoading, setIsLoading] = useState(true);
   const [generalError, setGeneralError] = useState('');
-  // Track loading per card by storing problemId as keys in an object
   const [cardActionLoading, setCardActionLoading] = useState({});
 
   const fetchProblems = async () => {
@@ -66,7 +65,6 @@ const MyProblemsPage = () => {
     }
   };
 
-  // Re-fetch when filters/page changes
   useEffect(() => {
     fetchProblems();
   }, [page, language, status, searchQuery]);
@@ -139,195 +137,207 @@ const MyProblemsPage = () => {
 
   return (
     <div className="my-problems-container">
-      <div className="page-header-row">
+      {/* Page Header */}
+      <div className="page-header-row" style={{ marginBottom: '24px' }}>
         <div>
-          <h1 className="page-title">My Saved Problems</h1>
-          <p className="page-subtitle">Browse, filter, and review your algorithm collection.</p>
+          <h1 className="page-title">My problems</h1>
+          <p className="page-subtitle">Everything you have saved and analysed.</p>
         </div>
-        <Link to="/problems/new" className="btn btn-primary">
-          New Analysis
+        <Link to="/problems/new" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <PlusCircle size={14} />
+          <span>Analyse a problem</span>
         </Link>
       </div>
 
-      {/* Filter and Search Form */}
-      <form onSubmit={handleSearchSubmit} className="filters-form-card">
-        <div className="search-input-group">
-          <Search size={18} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search problems by title..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-          <button type="submit" className="btn btn-outline btn-sm">
-            Search
-          </button>
-        </div>
-
-        <div className="filter-selects-group">
-          <div className="filter-select-item">
-            <label htmlFor="filter-lang">Language</label>
-            <select
-              id="filter-lang"
-              value={language}
-              onChange={(e) => {
-                setPage(1);
-                setLanguage(e.target.value);
-              }}
-            >
-              <option value="">All Languages</option>
-              <option value="cpp">C++</option>
-              <option value="java">Java</option>
-              <option value="python">Python</option>
-              <option value="javascript">JavaScript</option>
-              <option value="c">C</option>
-              <option value="other">Other</option>
-            </select>
+      {/* Top Toolbar */}
+      <form onSubmit={handleSearchSubmit} className="toolbar-row" style={{ marginBottom: '24px' }}>
+        <div className="toolbar-left">
+          <div className="search-bar-box" style={{ maxWidth: '320px' }}>
+            <Search size={14} className="search-bar-icon" />
+            <input
+              type="text"
+              placeholder="Search saved problems..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
-          <div className="filter-select-item">
-            <label htmlFor="filter-status">Status</label>
-            <select
-              id="filter-status"
-              value={status}
-              onChange={(e) => {
-                setPage(1);
-                setStatus(e.target.value);
-              }}
-            >
-              <option value="">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="queued">Queued</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
+          <div className="filter-selects-row">
+            <div className="filter-select-box">
+              <label htmlFor="lang-filter">Language</label>
+              <select
+                id="lang-filter"
+                value={language}
+                onChange={(e) => {
+                  setPage(1);
+                  setLanguage(e.target.value);
+                }}
+              >
+                <option value="">All</option>
+                <option value="cpp">C++</option>
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="c">C</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
 
-          {(searchQuery || language || status) && (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="clear-filters-btn"
-            >
-              Clear Filters
-            </button>
-          )}
+            <div className="filter-select-box">
+              <label htmlFor="status-filter">Status</label>
+              <select
+                id="status-filter"
+                value={status}
+                onChange={(e) => {
+                  setPage(1);
+                  setStatus(e.target.value);
+                }}
+              >
+                <option value="">All</option>
+                <option value="draft">Draft</option>
+                <option value="queued">Queued</option>
+                <option value="processing">Processing</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
+
+            {(searchQuery || language || status) && (
+              <button
+                type="button"
+                onClick={handleClearFilters}
+                className="clear-text-btn"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
         </div>
       </form>
 
       {generalError && <FormError message={generalError} />}
 
       {isLoading ? (
-        <div className="page-loader-wrapper">
-          <Loader text="Fetching your problem library..." />
+        <div className="loader-container">
+          <Loader text="Fetching saved problems..." />
         </div>
       ) : problems.length === 0 ? (
         <EmptyState
-          title="No problems found"
+          title="No saved problems yet"
           description={
             searchQuery || language || status
-              ? "No problems match your current filters. Try resetting search fields."
-              : "You haven't submitted any problems for analysis yet."
+              ? "No saved problems match these filters."
+              : "Start with a problem you recently found difficult."
           }
           action={
             !searchQuery && !language && !status ? (
               <Link to="/problems/new" className="btn btn-primary">
-                Analyze First Problem
+                Analyse your first problem
               </Link>
             ) : null
           }
         />
       ) : (
-        <>
-          <div className="problems-grid">
-            {problems.map((problem) => {
-              const isCardBusy = !!cardActionLoading[problem._id];
-              const normalizedStatus = (problem.status || '').toLowerCase();
+        <div className="table-card">
+          <table className="problems-list-table">
+            <thead>
+              <tr>
+                <th>Problem</th>
+                <th>Language</th>
+                <th>Status</th>
+                <th>Learning sections</th>
+                <th>Updated</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {problems.map((problem) => {
+                const isCardBusy = !!cardActionLoading[problem._id];
+                const normalizedStatus = (problem.status || '').toLowerCase();
 
-              return (
-                <div key={problem._id} className="problem-card">
-                  <div className="problem-card-header">
-                    <h3 className="problem-card-title">{problem.title}</h3>
-                    <StatusBadge status={problem.status} />
-                  </div>
-
-                  <div className="problem-card-meta">
-                    <span className="meta-item">
-                      <strong>Language:</strong> {getLanguageLabel(problem.language)}
-                    </span>
-                    <span className="meta-item">
-                      <strong>Modules:</strong> {problem.requestedSections?.length || 0} selected
-                    </span>
-                  </div>
-
-                  <div className="problem-card-dates">
-                    <div className="date-row">
-                      <Calendar size={12} />
-                      <span>Created: {new Date(problem.createdAt).toLocaleDateString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="problem-card-actions">
-                    <Link
-                      to={`/problems/${problem._id}`}
-                      className="card-action-btn"
-                      title="Open details"
-                    >
-                      <BookOpen size={14} />
-                      <span>Details</span>
-                    </Link>
-
-                    {normalizedStatus === 'completed' && (
-                      <button
-                        onClick={() => handleViewLatestAnalysis(problem._id)}
-                        disabled={isCardBusy}
-                        className="card-action-btn primary-action"
-                        title="View analysis result"
+                return (
+                  <tr key={problem._id}>
+                    <td>
+                      <Link
+                        to={`/problems/${problem._id}`}
+                        className="problem-row-title-link"
+                        style={{ fontSize: '14px', fontWeight: '700' }}
                       >
-                        <ExternalLink size={14} />
-                        <span>
-                          {cardActionLoading[problem._id] === 'latest'
-                            ? 'Loading...'
-                            : 'View Analysis'}
-                        </span>
-                      </button>
-                    )}
+                        {problem.title}
+                      </Link>
+                    </td>
+                    <td>
+                      <span className="list-meta-text">
+                        {getLanguageLabel(problem.language)}
+                      </span>
+                    </td>
+                    <td>
+                      <StatusBadge status={problem.status} />
+                    </td>
+                    <td>
+                      <span className="list-meta-text">
+                        {problem.requestedSections?.length || 0} modules
+                      </span>
+                    </td>
+                    <td>
+                      <span className="list-date-text">
+                        {new Date(problem.updatedAt).toLocaleDateString()}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="list-row-actions" style={{ justifyContent: 'flex-end' }}>
+                        <Link
+                          to={`/problems/${problem._id}`}
+                          className="list-action-icon-btn"
+                          title="Open details"
+                        >
+                          <BookOpen size={14} />
+                        </Link>
 
-                    {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
-                      <button
-                        onClick={() => handleRetryAnalysis(problem._id)}
-                        disabled={isCardBusy}
-                        className="card-action-btn warning-action"
-                        title="Retry AI Mentor analysis generation"
-                      >
-                        <RotateCw size={14} />
-                        <span>
-                          {cardActionLoading[problem._id] === 'retry'
-                            ? 'Retrying...'
-                            : 'Run Analysis'}
-                        </span>
-                      </button>
-                    )}
+                        {normalizedStatus === 'completed' && (
+                          <button
+                            onClick={() => handleViewLatestAnalysis(problem._id)}
+                            disabled={isCardBusy}
+                            className="list-action-icon-btn"
+                            title="View analysis report"
+                            style={{ color: 'var(--accent)' }}
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                        )}
 
-                    <button
-                      onClick={() => handleDelete(problem._id)}
-                      disabled={isCardBusy}
-                      className="card-action-btn danger-action"
-                      title="Delete problem"
-                    >
-                      <Trash2 size={14} />
-                      <span>Delete</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                        {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
+                          <button
+                            onClick={() => handleRetryAnalysis(problem._id)}
+                            disabled={isCardBusy}
+                            className="list-action-icon-btn"
+                            title="Try again"
+                            style={{ color: 'var(--warning)' }}
+                          >
+                            <RotateCw size={14} />
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => handleDelete(problem._id)}
+                          disabled={isCardBusy}
+                          className="list-action-icon-btn danger"
+                          title="Delete problem"
+                          style={{ marginLeft: '12px' }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
 
           {/* Pagination controls */}
           {pagination.totalPages > 1 && (
-            <div className="pagination-wrapper">
+            <div className="table-pagination-row">
               <button
                 onClick={() => setPage((p) => Math.max(p - 1, 1))}
                 disabled={!pagination.hasPreviousPage || isLoading}
@@ -335,8 +345,8 @@ const MyProblemsPage = () => {
               >
                 Previous
               </button>
-              <span className="pagination-info">
-                Page <strong>{pagination.page}</strong> of <strong>{pagination.totalPages}</strong> ({pagination.totalProblems} total)
+              <span className="pagination-numbers">
+                Page {pagination.page} of {pagination.totalPages} ({pagination.totalProblems} total)
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(p + 1, pagination.totalPages))}
@@ -347,7 +357,7 @@ const MyProblemsPage = () => {
               </button>
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

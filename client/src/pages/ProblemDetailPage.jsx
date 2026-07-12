@@ -7,12 +7,8 @@ import StatusBadge from '../components/common/StatusBadge.jsx';
 import CodeBlock from '../components/common/CodeBlock.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { ArrowLeft, Play, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Play, ExternalLink, RotateCw, Calendar, Layers } from 'lucide-react';
 
-/**
- * Display complete problem properties, example scenarios, and coding block metadata.
- * Facilitates starting or reviewing completed analyses.
- */
 const ProblemDetailPage = () => {
   const { problemId } = useParams();
   const navigate = useNavigate();
@@ -76,18 +72,18 @@ const ProblemDetailPage = () => {
 
   if (isLoading) {
     return (
-      <div className="page-loader-wrapper">
-        <Loader text="Loading problem details..." />
+      <div className="loader-container">
+        <Loader text="Loading problem specifications..." />
       </div>
     );
   }
 
   if (error || !problem) {
     return (
-      <div className="problem-detail-container">
-        <div className="detail-header-nav">
+      <div className="problem-detail-workspace container">
+        <div className="reading-header">
           <Link to="/problems" className="back-link">
-            <ArrowLeft size={16} /> Back to My Problems
+            <ArrowLeft size={14} /> Back to My Problems
           </Link>
         </div>
         <FormError message={error || 'Failed to locate problem.'} />
@@ -98,97 +94,187 @@ const ProblemDetailPage = () => {
   const normalizedStatus = (problem.status || '').toLowerCase();
 
   return (
-    <div className="problem-detail-container">
+    <div className="problem-detail-workspace container">
       {actionLoading && (
         <div className="loading-overlay">
           <div className="loading-overlay-card">
-            <Loader text="AlgoMentor is generating your AI analysis..." />
+            <Loader text="Building your analysis" />
           </div>
         </div>
       )}
 
-      <div className="detail-header-nav">
+      {/* Top Bar Navigation & Actions */}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid var(--border)',
+          paddingBottom: '16px',
+          marginBottom: '24px',
+        }}
+      >
         <Link to="/problems" className="back-link">
-          <ArrowLeft size={16} /> Back to My Problems
+          <ArrowLeft size={14} /> Back to My Problems
         </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span className="reading-tag">{getLanguageLabel(problem.language)}</span>
+          <StatusBadge status={problem.status} />
+          
+          {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
+            <button
+              onClick={handleGenerate}
+              disabled={actionLoading}
+              className="btn btn-primary btn-sm icon-btn"
+            >
+              <Play size={14} />
+              <span>Analyse</span>
+            </button>
+          )}
+
+          {normalizedStatus === 'completed' && (
+            <button
+              onClick={handleViewLatest}
+              disabled={actionLoading}
+              className="btn btn-primary btn-sm icon-btn"
+            >
+              <ExternalLink size={14} />
+              <span>View Analysis</span>
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="problem-detail-card">
-        <div className="detail-title-row">
-          <div>
-            <h1 className="problem-title">{problem.title}</h1>
-            <div className="problem-meta-tags">
-              <span className="meta-tag">Language: {getLanguageLabel(problem.language)}</span>
-              <StatusBadge status={problem.status} />
+      {/* Header Info */}
+      <header style={{ marginBottom: '32px' }}>
+        <h1 className="reading-title" style={{ fontSize: '32px', marginBottom: '12px' }}>
+          {problem.title}
+        </h1>
+        <div style={{ display: 'flex', gap: '24px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar size={14} />
+            <span>Updated: {new Date(problem.updatedAt).toLocaleDateString()}</span>
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Layers size={14} />
+            <span>Modules: {problem.requestedSections?.length || 0} selected</span>
+          </span>
+        </div>
+      </header>
+
+      {/* 2-Column Detail Layout */}
+      <div className="detail-reading-layout">
+        {/* Left Column: Problem Details reading flow */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+          {/* Statement */}
+          <section className="reading-section">
+            <h3 className="reading-section-title">Problem Statement</h3>
+            <div className="reading-body text-pre-wrap" style={{ marginTop: '8px' }}>
+              {problem.problemStatement}
             </div>
-          </div>
+          </section>
 
-          <div className="detail-actions">
-            {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
-              <button
-                onClick={handleGenerate}
-                disabled={actionLoading}
-                className="btn btn-primary icon-btn"
-              >
-                <Play size={16} />
-                <span>Run AI Analysis</span>
-              </button>
-            )}
-            {normalizedStatus === 'completed' && (
-              <button
-                onClick={handleViewLatest}
-                disabled={actionLoading}
-                className="btn btn-primary icon-btn"
-              >
-                <ExternalLink size={16} />
-                <span>View Analysis</span>
-              </button>
-            )}
-          </div>
-        </div>
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border-muted)' }} />
 
-        <div className="detail-section">
-          <h3 className="section-title">Problem Statement</h3>
-          <div className="statement-content text-pre-wrap">{problem.problemStatement}</div>
-        </div>
+          {/* Constraints */}
+          {problem.constraints && problem.constraints.length > 0 && (
+            <section className="reading-section">
+              <h3 className="reading-section-title">Constraints</h3>
+              <div className="reading-constraints-stack" style={{ marginTop: '8px' }}>
+                {problem.constraints.map((c, idx) => (
+                  <div key={idx} className="reading-constraint-item">
+                    {c}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
-        {problem.constraints && problem.constraints.length > 0 && (
-          <div className="detail-section">
-            <h3 className="section-title">Constraints</h3>
-            <ul className="constraints-list-view">
-              {problem.constraints.map((c, i) => (
-                <li key={i} className="constraint-item-view">{c}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+          {problem.constraints && problem.constraints.length > 0 && (
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-muted)' }} />
+          )}
 
-        {problem.examples && problem.examples.length > 0 && (
-          <div className="detail-section">
-            <h3 className="section-title">Examples</h3>
-            <div className="examples-grid-view">
-              {problem.examples.map((ex, index) => (
-                <div key={index} className="example-card-view">
-                  <h4 className="example-title-view">Example {index + 1}</h4>
-                  <div className="example-body-view">
-                    <p><strong>Input:</strong> <code>{ex.input}</code></p>
-                    <p><strong>Output:</strong> <code>{ex.output}</code></p>
+          {/* Examples */}
+          {problem.examples && problem.examples.length > 0 && (
+            <section className="reading-section">
+              <h3 className="reading-section-title">Examples</h3>
+              <div className="reading-examples-stack" style={{ marginTop: '12px' }}>
+                {problem.examples.map((ex, idx) => (
+                  <div key={idx} className="reading-example-card">
+                    <h4 className="reading-example-title">Example {idx + 1}</h4>
+                    <p style={{ fontSize: '13px' }}>
+                      <strong>Input:</strong> <code>{ex.input}</code>
+                    </p>
+                    <p style={{ fontSize: '13px', marginTop: '4px' }}>
+                      <strong>Output:</strong> <code>{ex.output}</code>
+                    </p>
                     {ex.explanation && (
-                      <p><strong>Explanation:</strong> <span className="text-muted">{ex.explanation}</span></p>
+                      <p style={{ fontSize: '13px', marginTop: '8px', color: 'var(--text-secondary)' }}>
+                        <strong>Explanation:</strong> {ex.explanation}
+                      </p>
                     )}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+                ))}
+              </div>
+            </section>
+          )}
 
-        {problem.code && (
-          <div className="detail-section">
-            <h3 className="section-title">Submitted Code Context</h3>
-            <CodeBlock code={problem.code} language={problem.language} />
+          {problem.examples && problem.examples.length > 0 && (
+            <hr style={{ border: 'none', borderTop: '1px solid var(--border-muted)' }} />
+          )}
+
+          {/* Submitted code */}
+          {problem.code && (
+            <section className="reading-section">
+              <h3 className="reading-section-title">Code Submitted</h3>
+              <div style={{ marginTop: '12px' }}>
+                <CodeBlock code={problem.code} language={problem.language} />
+              </div>
+            </section>
+          )}
+        </div>
+
+        {/* Right Column: Summary rail */}
+        <aside className="summary-rail-card">
+          <div className="rail-section">
+            <span className="rail-label">Status</span>
+            <span className="rail-value">
+              <StatusBadge status={problem.status} />
+            </span>
           </div>
-        )}
+
+          <div className="rail-section">
+            <span className="rail-label">Language</span>
+            <span className="rail-value">{getLanguageLabel(problem.language)}</span>
+          </div>
+
+          <div className="rail-section">
+            <span className="rail-label">Modules Selected</span>
+            <span className="rail-value">{problem.requestedSections?.length || 0} modules</span>
+          </div>
+
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
+              <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-primary btn-block">
+                <Play size={14} />
+                <span>Analyse problem</span>
+              </button>
+            )}
+
+            {normalizedStatus === 'completed' && (
+              <>
+                <button onClick={handleViewLatest} disabled={actionLoading} className="btn btn-primary btn-block">
+                  <ExternalLink size={14} />
+                  <span>View analysis</span>
+                </button>
+                <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-secondary btn-block">
+                  <RotateCw size={14} />
+                  <span>Re-analyse</span>
+                </button>
+              </>
+            )}
+          </div>
+        </aside>
       </div>
     </div>
   );

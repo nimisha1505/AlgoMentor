@@ -1,83 +1,169 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { PlusCircle, Database, History } from 'lucide-react';
+import { getMyProblems } from '../api/problem.api.js';
+import { getLatestProblemAnalysis } from '../api/analysis.api.js';
+import StatusBadge from '../components/common/StatusBadge.jsx';
+import Loader from '../components/common/Loader.jsx';
+import { PlusCircle, Database, History, ChevronRight } from 'lucide-react';
 
-/**
- * Main dashboard/workspace landing page.
- * Displays welcome banner, workflow instructions, and summary action cards.
- */
 const DashboardPage = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [recentProblems, setRecentProblems] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [openLoadings, setOpenLoadings] = useState({});
+
+  const firstName = user?.fullName ? user.fullName.split(' ')[0] : (user?.username || 'User');
+
+  useEffect(() => {
+    const fetchRecent = async () => {
+      setIsLoading(true);
+      try {
+        const data = await getMyProblems({ page: 1, limit: 3 });
+        setRecentProblems(data.problems || []);
+      } catch (error) {
+        console.error('Failed to load recent problems on dashboard', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchRecent();
+  }, []);
+
+  const handleOpenProblem = async (problem) => {
+    const pId = problem._id;
+    const status = (problem.status || '').toLowerCase();
+    
+    if (status === 'completed') {
+      setOpenLoadings((prev) => ({ ...prev, [pId]: true }));
+      try {
+        const analysis = await getLatestProblemAnalysis(pId);
+        navigate(`/analyses/${analysis._id}`);
+      } catch (err) {
+        navigate(`/problems/${pId}`);
+      } finally {
+        setOpenLoadings((prev) => ({ ...prev, [pId]: false }));
+      }
+    } else {
+      navigate(`/problems/${pId}`);
+    }
+  };
+
+  const getLanguageLabel = (lang) => {
+    const labels = {
+      cpp: 'C++',
+      java: 'Java',
+      python: 'Python',
+      javascript: 'JavaScript',
+      c: 'C',
+      other: 'Other',
+    };
+    return labels[lang] || lang;
+  };
 
   return (
     <div className="dashboard-page-container">
-      <header className="dashboard-welcome">
-        <h1 className="welcome-title">
-          Welcome back, {user?.fullName || user?.username}!
-        </h1>
-        <p className="welcome-subtitle">
-          Your personal DSA mentor workspace is ready.
-        </p>
+      {/* Welcome Block */}
+      <header className="dashboard-welcome" style={{ marginBottom: '16px' }}>
+        <h1 className="welcome-title">Welcome back, {firstName}</h1>
+        <p className="welcome-subtitle">What would you like to understand today?</p>
       </header>
 
-      <section className="workflow-card">
-        <h3 className="workflow-title">The AlgoMentor Learning Loop</h3>
-        <ul className="workflow-list">
-          <li className="workflow-item">
-            <span className="step-num">1</span>
-            <div className="step-content">
-              <strong>Save a Problem:</strong> Add your problem specifications (title, statement, constraints, example inputs).
-            </div>
-          </li>
-          <li className="workflow-item">
-            <span className="step-num">2</span>
-            <div className="step-content">
-              <strong>Select AI Modules:</strong> Customize your requirements (progressive hints, code review, complexity tables).
-            </div>
-          </li>
-          <li className="workflow-item">
-            <span className="step-num">3</span>
-            <div className="step-content">
-              <strong>Understand Conceptually:</strong> Study multiple approach explanations and spoken interview guides.
-            </div>
-          </li>
-        </ul>
+      {/* Primary Workspace Card */}
+      <section className="primary-workspace-card" style={{ marginBottom: '8px' }}>
+        <div className="workspace-card-info">
+          <h2 className="workspace-card-title">Analyse a new problem</h2>
+          <p className="workspace-card-desc" style={{ fontSize: '14px' }}>
+            Paste a DSA question and turn it into a complete learning path.
+          </p>
+        </div>
+        <Link to="/problems/new" className="btn btn-primary">
+          Start analysing
+        </Link>
       </section>
 
-      <section className="actions-grid">
-        <div className="action-card">
-          <PlusCircle className="action-icon" />
-          <h4 className="action-card-title">Create New Analysis</h4>
-          <p className="action-card-desc">
-            Define a new DSA challenge and request customized AI mentor guidance.
-          </p>
-          <Link to="/problems/new" className="btn btn-outline btn-sm">
-            Launch Builder
-          </Link>
-        </div>
+      {/* Secondary Action links */}
+      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '40px' }}>
+        <Link to="/problems" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Database size={14} />
+          <span>Continue with saved problems</span>
+        </Link>
+        <Link to="/problems" className="btn btn-secondary btn-sm" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <History size={14} />
+          <span>Review past analyses</span>
+        </Link>
+      </div>
 
-        <div className="action-card">
-          <Database className="action-icon" />
-          <h4 className="action-card-title">View Saved Problems</h4>
-          <p className="action-card-desc">
-            Access your personal library of saved coding questions and implementations.
-          </p>
-          <Link to="/problems" className="btn btn-outline btn-sm">
-            View Saved
-          </Link>
-        </div>
+      {/* Recent Problems Section */}
+      <section className="recent-problems-section">
+        <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '16px', color: 'var(--text-secondary)' }}>
+          Recent Problems
+        </h3>
 
-        <div className="action-card">
-          <History className="action-icon" />
-          <h4 className="action-card-title">Review Analysis History</h4>
-          <p className="action-card-desc">
-            Explore past AI evaluations, tokens usage, and learning progress.
-          </p>
-          <Link to="/problems" className="btn btn-outline btn-sm">
-            Show History
-          </Link>
-        </div>
+        {isLoading ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+            <Loader text="Loading recent problems..." />
+          </div>
+        ) : recentProblems.length === 0 ? (
+          <div className="empty-state-container" style={{ padding: '32px' }}>
+            <p className="empty-state-description" style={{ fontSize: '13px' }}>
+              No recent problems. Paste a new coding challenge to start learning.
+            </p>
+            <Link to="/problems/new" className="btn btn-primary btn-sm" style={{ marginTop: '8px' }}>
+              Start your first analysis
+            </Link>
+          </div>
+        ) : (
+          <div className="table-card">
+            <table className="problems-list-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Language</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentProblems.map((prob) => (
+                  <tr key={prob._id}>
+                    <td>
+                      <span
+                        onClick={() => handleOpenProblem(prob)}
+                        style={{ fontWeight: '600', color: 'var(--text-primary)', cursor: 'pointer' }}
+                        className="problem-row-title-link"
+                      >
+                        {prob.title}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="list-meta-text">{getLanguageLabel(prob.language)}</span>
+                    </td>
+                    <td>
+                      <StatusBadge status={prob.status} />
+                    </td>
+                    <td>
+                      <span className="list-date-text">{new Date(prob.updatedAt).toLocaleDateString()}</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <button
+                        onClick={() => handleOpenProblem(prob)}
+                        disabled={openLoadings[prob._id]}
+                        className="btn btn-secondary btn-sm"
+                        style={{ padding: '4px 10px', height: '28px' }}
+                      >
+                        <span>{openLoadings[prob._id] ? 'Opening...' : 'Open'}</span>
+                        <ChevronRight size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

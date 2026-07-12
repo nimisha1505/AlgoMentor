@@ -1,77 +1,55 @@
-import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../hooks/useAuth.js';
-import { LogOut, User, Terminal } from 'lucide-react';
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Terminal } from 'lucide-react';
 
 /**
- * Top navigation header component. Handles showing brand logo,
- * guest paths (Login/Register), and authenticated user status (name, logout).
+ * Redesigned AppHeader for guest public views.
  */
 const AppHeader = () => {
-  const { user, isAuthenticated, logout } = useAuth();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout failed:', error);
-    } finally {
-      setIsLoggingOut(false);
+  const handleAnchorClick = (e, targetId) => {
+    e.preventDefault();
+    // If on homepage, scroll. Otherwise navigate home with hash
+    if (window.location.pathname === '/') {
+      const element = document.getElementById(targetId);
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    } else {
+      navigate(`/#${targetId}`);
     }
   };
 
   return (
     <header className="app-header">
       <div className="header-container container">
-        <NavLink
-          to={isAuthenticated ? '/dashboard' : '/'}
-          className="brand-link"
-        >
-          <Terminal size={22} className="brand-icon" />
+        <Link to="/" className="brand-link">
+          <Terminal size={18} className="brand-icon" />
           <span className="brand-name">AlgoMentor</span>
-        </NavLink>
-        <nav className="header-nav">
-          {isAuthenticated ? (
-            <div className="nav-user-controls">
-              <span className="user-greeting">
-                <User size={16} className="user-icon" />
-                <span className="username-text">
-                  {user?.fullName || user?.username}
-                </span>
-              </span>
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="logout-btn"
-              >
-                <LogOut size={16} className="logout-icon" />
-                <span>{isLoggingOut ? 'Logging out...' : 'Logout'}</span>
-              </button>
-            </div>
-          ) : (
-            <div className="nav-auth-links">
-              <NavLink
-                to="/login"
-                className={({ isActive }) =>
-                  isActive ? 'nav-link active' : 'nav-link'
-                }
-              >
-                Sign In
-              </NavLink>
-              <NavLink
-                to="/register"
-                className={({ isActive }) =>
-                  isActive ? 'nav-link active register-btn' : 'nav-link register-btn'
-                }
-              >
-                Register
-              </NavLink>
-            </div>
-          )}
+        </Link>
+
+        <nav className="public-nav-links">
+          <a
+            href="#how-it-works"
+            onClick={(e) => handleAnchorClick(e, 'how-it-works')}
+            className="public-nav-link"
+          >
+            How it works
+          </a>
+          <a
+            href="#features"
+            onClick={(e) => handleAnchorClick(e, 'how-it-works')} // Smooth scrolls to section
+            className="public-nav-link"
+          >
+            Features
+          </a>
+          <Link to="/login" className="public-nav-link">
+            Sign in
+          </Link>
+          <Link to="/register" className="btn btn-primary btn-sm">
+            Get started
+          </Link>
         </nav>
       </div>
     </header>
