@@ -16,6 +16,7 @@ import AnalysisDetailPage from '../pages/AnalysisDetailPage.jsx';
 import EditProblemPage from '../pages/EditProblemPage.jsx';
 import AnalysisComparisonPage from '../pages/AnalysisComparisonPage.jsx';
 import ReviseTodayPage from '../pages/ReviseTodayPage.jsx';
+import LearningPreferencesPage from '../pages/LearningPreferencesPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 
 /**
@@ -47,6 +48,7 @@ const AppRoutes = () => {
           <Route path="/problems/:problemId/analyses/compare" element={<AnalysisComparisonPage />} />
           <Route path="/analyses/:analysisId" element={<AnalysisDetailPage />} />
           <Route path="/revise" element={<ReviseTodayPage />} />
+          <Route path="/preferences" element={<LearningPreferencesPage />} />
         </Route>
       </Route>
 

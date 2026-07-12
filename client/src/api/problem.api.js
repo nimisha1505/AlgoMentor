@@ -16,6 +16,8 @@ const getMyProblems = async ({
   limit = 10,
   status,
   language,
+  source,
+  difficulty,
   search,
   topic,
   confidence,
@@ -27,6 +29,8 @@ const getMyProblems = async ({
   if (limit) params.limit = limit;
   if (status) params.status = status;
   if (language) params.language = language;
+  if (source) params.source = source;
+  if (difficulty) params.difficulty = difficulty;
   if (search && search.trim() !== '') params.search = search.trim();
   if (topic) params.topic = topic;
   if (confidence) params.confidence = confidence;
@@ -69,6 +73,14 @@ const updateProblemLearning = async (problemId, updates) => {
   return response.data.data.problem;
 };
 
+/**
+ * Scrape problem details from an external platform URL.
+ */
+const importProblemFromUrl = async (url) => {
+  const response = await axiosClient.post('/problems/import', { url });
+  return response.data.data.importedProblem;
+};
+
 export {
   createProblem,
   getMyProblems,
@@ -76,4 +88,5 @@ export {
   deleteProblem,
   updateProblem,
   updateProblemLearning,
+  importProblemFromUrl,
 };

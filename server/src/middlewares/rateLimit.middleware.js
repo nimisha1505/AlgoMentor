@@ -60,5 +60,21 @@ const followUpLimiter = rateLimit({
   },
 });
 
-export { loginLimiter, registerLimiter, analysisLimiter, followUpLimiter };
+const importLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skip: () => isTest,
+  message: {
+    success: false,
+    message: 'Too many import attempts. Please try again after 15 minutes.',
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  keyGenerator: (req) => {
+    return req.user?._id?.toString() || req.ip;
+  },
+});
+
+export { loginLimiter, registerLimiter, analysisLimiter, followUpLimiter, importLimiter };
 export default loginLimiter;

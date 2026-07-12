@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { getPracticeDashboard, getPracticeRecommendations, getAiUsage } from '../api/practice.api.js';
+import { getPracticeDashboard, getPracticeRecommendations, getAiUsage, updateRecommendationProgress } from '../api/practice.api.js';
 import { getLatestProblemAnalysis } from '../api/analysis.api.js';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import Loader from '../components/common/Loader.jsx';
@@ -21,29 +21,30 @@ const DashboardPage = () => {
 
   const firstName = user?.fullName ? user.fullName.split(' ')[0] : (user?.username || 'Student');
 
+  const fetchDashboardAndRecommendations = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    setError('');
+    try {
+      const [dash, recs, usage] = await Promise.all([
+        getPracticeDashboard(),
+        getPracticeRecommendations(),
+        getAiUsage().catch((e) => {
+          console.error('Failed to load usage limits:', e);
+          return null;
+        }),
+      ]);
+      setDashboardData(dash);
+      setRecommendationData(recs);
+      setUsageData(usage);
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err);
+      setError('Could not retrieve practice data. Please refresh or retry.');
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDashboardAndRecommendations = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const [dash, recs, usage] = await Promise.all([
-          getPracticeDashboard(),
-          getPracticeRecommendations(),
-          getAiUsage().catch((e) => {
-            console.error('Failed to load usage limits:', e);
-            return null;
-          }),
-        ]);
-        setDashboardData(dash);
-        setRecommendationData(recs);
-        setUsageData(usage);
-      } catch (err) {
-        console.error('Failed to load dashboard data:', err);
-        setError('Could not retrieve practice data. Please refresh or retry.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchDashboardAndRecommendations();
   }, []);
 
@@ -104,6 +105,66 @@ const DashboardPage = () => {
     if (pat.missedEdgeCaseCount > 0) return 'Repeated missed edge cases';
     if (pat.codeIssueCount > 0) return 'Code logic bugs';
     return 'Needs general practice';
+  };
+
+  const renderRecommendationCard = (rec, idx) => {
+    return (
+      <div key={idx} className="preview-card-item" style={{ padding: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+          <div>
+            <strong style={{ fontSize: '14px' }}>{rec.title}</strong>
+            <span style={{ fontSize: '11px', backgroundColor: 'var(--bg-soft)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', textTransform: 'capitalize' }}>
+              {rec.difficulty}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <select
+              value={rec.feedback || 'none'}
+              onChange={async (e) => {
+                const val = e.target.value;
+                try {
+                  await updateRecommendationProgress(rec.recommendationKey, { feedback: val });
+                  await fetchDashboardAndRecommendations(false);
+                } catch (err) {
+                  alert('Failed to save feedback: ' + err.message);
+                }
+              }}
+              style={{
+                fontSize: '11px',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                border: '1px solid var(--border)',
+                backgroundColor: 'var(--bg-surface)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="none">Feedback</option>
+              <option value="tooEasy">Too Easy</option>
+              <option value="tooDifficult">Too Difficult</option>
+              <option value="notRelevant">Not Relevant</option>
+            </select>
+
+            <button
+              onClick={() => navigate('/problems/new', {
+                state: {
+                  recommendedTitle: rec.title,
+                  topic: rec.topic,
+                  pattern: rec.pattern,
+                  focus: rec.focus,
+                  recommendationKey: rec.recommendationKey
+                }
+              })}
+              className="btn btn-primary btn-sm"
+            >
+              Start
+            </button>
+          </div>
+        </div>
+        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{rec.reason}</p>
+        <p style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)', marginTop: '4px' }}>Focus: {rec.focus}</p>
+      </div>
+    );
   };
 
   return (
@@ -194,26 +255,7 @@ const DashboardPage = () => {
                   <span>Strengthen Weak Patterns</span>
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {weakPatternPractice.map((rec, idx) => (
-                    <div key={idx} className="preview-card-item" style={{ padding: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <strong style={{ fontSize: '14px' }}>{rec.title}</strong>
-                          <span style={{ fontSize: '11px', backgroundColor: 'var(--bg-soft)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', textTransform: 'capitalize' }}>
-                            {rec.difficulty}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => navigate('/problems/new', { state: { recommendedTitle: rec.title, topic: rec.topic, pattern: rec.pattern, focus: rec.focus } })}
-                          className="btn btn-primary btn-sm"
-                        >
-                          Start
-                        </button>
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{rec.reason}</p>
-                      <p style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)', marginTop: '4px' }}>Focus: {rec.focus}</p>
-                    </div>
-                  ))}
+                  {weakPatternPractice.map(renderRecommendationCard)}
                 </div>
               </div>
             )}
@@ -225,26 +267,7 @@ const DashboardPage = () => {
                   Important Interview Patterns
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {importantInterviewPatterns.map((rec, idx) => (
-                    <div key={idx} className="preview-card-item" style={{ padding: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <strong style={{ fontSize: '14px' }}>{rec.title}</strong>
-                          <span style={{ fontSize: '11px', backgroundColor: 'var(--bg-soft)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', textTransform: 'capitalize' }}>
-                            {rec.difficulty}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => navigate('/problems/new', { state: { recommendedTitle: rec.title, topic: rec.topic, pattern: rec.pattern, focus: rec.focus } })}
-                          className="btn btn-primary btn-sm"
-                        >
-                          Start
-                        </button>
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{rec.reason}</p>
-                      <p style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)', marginTop: '4px' }}>Focus: {rec.focus}</p>
-                    </div>
-                  ))}
+                  {importantInterviewPatterns.map(renderRecommendationCard)}
                 </div>
               </div>
             )}
@@ -256,26 +279,7 @@ const DashboardPage = () => {
                   Next Difficulty Step
                 </h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  {nextDifficultyStep.map((rec, idx) => (
-                    <div key={idx} className="preview-card-item" style={{ padding: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div>
-                          <strong style={{ fontSize: '14px' }}>{rec.title}</strong>
-                          <span style={{ fontSize: '11px', backgroundColor: 'var(--bg-soft)', padding: '2px 6px', borderRadius: '4px', marginLeft: '8px', textTransform: 'capitalize' }}>
-                            {rec.difficulty}
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => navigate('/problems/new', { state: { recommendedTitle: rec.title, topic: rec.topic, pattern: rec.pattern, focus: rec.focus } })}
-                          className="btn btn-primary btn-sm"
-                        >
-                          Start
-                        </button>
-                      </div>
-                      <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px' }}>{rec.reason}</p>
-                      <p style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)', marginTop: '4px' }}>Focus: {rec.focus}</p>
-                    </div>
-                  ))}
+                  {nextDifficultyStep.map(renderRecommendationCard)}
                 </div>
               </div>
             )}

@@ -280,9 +280,44 @@ const ProblemDetailPage = () => {
 
       {/* Header Info */}
       <header style={{ marginBottom: '32px' }}>
-        <h1 className="reading-title" style={{ fontSize: '32px', marginBottom: '12px' }}>
-          {problem.title}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
+          <h1 className="reading-title" style={{ fontSize: '32px', margin: 0 }}>
+            {problem.title}
+          </h1>
+          {problem.difficulty && problem.difficulty !== 'unknown' && (
+            <span className={`difficulty-badge ${problem.difficulty}`} style={{
+              fontSize: '11px',
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              color: '#ffffff',
+              backgroundColor: problem.difficulty === 'easy' ? 'var(--success)' : problem.difficulty === 'medium' ? 'var(--warning)' : 'var(--danger)'
+            }}>
+              {problem.difficulty}
+            </span>
+          )}
+          {problem.source && problem.source !== 'custom' && (
+            <span style={{
+              fontSize: '11px',
+              fontWeight: '600',
+              padding: '2px 8px',
+              borderRadius: '12px',
+              backgroundColor: 'var(--bg-soft)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border)'
+            }}>
+              {problem.sourceUrl ? (
+                <a href={problem.sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <span>{problem.source === 'gfg' ? 'GeeksforGeeks' : problem.source === 'leetcode' ? 'LeetCode' : problem.source}</span>
+                  <ExternalLink size={10} />
+                </a>
+              ) : (
+                problem.source === 'gfg' ? 'GeeksforGeeks' : problem.source === 'leetcode' ? 'LeetCode' : problem.source
+              )}
+            </span>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '24px', fontSize: '13px', color: 'var(--text-secondary)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Calendar size={14} />

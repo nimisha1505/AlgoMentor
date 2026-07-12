@@ -128,6 +128,30 @@ const createProblemSchema = z
       .string({ error: () => 'Code must be a string' })
       .max(30000, 'User code snippet cannot exceed 30000 characters')
       .default(''),
+    recommendationKey: z
+      .string()
+      .trim()
+      .optional(),
+    source: z
+      .enum(['leetcode', 'gfg', 'code360', 'codeforces', 'custom'])
+      .default('custom')
+      .optional(),
+    sourceUrl: z
+      .string()
+      .trim()
+      .max(2000, 'Source URL cannot exceed 2000 characters')
+      .default('')
+      .optional(),
+    externalProblemId: z
+      .string()
+      .trim()
+      .max(300, 'External problem ID cannot exceed 300 characters')
+      .default('')
+      .optional(),
+    difficulty: z
+      .enum(['easy', 'medium', 'hard', 'unknown'])
+      .default('unknown')
+      .optional(),
     requestedSections: z
       .array(
         z.enum([
@@ -198,6 +222,12 @@ const problemListQuerySchema = z
       .optional(),
     language: z
       .enum(['cpp', 'java', 'python', 'javascript', 'c', 'other'])
+      .optional(),
+    source: z
+      .enum(['leetcode', 'gfg', 'code360', 'codeforces', 'custom'])
+      .optional(),
+    difficulty: z
+      .enum(['easy', 'medium', 'hard', 'unknown'])
       .optional(),
     search: z
       .string({
@@ -292,6 +322,22 @@ const updateProblemSchema = z
     code: z
       .string({ error: () => 'Code must be a string' })
       .max(30000, 'User code snippet cannot exceed 30000 characters')
+      .optional(),
+    source: z
+      .enum(['leetcode', 'gfg', 'code360', 'codeforces', 'custom'])
+      .optional(),
+    sourceUrl: z
+      .string()
+      .trim()
+      .max(2000, 'Source URL cannot exceed 2000 characters')
+      .optional(),
+    externalProblemId: z
+      .string()
+      .trim()
+      .max(300, 'External problem ID cannot exceed 300 characters')
+      .optional(),
+    difficulty: z
+      .enum(['easy', 'medium', 'hard', 'unknown'])
       .optional(),
     requestedSections: z
       .array(

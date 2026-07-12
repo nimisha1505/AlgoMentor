@@ -48,6 +48,51 @@ const userSchema = new mongoose.Schema(
       maxlength: [250, 'Bio cannot exceed 250 characters'],
       default: '',
     },
+    learningPreferences: {
+      preferredLanguage: {
+        type: String,
+        enum: ['cpp', 'java', 'javascript', 'python'],
+        default: 'cpp',
+      },
+      currentLevel: {
+        type: String,
+        enum: ['beginner', 'intermediate', 'advanced'],
+        default: 'beginner',
+      },
+      dailyPracticeGoal: {
+        type: Number,
+        min: [1, 'Daily practice goal must be at least 1'],
+        max: [20, 'Daily practice goal cannot exceed 20'],
+        default: 2,
+      },
+      explanationDepth: {
+        type: String,
+        enum: ['concise', 'balanced', 'detailed'],
+        default: 'balanced',
+      },
+      targetCompanies: {
+        type: [
+          {
+            type: String,
+            trim: true,
+            maxlength: [100, 'Company name cannot exceed 100 characters'],
+          },
+        ],
+        default: [],
+        validate: [
+          (val) => {
+            const unique = new Set(val.map((s) => s.toLowerCase().trim()));
+            return unique.size === val.length && val.length <= 20;
+          },
+          'Target companies must be unique, normalized, and not exceed 20 companies',
+        ],
+      },
+      preferredDifficulty: {
+        type: String,
+        enum: ['easy', 'medium', 'hard', 'mixed'],
+        default: 'mixed',
+      },
+    },
     refreshToken: {
       type: String,
       default: '',

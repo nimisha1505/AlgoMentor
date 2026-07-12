@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
-import { createProblem } from '../api/problem.api.js';
+import { createProblem, importProblemFromUrl } from '../api/problem.api.js';
 import { startProblemAnalysis } from '../api/analysis.api.js';
 import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
+import { useAuth } from '../hooks/useAuth.js';
 import FormError from '../components/common/FormError.jsx';
 import Loader from '../components/common/Loader.jsx';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlertCircle } from 'lucide-react';
 import CodeEditor from '../components/common/CodeEditor.jsx';
 
 const SECTIONS_CONFIG = {
@@ -68,6 +69,7 @@ const DEFAULT_SECTIONS = [
 const NewAnalysisPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const recommendation = location.state || null;
 
   // Form inputs
@@ -80,6 +82,26 @@ const NewAnalysisPage = () => {
   const [requestedSections, setRequestedSections] = useState(DEFAULT_SECTIONS);
   const [topics, setTopics] = useState(recommendation?.topic ? [recommendation.topic] : []);
   const [patterns, setPatterns] = useState(recommendation?.pattern ? [recommendation.pattern] : []);
+
+  // Metadata inputs
+  const [source, setSource] = useState('custom');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [externalProblemId, setExternalProblemId] = useState('');
+  const [difficulty, setDifficulty] = useState('unknown');
+
+  // Import states
+  const [importUrl, setImportUrl] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState('');
+  const [importWarning, setImportWarning] = useState('');
+  const [importedData, setImportedData] = useState(null);
+
+  // Preselect language based on user preferredLanguage preference
+  useEffect(() => {
+    if (user?.learningPreferences?.preferredLanguage) {
+      setLanguage(user.learningPreferences.preferredLanguage);
+    }
+  }, [user]);
 
   // Submission / Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -117,6 +139,64 @@ const NewAnalysisPage = () => {
   const removeExample = (index) => {
     const updated = examples.filter((_, i) => i !== index);
     setExamples(updated.length > 0 ? updated : [{ input: '', output: '', explanation: '' }]);
+  };
+
+  const handleImport = async () => {
+    if (!importUrl || importUrl.trim() === '') {
+      setImportError('Please enter a valid URL.');
+      return;
+    }
+    setImportLoading(true);
+    setImportError('');
+    setImportWarning('');
+    setImportedData(null);
+
+    try {
+      const data = await importProblemFromUrl(importUrl.trim());
+      if (data) {
+        setImportedData(data);
+        if (data.partialImport) {
+          setImportWarning(data.warning || 'We detected the problem, but could not import the full content. Please paste the problem statement manually.');
+        }
+      }
+    } catch (err) {
+      setImportError(err.response?.data?.message || 'Failed to import problem from URL. Please check the URL and try again.');
+    } finally {
+      setImportLoading(false);
+    }
+  };
+
+  const handleUseImport = () => {
+    if (!importedData) return;
+    setTitle(importedData.title || '');
+    setProblemStatement(importedData.problemStatement || '');
+    setDifficulty(importedData.difficulty || 'unknown');
+    setSource(importedData.source || 'custom');
+    setSourceUrl(importedData.sourceUrl || '');
+    setExternalProblemId(importedData.externalProblemId || '');
+    
+    if (importedData.constraints && importedData.constraints.length > 0) {
+      setConstraints(importedData.constraints);
+    }
+    
+    if (importedData.examples && importedData.examples.length > 0) {
+      setExamples(importedData.examples);
+    }
+    
+    if (importedData.topics && importedData.topics.length > 0) {
+      setTopics(importedData.topics);
+    }
+
+    setImportWarning(importedData.partialImport ? (importedData.warning || 'We detected the problem, but could not import the full content. Please paste the problem statement manually.') : '');
+    setImportedData(null);
+    setImportUrl('');
+  };
+
+  const handleClearImport = () => {
+    setImportedData(null);
+    setImportUrl('');
+    setImportError('');
+    setImportWarning('');
   };
 
   // Checkbox handling
@@ -230,6 +310,11 @@ const NewAnalysisPage = () => {
         requestedSections,
         topics,
         patterns,
+        source,
+        sourceUrl,
+        externalProblemId,
+        difficulty,
+        recommendationKey: recommendation?.recommendationKey,
       });
 
       problemId = problem._id;
@@ -240,6 +325,15 @@ const NewAnalysisPage = () => {
       // 3. navigate to results
       navigate(`/analyses/${analysis._id}`);
     } catch (error) {
+      if (error.response?.status === 409 && error.response?.data?.data?.existingProblem) {
+        const existing = error.response.data.data.existingProblem;
+        setGeneralError(`You have already saved this problem as "${existing.title}". Redirecting to it...`);
+        setTimeout(() => {
+          navigate(`/problems/${existing._id}`);
+        }, 3000);
+        return;
+      }
+
       const errMsg = getApiErrorMessage(error);
       setGeneralError(errMsg);
       if (problemId) {
@@ -318,6 +412,74 @@ const NewAnalysisPage = () => {
             </div>
           )}
 
+          {/* Import from Problem Link Section */}
+          <div className="import-section-card">
+            <h3 className="import-section-title">Import from problem link</h3>
+            <div className="import-input-row">
+              <input
+                type="text"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="Paste LeetCode or GeeksforGeeks HTTPS problem URL here..."
+                disabled={importLoading || isSubmitting}
+              />
+              <button
+                type="button"
+                onClick={handleImport}
+                disabled={importLoading || isSubmitting}
+                className="btn btn-primary"
+                style={{ padding: '10px 20px', minWidth: '100px' }}
+              >
+                {importLoading ? 'Importing...' : 'Import'}
+              </button>
+            </div>
+
+            <div className="import-platforms">
+              <span>Supported platforms:</span>
+              <span className="platform-badge">LeetCode</span>
+              <span className="platform-badge">GeeksforGeeks</span>
+            </div>
+
+            {importError && (
+              <div className="alert alert-error" style={{ marginTop: '12px', marginBottom: 0 }}>
+                <AlertCircle size={16} />
+                <span>{importError}</span>
+              </div>
+            )}
+
+            {importWarning && (
+              <div className="alert alert-warning" style={{ marginTop: '12px', marginBottom: 0 }}>
+                <AlertCircle size={16} />
+                <span>{importWarning}</span>
+              </div>
+            )}
+
+            {importedData && (
+              <div style={{ marginTop: '16px', padding: '12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-soft)' }}>
+                <h4 style={{ fontWeight: 600, fontSize: '0.9rem', marginBottom: '4px' }}>Import Preview</h4>
+                <p style={{ fontSize: '0.85rem' }}>Title: <strong>{importedData.title}</strong> ({importedData.difficulty})</p>
+                <div className="import-actions-row">
+                  <button
+                    type="button"
+                    onClick={handleClearImport}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+                  >
+                    Clear Import
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUseImport}
+                    className="btn btn-primary"
+                    style={{ fontSize: '0.85rem', padding: '6px 12px' }}
+                  >
+                    Use Imported Problem
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Section 1: Problem */}
           <div className="editor-card">
             <h3 className="editor-card-title">Problem</h3>
@@ -367,6 +529,67 @@ const NewAnalysisPage = () => {
                 <option value="c">C</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+
+            <div className="form-row" style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="source">Source</label>
+                <select
+                  id="source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  disabled={isSubmitting}
+                >
+                  <option value="custom">Custom</option>
+                  <option value="leetcode">LeetCode</option>
+                  <option value="gfg">GeeksforGeeks</option>
+                  <option value="code360">Code360</option>
+                  <option value="codeforces">Codeforces</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="difficulty">Difficulty</label>
+                <select
+                  id="difficulty"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  disabled={isSubmitting}
+                >
+                  <option value="unknown">Unknown</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row" style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="sourceUrl">Source URL</label>
+                <input
+                  id="sourceUrl"
+                  type="text"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  placeholder="https://leetcode.com/problems/..."
+                  disabled={isSubmitting}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="externalProblemId">External ID (Slug)</label>
+                <input
+                  id="externalProblemId"
+                  type="text"
+                  value={externalProblemId}
+                  onChange={(e) => setExternalProblemId(e.target.value)}
+                  placeholder="e.g. two-sum"
+                  disabled={isSubmitting}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </div>
           </div>
 

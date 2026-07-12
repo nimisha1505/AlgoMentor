@@ -21,6 +21,8 @@ const MyProblemsPage = () => {
   const [confidence, setConfidence] = useState('');
   const [isBookmarked, setIsBookmarked] = useState('');
   const [revisionDue, setRevisionDue] = useState('');
+  const [source, setSource] = useState('');
+  const [difficulty, setDifficulty] = useState('');
   const [page, setPage] = useState(1);
 
   // Data
@@ -48,6 +50,8 @@ const MyProblemsPage = () => {
         limit: 10,
         status: status || undefined,
         language: language || undefined,
+        source: source || undefined,
+        difficulty: difficulty || undefined,
         search: searchQuery || undefined,
         topic: topic || undefined,
         confidence: confidence || undefined,
@@ -75,7 +79,7 @@ const MyProblemsPage = () => {
 
   useEffect(() => {
     fetchProblems();
-  }, [page, language, status, searchQuery, topic, confidence, isBookmarked, revisionDue]);
+  }, [page, language, status, source, difficulty, searchQuery, topic, confidence, isBookmarked, revisionDue]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -92,6 +96,8 @@ const MyProblemsPage = () => {
     setConfidence('');
     setIsBookmarked('');
     setRevisionDue('');
+    setSource('');
+    setDifficulty('');
     setPage(1);
   };
 
@@ -274,6 +280,45 @@ const MyProblemsPage = () => {
             </select>
           </div>
 
+          {/* Source Filter */}
+          <div className="filter-select-box">
+            <label htmlFor="source-filter">Source</label>
+            <select
+              id="source-filter"
+              value={source}
+              onChange={(e) => {
+                setPage(1);
+                setSource(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="custom">Custom</option>
+              <option value="leetcode">LeetCode</option>
+              <option value="gfg">GeeksforGeeks</option>
+              <option value="code360">Code360</option>
+              <option value="codeforces">Codeforces</option>
+            </select>
+          </div>
+
+          {/* Difficulty Filter */}
+          <div className="filter-select-box">
+            <label htmlFor="difficulty-filter">Difficulty</label>
+            <select
+              id="difficulty-filter"
+              value={difficulty}
+              onChange={(e) => {
+                setPage(1);
+                setDifficulty(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="unknown">Unknown</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </div>
+
           {/* Bookmark Filter */}
           <div className="filter-select-box">
             <label htmlFor="bookmark-filter">Bookmarks</label>
@@ -365,17 +410,35 @@ const MyProblemsPage = () => {
                 return (
                   <tr key={problem._id}>
                     <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {problem.isBookmarked && (
-                          <Star size={14} fill="var(--warning)" stroke="var(--warning)" style={{ flexShrink: 0 }} />
-                        )}
-                        <Link
-                          to={`/problems/${problem._id}`}
-                          className="problem-row-title-link"
-                          style={{ fontSize: '14px', fontWeight: '700' }}
-                        >
-                          {problem.title}
-                        </Link>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {problem.isBookmarked && (
+                            <Star size={14} fill="var(--warning)" stroke="var(--warning)" style={{ flexShrink: 0 }} />
+                          )}
+                          <Link
+                            to={`/problems/${problem._id}`}
+                            className="problem-row-title-link"
+                            style={{ fontSize: '14px', fontWeight: '700' }}
+                          >
+                            {problem.title}
+                          </Link>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
+                          {problem.difficulty && problem.difficulty !== 'unknown' && (
+                            <span style={{
+                              fontWeight: '700',
+                              color: problem.difficulty === 'easy' ? 'var(--success)' : problem.difficulty === 'medium' ? 'var(--warning)' : 'var(--danger)',
+                              textTransform: 'uppercase'
+                            }}>
+                              {problem.difficulty}
+                            </span>
+                          )}
+                          {problem.source && problem.source !== 'custom' && (
+                            <span style={{ color: 'var(--text-secondary)' }}>
+                              • {problem.source === 'gfg' ? 'GeeksforGeeks' : problem.source === 'leetcode' ? 'LeetCode' : problem.source}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td>

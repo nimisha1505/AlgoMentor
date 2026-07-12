@@ -1,7 +1,9 @@
 import { Problem } from '../models/problem.model.js';
+import { RecommendationProgress } from '../models/recommendationProgress.model.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { ApiError } from '../utils/ApiError.js';
+import { importProblemFromUrl } from '../services/problemImport/index.js';
 
 /**
  * Create and save a new DSA Problem draft.
@@ -22,7 +24,36 @@ const createProblem = asyncHandler(async (req, res) => {
     isBookmarked,
     studentNotes,
     nextRevisionAt,
+    source,
+    sourceUrl,
+    externalProblemId,
+    difficulty,
+    recommendationKey,
   } = req.body;
+
+  // Duplicate detection
+  if (source && source !== 'custom' && externalProblemId && externalProblemId.trim() !== '') {
+    const existing = await Problem.findOne({
+      owner: req.user._id,
+      source,
+      externalProblemId,
+    });
+    if (existing) {
+      return res.status(409).json(
+        new ApiResponse(
+          409,
+          {
+            existingProblem: {
+              _id: existing._id,
+              title: existing.title,
+              status: existing.status,
+            },
+          },
+          'You have already saved this problem.'
+        )
+      );
+    }
+  }
 
   // Save problem in database
   const problem = await Problem.create({
@@ -40,7 +71,38 @@ const createProblem = asyncHandler(async (req, res) => {
     isBookmarked,
     studentNotes,
     nextRevisionAt,
+    source,
+    sourceUrl,
+    externalProblemId,
+    difficulty,
   });
+
+  // Link recommendation
+  if (recommendationKey) {
+    try {
+      await RecommendationProgress.findOneAndUpdate(
+        {
+          owner: req.user._id,
+          recommendationKey,
+        },
+        {
+          $set: {
+            status: 'attempted',
+            linkedProblem: problem._id,
+            lastInteractedAt: new Date(),
+          },
+          $setOnInsert: {
+            title: problem.title,
+            pattern: (patterns && patterns[0]) || 'General',
+            topic: (topics && topics[0]) || 'other',
+          },
+        },
+        { upsert: true }
+      );
+    } catch (err) {
+      console.error('Failed to link recommendation on createProblem:', err);
+    }
+  }
 
   return res
     .status(201)
@@ -56,6 +118,8 @@ const getMyProblems = asyncHandler(async (req, res) => {
     limit,
     status,
     language,
+    source,
+    difficulty,
     search,
     topic,
     confidence,
@@ -67,6 +131,8 @@ const getMyProblems = asyncHandler(async (req, res) => {
 
   if (status) filter.status = status;
   if (language) filter.language = language;
+  if (source) filter.source = source;
+  if (difficulty) filter.difficulty = difficulty;
   if (topic) filter.topics = topic;
   if (confidence) filter.confidence = confidence;
   if (isBookmarked !== undefined) filter.isBookmarked = isBookmarked;
@@ -88,7 +154,7 @@ const getMyProblems = asyncHandler(async (req, res) => {
     .skip(skip)
     .limit(limit)
     .select(
-      'title language requestedSections status createdAt updatedAt topics patterns confidence isBookmarked studentNotes nextRevisionAt lastPractisedAt practiceCount'
+      'title language requestedSections status createdAt updatedAt topics patterns confidence isBookmarked studentNotes nextRevisionAt lastPractisedAt practiceCount source sourceUrl externalProblemId difficulty'
     );
 
   const totalProblems = await Problem.countDocuments(filter);
@@ -155,6 +221,10 @@ const updateProblem = asyncHandler(async (req, res) => {
     isBookmarked,
     studentNotes,
     nextRevisionAt,
+    source,
+    sourceUrl,
+    externalProblemId,
+    difficulty,
   } = req.body;
 
   const updateData = {};
@@ -172,6 +242,10 @@ const updateProblem = asyncHandler(async (req, res) => {
   if (isBookmarked !== undefined) updateData.isBookmarked = isBookmarked;
   if (studentNotes !== undefined) updateData.studentNotes = studentNotes;
   if (nextRevisionAt !== undefined) updateData.nextRevisionAt = nextRevisionAt;
+  if (source !== undefined) updateData.source = source;
+  if (sourceUrl !== undefined) updateData.sourceUrl = sourceUrl;
+  if (externalProblemId !== undefined) updateData.externalProblemId = externalProblemId;
+  if (difficulty !== undefined) updateData.difficulty = difficulty;
 
   // Mark status as 'draft' upon edits to problem specification
   updateData.status = 'draft';
@@ -278,6 +352,22 @@ const deleteProblem = asyncHandler(async (req, res) => {
     .json(new ApiResponse(200, {}, 'Problem deleted successfully'));
 });
 
+/**
+ * Scrape problem details from an external platform URL (without saving).
+ */
+const importProblem = asyncHandler(async (req, res) => {
+  const { url } = req.body;
+  const importedProblem = await importProblemFromUrl(url);
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { importedProblem },
+      'Problem metadata imported successfully'
+    )
+  );
+});
+
 export {
   createProblem,
   getMyProblems,
@@ -285,4 +375,5 @@ export {
   updateProblem,
   updateProblemLearning,
   deleteProblem,
+  importProblem,
 };

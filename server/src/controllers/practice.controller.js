@@ -2,9 +2,11 @@ import { Problem } from '../models/problem.model.js';
 import { Analysis } from '../models/analysis.model.js';
 import { AnalysisFollowUp } from '../models/analysisFollowUp.model.js';
 import { StudentPatternProfile } from '../models/studentPatternProfile.model.js';
+import { RecommendationProgress } from '../models/recommendationProgress.model.js';
 import { getPersonalisedRecommendations } from '../services/practiceRecommendation.service.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
+import { ApiError } from '../utils/ApiError.js';
 import { getUserUsageSummary } from '../services/aiUsage.service.js';
 
 /**
@@ -132,4 +134,74 @@ const getAiUsage = asyncHandler(async (req, res) => {
   );
 });
 
-export { getPracticeDashboard, getPracticeRecommendations, getAiUsage };
+const updateRecommendationProgress = asyncHandler(async (req, res) => {
+  const { recommendationKey } = req.params;
+  const { status, feedback, linkedProblemId, title, pattern, topic } = req.body;
+
+  if (linkedProblemId) {
+    const problem = await Problem.findOne({
+      _id: linkedProblemId,
+      owner: req.user._id,
+    });
+    if (!problem) {
+      throw new ApiError(404, 'Linked problem not found or not owned by you');
+    }
+  }
+
+  const updateFields = {};
+  if (status !== undefined) updateFields.status = status;
+  if (feedback !== undefined) updateFields.feedback = feedback;
+  if (linkedProblemId !== undefined) updateFields.linkedProblem = linkedProblemId;
+  updateFields.lastInteractedAt = new Date();
+
+  const setOnInsert = {
+    title: title || 'Recommended Problem',
+    pattern: pattern || 'General',
+    topic: topic || 'other',
+  };
+
+  const progress = await RecommendationProgress.findOneAndUpdate(
+    {
+      owner: req.user._id,
+      recommendationKey,
+    },
+    {
+      $set: updateFields,
+      $setOnInsert: setOnInsert,
+    },
+    {
+      upsert: true,
+      new: true,
+    }
+  );
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { progress },
+      'Recommendation progress updated successfully'
+    )
+  );
+});
+
+const getRecommendationProgress = asyncHandler(async (req, res) => {
+  const progressList = await RecommendationProgress.find({
+    owner: req.user._id,
+  }).sort({ lastInteractedAt: -1 });
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      { progressList },
+      'Recommendation progress fetched successfully'
+    )
+  );
+});
+
+export {
+  getPracticeDashboard,
+  getPracticeRecommendations,
+  getAiUsage,
+  updateRecommendationProgress,
+  getRecommendationProgress,
+};

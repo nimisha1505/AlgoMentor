@@ -1,5 +1,7 @@
 import { StudentPatternProfile } from '../models/studentPatternProfile.model.js';
 import { Problem } from '../models/problem.model.js';
+import { User } from '../models/user.model.js';
+import { RecommendationProgress } from '../models/recommendationProgress.model.js';
 import { practiceQuestionCatalogue } from '../data/practiceQuestionCatalogue.js';
 
 const normalizeKey = (name) => {
@@ -17,21 +19,35 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
     throw new Error('User ID is required');
   }
 
-  // 1. Fetch user records
-  const [profiles, savedProblems] = await Promise.all([
+  // 1. Fetch user, progress, profiles, and saved problems
+  const [user, progressList, profiles, savedProblems] = await Promise.all([
+    User.findById(userId),
+    RecommendationProgress.find({ owner: userId }),
     StudentPatternProfile.find({ owner: userId }),
     Problem.find({ owner: userId }),
   ]);
 
   const now = new Date();
+  const preferences = user?.learningPreferences || {
+    preferredLanguage: 'cpp',
+    currentLevel: 'beginner',
+    dailyPracticeGoal: 2,
+    explanationDepth: 'balanced',
+    targetCompanies: [],
+    preferredDifficulty: 'mixed',
+  };
 
-  // Helper to find profile for a pattern
+  // Build lookup maps
+  const progressMap = new Map(
+    progressList.map((p) => [p.recommendationKey, p])
+  );
+
   const getProfile = (patternName) => {
     const pKey = normalizeKey(patternName);
     return profiles.find((p) => p.patternKey === pKey);
   };
 
-  // Filter out catalogue items that already match a saved problem title
+  // Filter out catalogue items matching a saved problem title
   const unsavedCatalogue = practiceQuestionCatalogue.filter((item) => {
     const match = savedProblems.some((sp) => {
       const spTitle = (sp.title || '').toLowerCase().trim();
@@ -42,41 +58,102 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
   });
 
   // 2. Score each catalogue question
-  const scoredItems = unsavedCatalogue.map((item) => {
-    const profile = getProfile(item.pattern);
-    let score = item.importance || 50;
-    let patternConfidence = 50;
+  const scoredItems = unsavedCatalogue
+    .map((item) => {
+      const recKey = normalizeKey(item.title);
+      const progress = progressMap.get(recKey);
+      
+      const status = progress?.status || 'notStarted';
+      const feedback = progress?.feedback || 'none';
 
-    if (profile) {
-      patternConfidence = profile.confidenceScore || 40;
-      // Lower confidence -> higher score boost
-      score += (100 - patternConfidence) * 1.5;
-
-      // Overdue revision -> boost
-      if (profile.nextRevisionAt && profile.nextRevisionAt < now) {
-        score += 35;
+      // Rule: Exclude solved and alreadySolved items
+      if (status === 'solved' || feedback === 'alreadySolved') {
+        return null;
       }
 
-      // Missed edge cases, brute force, code issues
-      score += (profile.missedEdgeCaseCount || 0) * 3;
-      score += (profile.bruteForceDependenceCount || 0) * 5;
-      score += (profile.codeIssueCount || 0) * 2;
+      const profile = getProfile(item.pattern);
+      let score = item.importance || 50;
+      let patternConfidence = 50;
 
-      // Days since last practiced
-      if (profile.lastPractisedAt) {
-        const msDiff = now - new Date(profile.lastPractisedAt);
-        const days = Math.floor(msDiff / (1000 * 60 * 60 * 24));
-        score += Math.min(25, days * 0.5);
+      if (profile) {
+        patternConfidence = profile.confidenceScore || 40;
+        score += (100 - patternConfidence) * 1.5;
+
+        if (profile.nextRevisionAt && profile.nextRevisionAt < now) {
+          score += 35;
+        }
+
+        score += (profile.missedEdgeCaseCount || 0) * 3;
+        score += (profile.bruteForceDependenceCount || 0) * 5;
+        score += (profile.codeIssueCount || 0) * 2;
+
+        if (profile.lastPractisedAt) {
+          const msDiff = now - new Date(profile.lastPractisedAt);
+          const days = Math.floor(msDiff / (1000 * 60 * 60 * 24));
+          score += Math.min(25, days * 0.5);
+        }
       }
-    }
 
-    return {
-      ...item,
-      score,
-      patternConfidence,
-      profile,
-    };
-  });
+      // Rule: Prioritise attempted problems (+50 boost)
+      if (status === 'attempted') {
+        score += 50;
+      }
+
+      // Rule: Reduce priority for notRelevant (-150 penalty)
+      if (feedback === 'notRelevant') {
+        score -= 150;
+      }
+
+      // Rule: Avoid immediately repeating tooEasy (-120 penalty)
+      if (feedback === 'tooEasy') {
+        score -= 120;
+      }
+
+      // Rule: Move tooDifficult problems to a later difficulty step (-80 penalty)
+      if (feedback === 'tooDifficult') {
+        score -= 80;
+      }
+
+      // Rule: Preserve revised history without recommending too frequently (-30 penalty)
+      if (status === 'revised') {
+        score -= 30;
+      }
+
+      // Personalisation using preferences (current level)
+      if (preferences.currentLevel === 'beginner') {
+        if (item.difficulty === 'easy') score += 40;
+        else if (item.difficulty === 'medium') score += 10;
+        else if (item.difficulty === 'hard') score -= 50;
+      } else if (preferences.currentLevel === 'intermediate') {
+        if (item.difficulty === 'medium') score += 40;
+        else if (item.difficulty === 'easy') score += 10;
+        else if (item.difficulty === 'hard') score += 5;
+      } else if (preferences.currentLevel === 'advanced') {
+        if (item.difficulty === 'hard') score += 50;
+        else if (item.difficulty === 'medium') score += 20;
+        else if (item.difficulty === 'easy') score -= 30;
+      }
+
+      // Personalisation using preferred difficulty
+      if (preferences.preferredDifficulty === 'easy' && item.difficulty === 'easy') {
+        score += 50;
+      } else if (preferences.preferredDifficulty === 'medium' && item.difficulty === 'medium') {
+        score += 50;
+      } else if (preferences.preferredDifficulty === 'hard' && item.difficulty === 'hard') {
+        score += 50;
+      }
+
+      return {
+        ...item,
+        score,
+        patternConfidence,
+        profile,
+        recommendationKey: recKey,
+        status,
+        feedback,
+      };
+    })
+    .filter(Boolean);
 
   // Sort by score descending
   scoredItems.sort((a, b) => b.score - a.score);
@@ -87,13 +164,20 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
   const reviseNow = [];
   const nextDifficultyStep = [];
 
+  const maxItems = Math.floor(limit / 4) || 3;
+
   for (const item of scoredItems) {
     const prof = item.profile;
     let reason = '';
     let recType = '';
 
+    const hasTargetCompanies = preferences.targetCompanies && preferences.targetCompanies.length > 0;
+    const interviewReasonText = hasTargetCompanies
+      ? `This pattern is commonly important in technical interviews for target companies like ${preferences.targetCompanies[0]}.`
+      : 'This pattern is commonly important in technical interviews.';
+
     // A. Determine if it's a weak pattern
-    if (prof && prof.confidenceScore < 60 && weakPatternPractice.length < 3) {
+    if (prof && prof.confidenceScore < 60 && weakPatternPractice.length < maxItems) {
       recType = 'weakPatternPractice';
       if (prof.bruteForceDependenceCount > 0) {
         reason = `Your recent solution remained O(n²); practice maintaining an optimal ${item.pattern} instead.`;
@@ -114,14 +198,19 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
         progressionLevel: item.progressionLevel,
         importance: item.importance,
         patternConfidence: item.patternConfidence,
+        recommendationKey: item.recommendationKey,
+        status: item.status,
+        feedback: item.feedback,
       });
       continue;
     }
 
     // B. Determine if it's an overdue revision pattern
-    if (prof && prof.nextRevisionAt && prof.nextRevisionAt < now && reviseNow.length < 3) {
+    if ((item.status === 'attempted' || (prof && prof.nextRevisionAt && prof.nextRevisionAt < now)) && reviseNow.length < maxItems) {
       recType = 'reviseNow';
-      reason = `Your revision for ${item.pattern} is overdue. Reactivate this pattern.`;
+      reason = item.status === 'attempted'
+        ? `You recently attempted this problem. Let's practice it again to solve it completely.`
+        : `Your revision for ${item.pattern} is overdue. Reactivate this pattern.`;
 
       reviseNow.push({
         title: item.title,
@@ -134,14 +223,17 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
         progressionLevel: item.progressionLevel,
         importance: item.importance,
         patternConfidence: item.patternConfidence,
+        recommendationKey: item.recommendationKey,
+        status: item.status,
+        feedback: item.feedback,
       });
       continue;
     }
 
     // C. Important interview pattern (importance > 85)
-    if (item.importance > 85 && importantInterviewPatterns.length < 3) {
+    if (item.importance > 85 && importantInterviewPatterns.length < maxItems) {
       recType = 'importantInterviewPatterns';
-      reason = `This is a high-frequency interview pattern you have not practiced recently.`;
+      reason = interviewReasonText;
 
       importantInterviewPatterns.push({
         title: item.title,
@@ -154,12 +246,15 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
         progressionLevel: item.progressionLevel,
         importance: item.importance,
         patternConfidence: item.patternConfidence,
+        recommendationKey: item.recommendationKey,
+        status: item.status,
+        feedback: item.feedback,
       });
       continue;
     }
 
     // D. Next difficulty step
-    if (nextDifficultyStep.length < 3) {
+    if (nextDifficultyStep.length < maxItems) {
       recType = 'nextDifficultyStep';
       reason = `Step up your ${item.topic} skills with this challenging ${item.difficulty} question.`;
 
@@ -174,11 +269,13 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
         progressionLevel: item.progressionLevel,
         importance: item.importance,
         patternConfidence: item.patternConfidence,
+        recommendationKey: item.recommendationKey,
+        status: item.status,
+        feedback: item.feedback,
       });
     }
   }
 
-  // Combine and limit total returned items
   return {
     weakPatternPractice,
     importantInterviewPatterns,

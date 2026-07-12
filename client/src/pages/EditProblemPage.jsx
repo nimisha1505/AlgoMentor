@@ -54,6 +54,12 @@ const EditProblemPage = () => {
   const [requestedSections, setRequestedSections] = useState([]);
   const [validationErrors, setValidationErrors] = useState({});
 
+  // Metadata State
+  const [source, setSource] = useState('custom');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [externalProblemId, setExternalProblemId] = useState('');
+  const [difficulty, setDifficulty] = useState('unknown');
+
   useEffect(() => {
     const fetchProblem = async () => {
       setIsLoading(true);
@@ -67,6 +73,10 @@ const EditProblemPage = () => {
         setLanguage(problem.language || 'cpp');
         setCode(problem.code || '');
         setRequestedSections(problem.requestedSections || []);
+        setSource(problem.source || 'custom');
+        setSourceUrl(problem.sourceUrl || '');
+        setExternalProblemId(problem.externalProblemId || '');
+        setDifficulty(problem.difficulty || 'unknown');
       } catch (err) {
         setError(getApiErrorMessage(err));
       } finally {
@@ -175,6 +185,10 @@ const EditProblemPage = () => {
       language,
       code,
       requestedSections,
+      source,
+      sourceUrl,
+      externalProblemId,
+      difficulty,
     };
   };
 
@@ -320,6 +334,67 @@ const EditProblemPage = () => {
                 <option value="c">C</option>
                 <option value="other">Other</option>
               </select>
+            </div>
+
+            <div className="form-row" style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="source">Source</label>
+                <select
+                  id="source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  disabled={isSubmitting}
+                >
+                  <option value="custom">Custom</option>
+                  <option value="leetcode">LeetCode</option>
+                  <option value="gfg">GeeksforGeeks</option>
+                  <option value="code360">Code360</option>
+                  <option value="codeforces">Codeforces</option>
+                </select>
+              </div>
+
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="difficulty">Difficulty</label>
+                <select
+                  id="difficulty"
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  disabled={isSubmitting}
+                >
+                  <option value="unknown">Unknown</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-row" style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="sourceUrl">Source URL</label>
+                <input
+                  id="sourceUrl"
+                  type="text"
+                  value={sourceUrl}
+                  onChange={(e) => setSourceUrl(e.target.value)}
+                  placeholder="https://leetcode.com/problems/..."
+                  disabled={isSubmitting}
+                  style={{ width: '100%' }}
+                />
+              </div>
+
+              <div className="form-group" style={{ flex: 1 }}>
+                <label htmlFor="externalProblemId">External ID (Slug)</label>
+                <input
+                  id="externalProblemId"
+                  type="text"
+                  value={externalProblemId}
+                  onChange={(e) => setExternalProblemId(e.target.value)}
+                  placeholder="e.g. two-sum"
+                  disabled={isSubmitting}
+                  style={{ width: '100%' }}
+                />
+              </div>
             </div>
           </div>
 

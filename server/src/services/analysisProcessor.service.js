@@ -1,5 +1,6 @@
 import { Analysis } from '../models/analysis.model.js';
 import { Problem } from '../models/problem.model.js';
+import { RecommendationProgress } from '../models/recommendationProgress.model.js';
 import { generateProblemAnalysis } from './geminiAnalysis.service.js';
 import { updatePatternProgressFromAnalysis } from './patternProgress.service.js';
 import {
@@ -110,6 +111,16 @@ const processAnalysis = async (analysisId) => {
       });
     } catch (patternErr) {
       console.error('Failed to update student pattern progress:', patternErr);
+    }
+
+    // Update recommendation progress to solved if linked
+    try {
+      await RecommendationProgress.updateOne(
+        { linkedProblem: updatedProblem._id },
+        { $set: { status: 'solved', lastInteractedAt: new Date() } }
+      );
+    } catch (recErr) {
+      console.error('Failed to update recommendation status to solved:', recErr);
     }
 
     return completedAnalysis;

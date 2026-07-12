@@ -184,6 +184,30 @@ const problemSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    source: {
+      type: String,
+      enum: ['leetcode', 'gfg', 'code360', 'codeforces', 'custom'],
+      default: 'custom',
+      index: true,
+    },
+    sourceUrl: {
+      type: String,
+      trim: true,
+      maxlength: 2000,
+      default: '',
+    },
+    externalProblemId: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      default: '',
+    },
+    difficulty: {
+      type: String,
+      enum: ['easy', 'medium', 'hard', 'unknown'],
+      default: 'unknown',
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -196,7 +220,9 @@ problemSchema.index({ owner: 1, confidence: 1 });
 problemSchema.index({ owner: 1, isBookmarked: 1 });
 problemSchema.index({ owner: 1, nextRevisionAt: 1 });
 problemSchema.index({ owner: 1, topics: 1 });
+problemSchema.index({ owner: 1, source: 1, externalProblemId: 1 });
 
 const Problem = mongoose.model('Problem', problemSchema);
 
 export { Problem };
+

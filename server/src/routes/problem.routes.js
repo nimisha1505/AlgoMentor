@@ -6,6 +6,7 @@ import {
   updateProblem,
   updateProblemLearning,
   deleteProblem,
+  importProblem,
 } from '../controllers/problem.controller.js';
 import {
   startProblemAnalysis,
@@ -21,6 +22,9 @@ import {
   updateProblemLearningSchema,
 } from '../validators/problem.validator.js';
 import {
+  importProblemSchema,
+} from '../validators/problemImport.validator.js';
+import {
   startAnalysisSchema,
   analysisListQuerySchema,
 } from '../validators/analysis.validator.js';
@@ -33,7 +37,7 @@ import {
   validateParams,
 } from '../middlewares/validate.middleware.js';
 import { verifyJWT } from '../middlewares/auth.middleware.js';
-import { analysisLimiter } from '../middlewares/rateLimit.middleware.js';
+import { analysisLimiter, importLimiter } from '../middlewares/rateLimit.middleware.js';
 
 const router = Router();
 
@@ -42,6 +46,15 @@ router.get('/', verifyJWT, validateQuery(problemListQuerySchema), getMyProblems)
 
 // Route to handle new problem creation (requires authentication and Zod validation)
 router.post('/', verifyJWT, validate(createProblemSchema), createProblem);
+
+// Route to import problem metadata from external platforms (requires auth, rate limit, and zod check)
+router.post(
+  '/import',
+  verifyJWT,
+  importLimiter,
+  validate(importProblemSchema),
+  importProblem
+);
 
 // Route to compare two completed analysis attempts
 router.get(

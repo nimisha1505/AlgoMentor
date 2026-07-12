@@ -26,4 +26,32 @@ const getAiUsage = async () => {
   return response.data.data;
 };
 
-export { getPracticeDashboard, getPracticeRecommendations, getAiUsage };
+const updateRecommendationProgress = async (recommendationKey, updates) => {
+  const response = await axiosClient.patch(`/practice/recommendations/${recommendationKey}`, updates);
+  return response.data.data.progress;
+};
+
+const getRecommendationProgress = async () => {
+  const response = await axiosClient.get('/practice/recommendations/progress');
+  return response.data.data.progressList;
+};
+
+const getLearningPreferences = async () => {
+  const response = await axiosClient.get('/users/preferences');
+  return response.data.data.learningPreferences;
+};
+
+const updateLearningPreferences = async (updates) => {
+  const response = await axiosClient.patch('/users/preferences', updates);
+  return response.data.data.learningPreferences;
+};
+
+export {
+  getPracticeDashboard,
+  getPracticeRecommendations,
+  getAiUsage,
+  updateRecommendationProgress,
+  getRecommendationProgress,
+  getLearningPreferences,
+  updateLearningPreferences,
+};
