@@ -1,13 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { getProblemById } from '../api/problem.api.js';
+import { getProblemById, updateProblemLearning } from '../api/problem.api.js';
 import { startProblemAnalysis, getProblemAnalyses, getLatestProblemAnalysis } from '../api/analysis.api.js';
 import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import CodeBlock from '../components/common/CodeBlock.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { ArrowLeft, Play, ExternalLink, RotateCw, Calendar, Layers, Edit3, Clock, Cpu, Award } from 'lucide-react';
+import { ArrowLeft, Play, ExternalLink, RotateCw, Calendar, Layers, Edit3, Clock, Cpu, Award, Star, Plus, X } from 'lucide-react';
+
+const SUPPORTED_TOPICS = [
+  'arrays',
+  'strings',
+  'hashing',
+  'linkedList',
+  'stack',
+  'queue',
+  'binarySearch',
+  'recursion',
+  'backtracking',
+  'trees',
+  'bst',
+  'heap',
+  'graph',
+  'dynamicProgramming',
+  'greedy',
+  'slidingWindow',
+  'twoPointers',
+  'prefixSum',
+  'bitManipulation',
+  'mathematics',
+  'other',
+];
 
 const ProblemDetailPage = () => {
   const { problemId } = useParams();
@@ -22,6 +46,18 @@ const ProblemDetailPage = () => {
   const [analyses, setAnalyses] = useState([]);
   const [analysesLoading, setAnalysesLoading] = useState(true);
   const [selectedAttempts, setSelectedAttempts] = useState([]);
+
+  // Learning metadata states
+  const [topics, setTopics] = useState([]);
+  const [patterns, setPatterns] = useState([]);
+  const [patternInput, setPatternInput] = useState('');
+  const [confidence, setConfidence] = useState('learning');
+  const [isBookmarked, setIsBookmarked] = useState(false);
+  const [studentNotes, setStudentNotes] = useState('');
+  const [nextRevisionAt, setNextRevisionAt] = useState('');
+  const [isSavingLearning, setIsSavingLearning] = useState(false);
+  const [learningError, setLearningError] = useState('');
+  const [learningSuccess, setLearningSuccess] = useState('');
 
   const handleToggleSelectAttempt = (attemptId) => {
     setSelectedAttempts((prev) => {
@@ -41,6 +77,13 @@ const ProblemDetailPage = () => {
     try {
       const data = await getProblemById(problemId);
       setProblem(data);
+      // Prepopulate learning states
+      setTopics(data.topics || []);
+      setPatterns(data.patterns || []);
+      setConfidence(data.confidence || 'learning');
+      setIsBookmarked(!!data.isBookmarked);
+      setStudentNotes(data.studentNotes || '');
+      setNextRevisionAt(data.nextRevisionAt ? new Date(data.nextRevisionAt).toISOString().split('T')[0] : '');
     } catch (err) {
       setError(getApiErrorMessage(err));
     }
@@ -59,13 +102,13 @@ const ProblemDetailPage = () => {
   };
 
   useEffect(() => {
-    const loadData = async () => {
+    const loadAll = async () => {
       setIsLoading(true);
       setError('');
       await Promise.all([fetchProblem(), fetchAnalyses()]);
       setIsLoading(false);
     };
-    loadData();
+    loadAll();
   }, [problemId]);
 
   const handleGenerate = async () => {
@@ -89,6 +132,57 @@ const ProblemDetailPage = () => {
       alert(getApiErrorMessage(err));
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSaveLearning = async () => {
+    setIsSavingLearning(true);
+    setLearningError('');
+    setLearningSuccess('');
+    try {
+      const updated = await updateProblemLearning(problemId, {
+        topics,
+        patterns,
+        confidence,
+        isBookmarked,
+        studentNotes,
+        nextRevisionAt: nextRevisionAt ? new Date(nextRevisionAt).toISOString() : null,
+      });
+      setProblem(updated);
+      setLearningSuccess('Learning metadata updated successfully!');
+      setTimeout(() => setLearningSuccess(''), 3000);
+    } catch (err) {
+      setLearningError(getApiErrorMessage(err));
+    } finally {
+      setIsSavingLearning(false);
+    }
+  };
+
+  const handleAddPattern = (e) => {
+    e.preventDefault();
+    const val = patternInput.trim();
+    if (!val) return;
+    if (patterns.length >= 20) {
+      alert('Cannot exceed 20 pattern tags');
+      return;
+    }
+    if (patterns.includes(val)) {
+      setPatternInput('');
+      return;
+    }
+    setPatterns([...patterns, val]);
+    setPatternInput('');
+  };
+
+  const handleRemovePattern = (tag) => {
+    setPatterns(patterns.filter((p) => p !== tag));
+  };
+
+  const handleTopicToggle = (topic) => {
+    if (topics.includes(topic)) {
+      setTopics(topics.filter((t) => t !== topic));
+    } else {
+      setTopics([...topics, topic]);
     }
   };
 
@@ -128,7 +222,7 @@ const ProblemDetailPage = () => {
   const normalizedStatus = (problem.status || '').toLowerCase();
 
   return (
-    <div className="problem-detail-workspace container">
+    <div className="problem-detail-workspace container" style={{ paddingBottom: '80px' }}>
       {actionLoading && (
         <div className="loading-overlay">
           <div className="loading-overlay-card">
@@ -159,7 +253,7 @@ const ProblemDetailPage = () => {
             <Edit3 size={14} />
             <span>Edit</span>
           </Link>
-          
+
           {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
             <button
               onClick={handleGenerate}
@@ -202,7 +296,7 @@ const ProblemDetailPage = () => {
       </header>
 
       {/* 2-Column Detail Layout */}
-      <div className="detail-reading-layout">
+      <div className="detail-reading-layout" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '32px' }}>
         {/* Left Column: Problem Details reading flow */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
           {/* Statement */}
@@ -219,13 +313,11 @@ const ProblemDetailPage = () => {
           {problem.constraints && problem.constraints.length > 0 && (
             <section className="reading-section">
               <h3 className="reading-section-title">Constraints</h3>
-              <div className="reading-constraints-stack" style={{ marginTop: '8px' }}>
+              <ul className="constraints-reading-list" style={{ marginTop: '12px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {problem.constraints.map((c, idx) => (
-                  <div key={idx} className="reading-constraint-item">
-                    {c}
-                  </div>
+                  <li key={idx} className="learning-body-text">{c}</li>
                 ))}
-              </div>
+              </ul>
             </section>
           )}
 
@@ -237,10 +329,12 @@ const ProblemDetailPage = () => {
           {problem.examples && problem.examples.length > 0 && (
             <section className="reading-section">
               <h3 className="reading-section-title">Examples</h3>
-              <div className="reading-examples-stack" style={{ marginTop: '12px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '12px' }}>
                 {problem.examples.map((ex, idx) => (
-                  <div key={idx} className="reading-example-card">
-                    <h4 className="reading-example-title">Example {idx + 1}</h4>
+                  <div key={idx} className="preview-card-item" style={{ padding: '16px' }}>
+                    <strong style={{ fontSize: '13px', display: 'block', color: 'var(--primary)', marginBottom: '8px' }}>
+                      Example {idx + 1}
+                    </strong>
                     <p style={{ fontSize: '13px' }}>
                       <strong>Input:</strong> <code>{ex.input}</code>
                     </p>
@@ -416,52 +510,213 @@ const ProblemDetailPage = () => {
           </section>
         </div>
 
-        {/* Right Column: Summary rail */}
-        <aside className="summary-rail-card">
-          <div className="rail-section">
-            <span className="rail-label">Status</span>
-            <span className="rail-value">
-              <StatusBadge status={problem.status} />
-            </span>
-          </div>
+        {/* Right Column: Summary rail & Learning Panel */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          
+          {/* Quick Actions Card */}
+          <aside className="summary-rail-card" style={{ margin: '0' }}>
+            <div className="rail-section">
+              <span className="rail-label">Status</span>
+              <span className="rail-value">
+                <StatusBadge status={problem.status} />
+              </span>
+            </div>
 
-          <div className="rail-section">
-            <span className="rail-label">Language</span>
-            <span className="rail-value">{getLanguageLabel(problem.language)}</span>
-          </div>
+            <div className="rail-section">
+              <span className="rail-label">Language</span>
+              <span className="rail-value">{getLanguageLabel(problem.language)}</span>
+            </div>
 
-          <div className="rail-section">
-            <span className="rail-label">Modules Selected</span>
-            <span className="rail-value">{problem.requestedSections?.length || 0} modules</span>
-          </div>
+            {/* Practice Metrics Section */}
+            <div className="rail-section">
+              <span className="rail-label">Practice Count</span>
+              <span className="rail-value">{problem.practiceCount || 0} times</span>
+            </div>
 
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-block icon-btn">
-              <Edit3 size={14} />
-              <span>Edit problem</span>
-            </Link>
+            <div className="rail-section">
+              <span className="rail-label">Last Practiced</span>
+              <span className="rail-value">
+                {problem.lastPractisedAt ? new Date(problem.lastPractisedAt).toLocaleDateString() : 'Never'}
+              </span>
+            </div>
 
-            {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
-              <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-primary btn-block">
-                <Play size={14} />
-                <span>Analyse problem</span>
+            <div className="rail-section">
+              <span className="rail-label">Next Revision</span>
+              <span className="rail-value" style={problem.nextRevisionAt && new Date(problem.nextRevisionAt) <= new Date() ? { color: 'var(--warning)', fontWeight: '600' } : {}}>
+                {problem.nextRevisionAt ? new Date(problem.nextRevisionAt).toLocaleDateString() : 'None scheduled'}
+              </span>
+            </div>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-block icon-btn">
+                <Edit3 size={14} />
+                <span>Edit problem specification</span>
+              </Link>
+
+              {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
+                <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-primary btn-block">
+                  <Play size={14} />
+                  <span>Analyse problem</span>
+                </button>
+              )}
+
+              {normalizedStatus === 'completed' && (
+                <>
+                  <button onClick={handleViewLatest} disabled={actionLoading} className="btn btn-primary btn-block">
+                    <ExternalLink size={14} />
+                    <span>View latest report</span>
+                  </button>
+                  <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-secondary btn-block">
+                    <RotateCw size={14} />
+                    <span>Re-analyse</span>
+                  </button>
+                </>
+              )}
+            </div>
+          </aside>
+
+          {/* Learning Metadata Panel */}
+          <section className="summary-rail-card" style={{ margin: '0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '700', margin: '0' }}>Learning Focus</h3>
+              <button
+                type="button"
+                onClick={() => setIsBookmarked(!isBookmarked)}
+                className="clear-text-btn"
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                title="Toggle Bookmark"
+              >
+                <Star size={18} fill={isBookmarked ? 'var(--warning)' : 'none'} stroke={isBookmarked ? 'var(--warning)' : 'var(--text-muted)'} />
               </button>
+            </div>
+
+            {learningError && <FormError message={learningError} />}
+            {learningSuccess && (
+              <div style={{ fontSize: '12px', color: 'var(--success)', backgroundColor: 'var(--bg-soft)', padding: '6px 12px', borderRadius: 'var(--radius-sm)' }}>
+                {learningSuccess}
+              </div>
             )}
 
-            {normalizedStatus === 'completed' && (
-              <>
-                <button onClick={handleViewLatest} disabled={actionLoading} className="btn btn-primary btn-block">
-                  <ExternalLink size={14} />
-                  <span>View latest</span>
+            {/* Topics Multi-Select checkboxes */}
+            <div className="form-group">
+              <span className="rail-label" style={{ display: 'block', marginBottom: '6px' }}>DSA Topics</span>
+              <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--border)', padding: '8px', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                {SUPPORTED_TOPICS.map((topic) => (
+                  <label key={topic} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      checked={topics.includes(topic)}
+                      onChange={() => handleTopicToggle(topic)}
+                    />
+                    <span style={{ textTransform: 'capitalize' }}>{topic}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Pattern Tag Input */}
+            <div className="form-group">
+              <span className="rail-label" style={{ display: 'block', marginBottom: '4px' }}>Pattern Tags (max 20)</span>
+              
+              {/* Render Tags */}
+              {patterns.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                  {patterns.map((p) => (
+                    <span
+                      key={p}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        fontSize: '11px',
+                        backgroundColor: 'var(--bg-soft)',
+                        border: '1px solid var(--border)',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      <span>{p}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePattern(p)}
+                        style={{ border: 'none', background: 'none', padding: '0', display: 'inline-flex', color: 'var(--text-muted)', cursor: 'pointer' }}
+                      >
+                        <X size={10} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <form onSubmit={handleAddPattern} style={{ display: 'flex', gap: '6px' }}>
+                <input
+                  type="text"
+                  placeholder="e.g. hash-map-lookup"
+                  value={patternInput}
+                  onChange={(e) => setPatternInput(e.target.value)}
+                  maxLength={100}
+                  style={{ flex: 1, padding: '4px 8px', fontSize: '12px', height: '30px' }}
+                />
+                <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0 8px', height: '30px' }}>
+                  <Plus size={14} />
                 </button>
-                <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-secondary btn-block">
-                  <RotateCw size={14} />
-                  <span>Re-analyse</span>
-                </button>
-              </>
-            )}
-          </div>
-        </aside>
+              </form>
+            </div>
+
+            {/* Confidence Dropdown */}
+            <div className="form-group">
+              <label htmlFor="confidence" className="rail-label">Confidence</label>
+              <select
+                id="confidence"
+                value={confidence}
+                onChange={(e) => setConfidence(e.target.value)}
+                style={{ fontSize: '13px', padding: '6px', height: '32px' }}
+              >
+                <option value="weak">Weak</option>
+                <option value="learning">Learning</option>
+                <option value="confident">Confident</option>
+                <option value="mastered">Mastered</option>
+              </select>
+            </div>
+
+            {/* Next Revision Date Calendar Picker */}
+            <div className="form-group">
+              <label htmlFor="nextRevision" className="rail-label">Next Revision Date</label>
+              <input
+                id="nextRevision"
+                type="date"
+                value={nextRevisionAt}
+                onChange={(e) => setNextRevisionAt(e.target.value)}
+                style={{ fontSize: '13px', padding: '4px 8px', height: '32px' }}
+              />
+            </div>
+
+            {/* Private Notes Textarea */}
+            <div className="form-group">
+              <label htmlFor="studentNotes" className="rail-label">Private Notes</label>
+              <textarea
+                id="studentNotes"
+                value={studentNotes}
+                onChange={(e) => setStudentNotes(e.target.value)}
+                placeholder="Write observations, tricky points, or code edge cases..."
+                maxLength={5000}
+                rows={3}
+                style={{ fontSize: '12.5px', padding: '6px', minHeight: '60px' }}
+              />
+            </div>
+
+            <button
+              onClick={handleSaveLearning}
+              disabled={isSavingLearning}
+              className="btn btn-primary btn-block"
+              style={{ padding: '8px 16px' }}
+            >
+              {isSavingLearning ? 'Saving metadata...' : 'Save learning progress'}
+            </button>
+          </section>
+
+        </div>
       </div>
     </div>
   );

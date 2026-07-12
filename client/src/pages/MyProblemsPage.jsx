@@ -7,7 +7,7 @@ import StatusBadge from '../components/common/StatusBadge.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { Search, RotateCw, Trash2, BookOpen, ExternalLink, PlusCircle, Edit3 } from 'lucide-react';
+import { Search, RotateCw, Trash2, BookOpen, ExternalLink, PlusCircle, Edit3, Star } from 'lucide-react';
 
 const MyProblemsPage = () => {
   const navigate = useNavigate();
@@ -17,6 +17,10 @@ const MyProblemsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [language, setLanguage] = useState('');
   const [status, setStatus] = useState('');
+  const [topic, setTopic] = useState('');
+  const [confidence, setConfidence] = useState('');
+  const [isBookmarked, setIsBookmarked] = useState('');
+  const [revisionDue, setRevisionDue] = useState('');
   const [page, setPage] = useState(1);
 
   // Data
@@ -45,6 +49,10 @@ const MyProblemsPage = () => {
         status: status || undefined,
         language: language || undefined,
         search: searchQuery || undefined,
+        topic: topic || undefined,
+        confidence: confidence || undefined,
+        isBookmarked: isBookmarked === 'true' ? true : isBookmarked === 'false' ? false : undefined,
+        revisionDue: revisionDue === 'true' ? true : undefined,
       });
 
       setProblems(data.problems || []);
@@ -67,7 +75,7 @@ const MyProblemsPage = () => {
 
   useEffect(() => {
     fetchProblems();
-  }, [page, language, status, searchQuery]);
+  }, [page, language, status, searchQuery, topic, confidence, isBookmarked, revisionDue]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -80,6 +88,10 @@ const MyProblemsPage = () => {
     setSearchQuery('');
     setLanguage('');
     setStatus('');
+    setTopic('');
+    setConfidence('');
+    setIsBookmarked('');
+    setRevisionDue('');
     setPage(1);
   };
 
@@ -135,8 +147,10 @@ const MyProblemsPage = () => {
     return labels[lang] || lang;
   };
 
+  const hasActiveFilters = searchQuery || language || status || topic || confidence || isBookmarked || revisionDue;
+
   return (
-    <div className="my-problems-container">
+    <div className="my-problems-container container" style={{ paddingBottom: '80px' }}>
       {/* Page Header */}
       <div className="page-header-row" style={{ marginBottom: '24px' }}>
         <div>
@@ -150,9 +164,9 @@ const MyProblemsPage = () => {
       </div>
 
       {/* Top Toolbar */}
-      <form onSubmit={handleSearchSubmit} className="toolbar-row" style={{ marginBottom: '24px' }}>
-        <div className="toolbar-left">
-          <div className="search-bar-box" style={{ maxWidth: '320px' }}>
+      <form onSubmit={handleSearchSubmit} className="toolbar-row" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%' }}>
+          <div className="search-bar-box" style={{ flex: 1, minWidth: '240px' }}>
             <Search size={14} className="search-bar-icon" />
             <input
               type="text"
@@ -161,57 +175,148 @@ const MyProblemsPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          
+          <button type="submit" className="btn btn-secondary">Search</button>
+        </div>
 
-          <div className="filter-selects-row">
-            <div className="filter-select-box">
-              <label htmlFor="lang-filter">Language</label>
-              <select
-                id="lang-filter"
-                value={language}
-                onChange={(e) => {
-                  setPage(1);
-                  setLanguage(e.target.value);
-                }}
-              >
-                <option value="">All</option>
-                <option value="cpp">C++</option>
-                <option value="java">Java</option>
-                <option value="python">Python</option>
-                <option value="javascript">JavaScript</option>
-                <option value="c">C</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div className="filter-select-box">
-              <label htmlFor="status-filter">Status</label>
-              <select
-                id="status-filter"
-                value={status}
-                onChange={(e) => {
-                  setPage(1);
-                  setStatus(e.target.value);
-                }}
-              >
-                <option value="">All</option>
-                <option value="draft">Draft</option>
-                <option value="queued">Queued</option>
-                <option value="processing">Processing</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-              </select>
-            </div>
-
-            {(searchQuery || language || status) && (
-              <button
-                type="button"
-                onClick={handleClearFilters}
-                className="clear-text-btn"
-              >
-                Clear Filters
-              </button>
-            )}
+        <div className="filter-selects-row" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="filter-select-box">
+            <label htmlFor="lang-filter">Language</label>
+            <select
+              id="lang-filter"
+              value={language}
+              onChange={(e) => {
+                setPage(1);
+                setLanguage(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="cpp">C++</option>
+              <option value="java">Java</option>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="c">C</option>
+              <option value="other">Other</option>
+            </select>
           </div>
+
+          <div className="filter-select-box">
+            <label htmlFor="status-filter">Status</label>
+            <select
+              id="status-filter"
+              value={status}
+              onChange={(e) => {
+                setPage(1);
+                setStatus(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="draft">Draft</option>
+              <option value="queued">Queued</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+
+          {/* Topic Filter */}
+          <div className="filter-select-box">
+            <label htmlFor="topic-filter">Topic</label>
+            <select
+              id="topic-filter"
+              value={topic}
+              onChange={(e) => {
+                setPage(1);
+                setTopic(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="arrays">Arrays</option>
+              <option value="strings">Strings</option>
+              <option value="hashing">Hashing</option>
+              <option value="linkedList">Linked List</option>
+              <option value="stack">Stack</option>
+              <option value="queue">Queue</option>
+              <option value="binarySearch">Binary Search</option>
+              <option value="recursion">Recursion</option>
+              <option value="backtracking">Backtracking</option>
+              <option value="trees">Trees</option>
+              <option value="bst">BST</option>
+              <option value="heap">Heap</option>
+              <option value="graph">Graph</option>
+              <option value="dynamicProgramming">DP</option>
+              <option value="greedy">Greedy</option>
+              <option value="slidingWindow">Sliding Window</option>
+              <option value="twoPointers">Two Pointers</option>
+              <option value="prefixSum">Prefix Sum</option>
+              <option value="bitManipulation">Bitwise</option>
+              <option value="mathematics">Maths</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {/* Confidence Filter */}
+          <div className="filter-select-box">
+            <label htmlFor="confidence-filter">Confidence</label>
+            <select
+              id="confidence-filter"
+              value={confidence}
+              onChange={(e) => {
+                setPage(1);
+                setConfidence(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="weak">Weak</option>
+              <option value="learning">Learning</option>
+              <option value="confident">Confident</option>
+              <option value="mastered">Mastered</option>
+            </select>
+          </div>
+
+          {/* Bookmark Filter */}
+          <div className="filter-select-box">
+            <label htmlFor="bookmark-filter">Bookmarks</label>
+            <select
+              id="bookmark-filter"
+              value={isBookmarked}
+              onChange={(e) => {
+                setPage(1);
+                setIsBookmarked(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="true">Bookmarked</option>
+              <option value="false">Unbookmarked</option>
+            </select>
+          </div>
+
+          {/* Revision Due Filter */}
+          <div className="filter-select-box">
+            <label htmlFor="revision-filter">Revision</label>
+            <select
+              id="revision-filter"
+              value={revisionDue}
+              onChange={(e) => {
+                setPage(1);
+                setRevisionDue(e.target.value);
+              }}
+            >
+              <option value="">All</option>
+              <option value="true">Revision Due Today</option>
+            </select>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={handleClearFilters}
+              className="clear-text-btn"
+              style={{ fontWeight: '600', marginLeft: '12px' }}
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       </form>
 
@@ -225,12 +330,12 @@ const MyProblemsPage = () => {
         <EmptyState
           title="No saved problems yet"
           description={
-            searchQuery || language || status
+            hasActiveFilters
               ? "No saved problems match these filters."
               : "Start with a problem you recently found difficult."
           }
           action={
-            !searchQuery && !language && !status ? (
+            !hasActiveFilters ? (
               <Link to="/problems/new" className="btn btn-primary">
                 Analyse your first problem
               </Link>
@@ -245,7 +350,9 @@ const MyProblemsPage = () => {
                 <th>Problem</th>
                 <th>Language</th>
                 <th>Status</th>
-                <th>Learning sections</th>
+                <th>Confidence</th>
+                <th>Revision</th>
+                <th>Modules</th>
                 <th>Updated</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -258,13 +365,18 @@ const MyProblemsPage = () => {
                 return (
                   <tr key={problem._id}>
                     <td>
-                      <Link
-                        to={`/problems/${problem._id}`}
-                        className="problem-row-title-link"
-                        style={{ fontSize: '14px', fontWeight: '700' }}
-                      >
-                        {problem.title}
-                      </Link>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        {problem.isBookmarked && (
+                          <Star size={14} fill="var(--warning)" stroke="var(--warning)" style={{ flexShrink: 0 }} />
+                        )}
+                        <Link
+                          to={`/problems/${problem._id}`}
+                          className="problem-row-title-link"
+                          style={{ fontSize: '14px', fontWeight: '700' }}
+                        >
+                          {problem.title}
+                        </Link>
+                      </div>
                     </td>
                     <td>
                       <span className="list-meta-text">
@@ -273,6 +385,23 @@ const MyProblemsPage = () => {
                     </td>
                     <td>
                       <StatusBadge status={problem.status} />
+                    </td>
+                    <td>
+                      <span className={`status-badge badge-${problem.confidence || 'learning'}`} style={{ textTransform: 'capitalize' }}>
+                        {problem.confidence || 'learning'}
+                      </span>
+                    </td>
+                    <td>
+                      {problem.nextRevisionAt ? (
+                        <span
+                          style={new Date(problem.nextRevisionAt) <= new Date() ? { color: 'var(--warning)', fontWeight: '600', fontSize: '12px' } : { fontSize: '12px' }}
+                          title="Next scheduled revision"
+                        >
+                          {new Date(problem.nextRevisionAt).toLocaleDateString()}
+                        </span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>None</span>
+                      )}
                     </td>
                     <td>
                       <span className="list-meta-text">
@@ -342,29 +471,6 @@ const MyProblemsPage = () => {
               })}
             </tbody>
           </table>
-
-          {/* Pagination controls */}
-          {pagination.totalPages > 1 && (
-            <div className="table-pagination-row">
-              <button
-                onClick={() => setPage((p) => Math.max(p - 1, 1))}
-                disabled={!pagination.hasPreviousPage || isLoading}
-                className="btn btn-secondary btn-sm"
-              >
-                Previous
-              </button>
-              <span className="pagination-numbers">
-                Page {pagination.page} of {pagination.totalPages} ({pagination.totalProblems} total)
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(p + 1, pagination.totalPages))}
-                disabled={!pagination.hasNextPage || isLoading}
-                className="btn btn-secondary btn-sm"
-              >
-                Next
-              </button>
-            </div>
-          )}
         </div>
       )}
     </div>

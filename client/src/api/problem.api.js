@@ -9,7 +9,7 @@ const createProblem = async (problemData) => {
 };
 
 /**
- * Fetch a list of user problems with page, limit, status, language, and search filter.
+ * Fetch a list of user problems with page, limit, status, language, search, topic, confidence, bookmark, and revision due filters.
  */
 const getMyProblems = async ({
   page = 1,
@@ -17,6 +17,10 @@ const getMyProblems = async ({
   status,
   language,
   search,
+  topic,
+  confidence,
+  isBookmarked,
+  revisionDue,
 } = {}) => {
   const params = {};
   if (page) params.page = page;
@@ -24,6 +28,10 @@ const getMyProblems = async ({
   if (status) params.status = status;
   if (language) params.language = language;
   if (search && search.trim() !== '') params.search = search.trim();
+  if (topic) params.topic = topic;
+  if (confidence) params.confidence = confidence;
+  if (isBookmarked !== undefined) params.isBookmarked = isBookmarked;
+  if (revisionDue !== undefined) params.revisionDue = revisionDue;
 
   const response = await axiosClient.get('/problems', { params });
   return response.data.data;
@@ -53,4 +61,19 @@ const updateProblem = async (problemId, updates) => {
   return response.data.data.problem;
 };
 
-export { createProblem, getMyProblems, getProblemById, deleteProblem, updateProblem };
+/**
+ * Update only learning metadata for a problem.
+ */
+const updateProblemLearning = async (problemId, updates) => {
+  const response = await axiosClient.patch(`/problems/${problemId}/learning`, updates);
+  return response.data.data.problem;
+};
+
+export {
+  createProblem,
+  getMyProblems,
+  getProblemById,
+  deleteProblem,
+  updateProblem,
+  updateProblemLearning,
+};

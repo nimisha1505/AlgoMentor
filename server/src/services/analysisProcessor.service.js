@@ -1,6 +1,7 @@
 import { Analysis } from '../models/analysis.model.js';
 import { Problem } from '../models/problem.model.js';
 import { generateProblemAnalysis } from './geminiAnalysis.service.js';
+import { updatePatternProgressFromAnalysis } from './patternProgress.service.js';
 
 /**
  * Atomic processing executor for AI analysis records.
@@ -68,8 +69,8 @@ const processAnalysis = async (analysisId) => {
       }
     );
 
-    // Sync status on related problem to completed
-    await Problem.findOneAndUpdate(
+    // Sync status on related problem to completed, increment practice count and update practicing date
+    const updatedProblem = await Problem.findOneAndUpdate(
       {
         _id: analysis.problem,
         owner: analysis.owner,
@@ -77,9 +78,26 @@ const processAnalysis = async (analysisId) => {
       {
         $set: {
           status: 'completed',
+          lastPractisedAt: new Date(),
         },
+        $inc: {
+          practiceCount: 1,
+        },
+      },
+      {
+        new: true,
       }
     );
+
+    // Update student pattern profile stats dynamically
+    try {
+      await updatePatternProgressFromAnalysis({
+        analysis: completedAnalysis,
+        problem: updatedProblem,
+      });
+    } catch (patternErr) {
+      console.error('Failed to update student pattern progress:', patternErr);
+    }
 
     return completedAnalysis;
   } catch (error) {

@@ -4,6 +4,7 @@ import {
   getMyProblems,
   getProblemById,
   updateProblem,
+  updateProblemLearning,
   deleteProblem,
 } from '../controllers/problem.controller.js';
 import {
@@ -17,6 +18,7 @@ import {
   problemListQuerySchema,
   problemIdParamSchema,
   updateProblemSchema,
+  updateProblemLearningSchema,
 } from '../validators/problem.validator.js';
 import {
   startAnalysisSchema,
@@ -90,6 +92,15 @@ router.patch(
   validateParams(problemIdParamSchema),
   validate(updateProblemSchema),
   updateProblem
+);
+
+// Route to update only learning metadata for a specific problem by ID
+router.patch(
+  '/:problemId/learning',
+  verifyJWT,
+  validateParams(problemIdParamSchema),
+  validate(updateProblemLearningSchema),
+  updateProblemLearning
 );
 
 // Route to delete a specific problem by ID

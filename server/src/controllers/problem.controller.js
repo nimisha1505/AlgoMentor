@@ -16,6 +16,12 @@ const createProblem = asyncHandler(async (req, res) => {
     language,
     code,
     requestedSections,
+    topics,
+    patterns,
+    confidence,
+    isBookmarked,
+    studentNotes,
+    nextRevisionAt,
   } = req.body;
 
   // Save problem in database
@@ -28,6 +34,12 @@ const createProblem = asyncHandler(async (req, res) => {
     language,
     code,
     requestedSections,
+    topics,
+    patterns,
+    confidence,
+    isBookmarked,
+    studentNotes,
+    nextRevisionAt,
   });
 
   return res
@@ -39,12 +51,28 @@ const createProblem = asyncHandler(async (req, res) => {
  * Retrieve saved problems history of the authenticated user with pagination, sorting, and filtering.
  */
 const getMyProblems = asyncHandler(async (req, res) => {
-  const { page, limit, status, language, search } = req.validatedQuery;
+  const {
+    page,
+    limit,
+    status,
+    language,
+    search,
+    topic,
+    confidence,
+    isBookmarked,
+    revisionDue,
+  } = req.validatedQuery;
 
   const filter = { owner: req.user._id };
 
   if (status) filter.status = status;
   if (language) filter.language = language;
+  if (topic) filter.topics = topic;
+  if (confidence) filter.confidence = confidence;
+  if (isBookmarked !== undefined) filter.isBookmarked = isBookmarked;
+  if (revisionDue === true) {
+    filter.nextRevisionAt = { $ne: null, $lte: new Date() };
+  }
 
   if (search) {
     // Escape special characters to prevent regex injection
@@ -59,7 +87,9 @@ const getMyProblems = asyncHandler(async (req, res) => {
     .sort({ createdAt: -1 })
     .skip(skip)
     .limit(limit)
-    .select('title language requestedSections status createdAt updatedAt');
+    .select(
+      'title language requestedSections status createdAt updatedAt topics patterns confidence isBookmarked studentNotes nextRevisionAt lastPractisedAt practiceCount'
+    );
 
   const totalProblems = await Problem.countDocuments(filter);
   const totalPages = Math.ceil(totalProblems / limit);
@@ -119,6 +149,12 @@ const updateProblem = asyncHandler(async (req, res) => {
     language,
     code,
     requestedSections,
+    topics,
+    patterns,
+    confidence,
+    isBookmarked,
+    studentNotes,
+    nextRevisionAt,
   } = req.body;
 
   const updateData = {};
@@ -130,8 +166,14 @@ const updateProblem = asyncHandler(async (req, res) => {
   if (language !== undefined) updateData.language = language;
   if (code !== undefined) updateData.code = code;
   if (requestedSections !== undefined) updateData.requestedSections = requestedSections;
+  if (topics !== undefined) updateData.topics = topics;
+  if (patterns !== undefined) updateData.patterns = patterns;
+  if (confidence !== undefined) updateData.confidence = confidence;
+  if (isBookmarked !== undefined) updateData.isBookmarked = isBookmarked;
+  if (studentNotes !== undefined) updateData.studentNotes = studentNotes;
+  if (nextRevisionAt !== undefined) updateData.nextRevisionAt = nextRevisionAt;
 
-  // Mark status as 'draft' upon edits
+  // Mark status as 'draft' upon edits to problem specification
   updateData.status = 'draft';
 
   const updatedProblem = await Problem.findOneAndUpdate(
@@ -164,6 +206,59 @@ const updateProblem = asyncHandler(async (req, res) => {
 });
 
 /**
+ * Update ONLY learning metadata for a specific problem owned by the authenticated user.
+ * Does NOT reset status to draft.
+ */
+const updateProblemLearning = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+  const {
+    topics,
+    patterns,
+    confidence,
+    isBookmarked,
+    studentNotes,
+    nextRevisionAt,
+  } = req.body;
+
+  const updateData = {};
+
+  if (topics !== undefined) updateData.topics = topics;
+  if (patterns !== undefined) updateData.patterns = patterns;
+  if (confidence !== undefined) updateData.confidence = confidence;
+  if (isBookmarked !== undefined) updateData.isBookmarked = isBookmarked;
+  if (studentNotes !== undefined) updateData.studentNotes = studentNotes;
+  if (nextRevisionAt !== undefined) updateData.nextRevisionAt = nextRevisionAt;
+
+  const updatedProblem = await Problem.findOneAndUpdate(
+    {
+      _id: problemId,
+      owner: req.user._id,
+    },
+    {
+      $set: updateData,
+    },
+    {
+      new: true,
+      runValidators: true,
+    }
+  );
+
+  if (!updatedProblem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        { problem: updatedProblem },
+        'Problem learning metadata updated successfully'
+      )
+    );
+});
+
+/**
  * Delete a specific problem owned by the authenticated user.
  */
 const deleteProblem = asyncHandler(async (req, res) => {
@@ -188,5 +283,6 @@ export {
   getMyProblems,
   getProblemById,
   updateProblem,
+  updateProblemLearning,
   deleteProblem,
 };

@@ -108,14 +108,94 @@ const problemSchema = new mongoose.Schema(
       default: 'draft',
       index: true,
     },
+    topics: {
+      type: [
+        {
+          type: String,
+          enum: [
+            'arrays',
+            'strings',
+            'hashing',
+            'linkedList',
+            'stack',
+            'queue',
+            'binarySearch',
+            'recursion',
+            'backtracking',
+            'trees',
+            'bst',
+            'heap',
+            'graph',
+            'dynamicProgramming',
+            'greedy',
+            'slidingWindow',
+            'twoPointers',
+            'prefixSum',
+            'bitManipulation',
+            'mathematics',
+            'other',
+          ],
+        },
+      ],
+      default: [],
+    },
+    patterns: {
+      type: [
+        {
+          type: String,
+          trim: true,
+          maxlength: [100, 'Pattern name cannot exceed 100 characters'],
+        },
+      ],
+      default: [],
+      validate: [
+        (val) => val.length <= 20,
+        'Cannot exceed 20 pattern tags',
+      ],
+    },
+    confidence: {
+      type: String,
+      enum: ['weak', 'learning', 'confident', 'mastered'],
+      default: 'learning',
+      index: true,
+    },
+    isBookmarked: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    studentNotes: {
+      type: String,
+      trim: true,
+      maxlength: [5000, 'Student notes cannot exceed 5000 characters'],
+      default: '',
+    },
+    nextRevisionAt: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    lastPractisedAt: {
+      type: Date,
+      default: null,
+    },
+    practiceCount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// Compound index for querying user problems sorted by creation time
+// Compound indexes
 problemSchema.index({ owner: 1, createdAt: -1 });
+problemSchema.index({ owner: 1, confidence: 1 });
+problemSchema.index({ owner: 1, isBookmarked: 1 });
+problemSchema.index({ owner: 1, nextRevisionAt: 1 });
+problemSchema.index({ owner: 1, topics: 1 });
 
 const Problem = mongoose.model('Problem', problemSchema);
 

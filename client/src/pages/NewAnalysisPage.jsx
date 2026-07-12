@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { createProblem } from '../api/problem.api.js';
 import { startProblemAnalysis } from '../api/analysis.api.js';
 import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
@@ -67,15 +67,19 @@ const DEFAULT_SECTIONS = [
 
 const NewAnalysisPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const recommendation = location.state || null;
 
   // Form inputs
-  const [title, setTitle] = useState('');
+  const [title, setTitle] = useState(recommendation?.recommendedTitle || '');
   const [problemStatement, setProblemStatement] = useState('');
   const [language, setLanguage] = useState('cpp');
   const [code, setCode] = useState('');
   const [constraints, setConstraints] = useState(['']);
   const [examples, setExamples] = useState([{ input: '', output: '', explanation: '' }]);
   const [requestedSections, setRequestedSections] = useState(DEFAULT_SECTIONS);
+  const [topics, setTopics] = useState(recommendation?.topic ? [recommendation.topic] : []);
+  const [patterns, setPatterns] = useState(recommendation?.pattern ? [recommendation.pattern] : []);
 
   // Submission / Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -224,6 +228,8 @@ const NewAnalysisPage = () => {
         constraints: cleanConstraints,
         examples: cleanExamples,
         requestedSections,
+        topics,
+        patterns,
       });
 
       problemId = problem._id;
@@ -303,6 +309,16 @@ const NewAnalysisPage = () => {
       <form onSubmit={handleSubmit} className="new-analysis-workspace">
         {/* Left Column: Problem Editor Fields */}
         <div className="workspace-left-col">
+          {recommendation && (
+            <div className="say-in-interview-callout" style={{ marginBottom: '20px', borderLeftColor: 'var(--ai-accent)', backgroundColor: 'var(--ai-soft)' }}>
+              <span className="callout-title" style={{ color: 'var(--ai-accent)', fontWeight: '700' }}>Recommended practice</span>
+              <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
+                Prefilled details for: <strong>{recommendation.recommendedTitle || recommendation.pattern}</strong>. 
+                Please paste or write the full problem statement and examples below before generating your analysis.
+              </p>
+            </div>
+          )}
+
           {/* Section 1: Problem */}
           <div className="editor-card">
             <h3 className="editor-card-title">Problem</h3>

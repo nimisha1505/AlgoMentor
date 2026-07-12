@@ -1,5 +1,69 @@
 import { z } from 'zod';
 
+const topicEnum = z.enum([
+  'arrays',
+  'strings',
+  'hashing',
+  'linkedList',
+  'stack',
+  'queue',
+  'binarySearch',
+  'recursion',
+  'backtracking',
+  'trees',
+  'bst',
+  'heap',
+  'graph',
+  'dynamicProgramming',
+  'greedy',
+  'slidingWindow',
+  'twoPointers',
+  'prefixSum',
+  'bitManipulation',
+  'mathematics',
+  'other',
+]);
+
+const confidenceEnum = z.enum(['weak', 'learning', 'confident', 'mastered']);
+
+const learningMetadataFields = {
+  topics: z
+    .array(topicEnum)
+    .refine((arr) => new Set(arr).size === arr.length, {
+      message: 'Duplicate topics are not allowed',
+    })
+    .default([])
+    .optional(),
+  patterns: z
+    .array(
+      z
+        .string()
+        .trim()
+        .max(100, 'Pattern name cannot exceed 100 characters')
+    )
+    .refine((arr) => new Set(arr).size === arr.length, {
+      message: 'Duplicate patterns are not allowed',
+    })
+    .max(20, 'Cannot exceed 20 pattern tags')
+    .default([])
+    .optional(),
+  confidence: confidenceEnum.default('learning').optional(),
+  isBookmarked: z.boolean().default(false).optional(),
+  studentNotes: z
+    .string()
+    .trim()
+    .max(5000, 'Student notes cannot exceed 5000 characters')
+    .default('')
+    .optional(),
+  nextRevisionAt: z
+    .string()
+    .datetime({ message: 'Invalid ISO date string' })
+    .or(z.date())
+    .nullable()
+    .optional()
+    .transform((val) => (val ? new Date(val) : null)),
+};
+
 // Schema for validating DSA problem creation requests
 const createProblemSchema = z
   .object({
@@ -92,6 +156,7 @@ const createProblemSchema = z
         message: 'Duplicate requested sections are not allowed',
       })
       .default(['problemExplanation', 'exampleExplanation', 'hints']),
+    ...learningMetadataFields,
   })
   .strict()
   .refine(
@@ -109,8 +174,6 @@ const createProblemSchema = z
       path: ['code'],
     }
   );
-
-export { createProblemSchema };
 
 // Schema for validating DSA problem list query parameters
 const problemListQuerySchema = z
@@ -144,10 +207,24 @@ const problemListQuerySchema = z
       .min(1, 'Search query must be at least 1 character')
       .max(100, 'Search query cannot exceed 100 characters')
       .optional(),
+    topic: topicEnum.optional(),
+    confidence: confidenceEnum.optional(),
+    isBookmarked: z
+      .preprocess((val) => {
+        if (val === 'true') return true;
+        if (val === 'false') return false;
+        return val;
+      }, z.boolean())
+      .optional(),
+    revisionDue: z
+      .preprocess((val) => {
+        if (val === 'true') return true;
+        if (val === 'false') return false;
+        return val;
+      }, z.boolean())
+      .optional(),
   })
   .strict();
-
-export { problemListQuerySchema };
 
 // Schema for validating MongoId param
 const problemIdParamSchema = z
@@ -244,6 +321,7 @@ const updateProblemSchema = z
         message: 'Duplicate requested sections are not allowed',
       })
       .optional(),
+    ...learningMetadataFields,
   })
   .strict()
   .refine(
@@ -271,4 +349,56 @@ const updateProblemSchema = z
     }
   );
 
-export { problemIdParamSchema, updateProblemSchema };
+// Schema for updating ONLY learning metadata fields
+const updateProblemLearningSchema = z
+  .object({
+    topics: z
+      .array(topicEnum)
+      .refine((arr) => new Set(arr).size === arr.length, {
+        message: 'Duplicate topics are not allowed',
+      })
+      .optional(),
+    patterns: z
+      .array(
+        z
+          .string()
+          .trim()
+          .max(100, 'Pattern name cannot exceed 100 characters')
+      )
+      .refine((arr) => new Set(arr).size === arr.length, {
+        message: 'Duplicate patterns are not allowed',
+      })
+      .max(20, 'Cannot exceed 20 pattern tags')
+      .optional(),
+    confidence: confidenceEnum.optional(),
+    isBookmarked: z.boolean().optional(),
+    studentNotes: z
+      .string()
+      .trim()
+      .max(5000, 'Student notes cannot exceed 5000 characters')
+      .optional(),
+    nextRevisionAt: z
+      .string()
+      .datetime({ message: 'Invalid ISO date string' })
+      .or(z.date())
+      .nullable()
+      .optional()
+      .transform((val) => (val ? new Date(val) : null)),
+  })
+  .strict()
+  .refine(
+    (data) => {
+      return Object.keys(data).some((key) => data[key] !== undefined);
+    },
+    {
+      message: 'At least one learning field must be provided for update',
+    }
+  );
+
+export {
+  createProblemSchema,
+  problemListQuerySchema,
+  problemIdParamSchema,
+  updateProblemSchema,
+  updateProblemLearningSchema,
+};

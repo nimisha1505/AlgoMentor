@@ -5,6 +5,7 @@ import { errorHandler } from './middlewares/error.middleware.js';
 import { authRouter } from './routes/auth.routes.js';
 import { problemRouter } from './routes/problem.routes.js';
 import { analysisRouter } from './routes/analysis.routes.js';
+import { practiceRouter } from './routes/practice.routes.js';
 
 const app = express();
 
@@ -39,6 +40,9 @@ app.use('/api/v1/problems', problemRouter);
 
 // Analysis routes
 app.use('/api/v1/analyses', analysisRouter);
+
+// Practice dashboard and recommendations routes
+app.use('/api/v1/practice', practiceRouter);
 
 // Global error handling middleware
 app.use(errorHandler);

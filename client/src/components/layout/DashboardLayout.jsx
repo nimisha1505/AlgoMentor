@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
-import { Terminal, LayoutDashboard, PlusCircle, Database, LogOut, Menu, X } from 'lucide-react';
+import { Terminal, LayoutDashboard, PlusCircle, Database, LogOut, Menu, X, RefreshCw } from 'lucide-react';
 
 /**
  * Redesigned DashboardLayout. Features a slim fixed sidebar on desktop
@@ -74,6 +74,15 @@ const DashboardLayout = () => {
               <Database size={16} />
               <span>My Problems</span>
             </NavLink>
+            <NavLink
+              to="/revise"
+              className={({ isActive }) =>
+                isActive ? 'sidebar-link active' : 'sidebar-link'
+              }
+            >
+              <RefreshCw size={16} />
+              <span>Revise Today</span>
+            </NavLink>
           </nav>
         </div>
 
@@ -144,6 +153,16 @@ const DashboardLayout = () => {
           >
             <Database size={16} />
             <span>My Problems</span>
+          </NavLink>
+          <NavLink
+            to="/revise"
+            onClick={() => setMobileMenuOpen(false)}
+            className={({ isActive }) =>
+              isActive ? 'sidebar-link active' : 'sidebar-link'
+            }
+          >
+            <RefreshCw size={16} />
+            <span>Revise Today</span>
           </NavLink>
           <div style={{ borderTop: '1px solid var(--border)', marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', fontWeight: '600' }}>{user?.fullName || user?.username}</span>
