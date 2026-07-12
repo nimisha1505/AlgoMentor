@@ -45,4 +45,12 @@ const deleteProblem = async (problemId) => {
   return response.data;
 };
 
-export { createProblem, getMyProblems, getProblemById, deleteProblem };
+/**
+ * Update a specific problem by ID.
+ */
+const updateProblem = async (problemId, updates) => {
+  const response = await axiosClient.patch(`/problems/${problemId}`, updates);
+  return response.data.data.problem;
+};
+
+export { createProblem, getMyProblems, getProblemById, deleteProblem, updateProblem };

@@ -10,6 +10,7 @@ import {
   startProblemAnalysis,
   getProblemAnalyses,
   getLatestProblemAnalysis,
+  compareAnalyses,
 } from '../controllers/analysis.controller.js';
 import {
   createProblemSchema,
@@ -21,6 +22,9 @@ import {
   startAnalysisSchema,
   analysisListQuerySchema,
 } from '../validators/analysis.validator.js';
+import {
+  analysisComparisonQuerySchema,
+} from '../validators/analysisComparison.validator.js';
 import {
   validate,
   validateQuery,
@@ -35,6 +39,15 @@ router.get('/', verifyJWT, validateQuery(problemListQuerySchema), getMyProblems)
 
 // Route to handle new problem creation (requires authentication and Zod validation)
 router.post('/', verifyJWT, validate(createProblemSchema), createProblem);
+
+// Route to compare two completed analysis attempts
+router.get(
+  '/:problemId/analyses/compare',
+  verifyJWT,
+  validateParams(problemIdParamSchema),
+  validateQuery(analysisComparisonQuerySchema),
+  compareAnalyses
+);
 
 // Route to fetch the latest AI analysis for a specific problem
 router.get(

@@ -77,6 +77,19 @@ const analysisResultSchema = z
           .strict()
       )
       .optional(),
+    missingEdgeCases: z
+      .array(
+        z
+          .object({
+            case: nonEmptyString,
+            whyItMatters: nonEmptyString,
+            howItBreaksCurrentApproach: nonEmptyString,
+            testInput: z.string().default(''),
+          })
+          .strict()
+      )
+      .min(1)
+      .optional(),
     pattern: z
       .object({
         name: nonEmptyString,
@@ -99,6 +112,18 @@ const analysisResultSchema = z
     pseudocode: z.array(nonEmptyString).min(1).optional(),
     userCodeReview: userCodeReviewSchema.optional(),
     approaches: z.array(approachSchema).min(1).optional(),
+    approachImprovement: z
+      .object({
+        currentStrengths: z.array(nonEmptyString).default([]),
+        bottlenecks: z.array(nonEmptyString).default([]),
+        unnecessaryWork: z.array(nonEmptyString).default([]),
+        nextImprovement: nonEmptyString,
+        improvedApproach: nonEmptyString,
+        patternToLearn: nonEmptyString,
+        questionsToAsk: z.array(nonEmptyString).min(1),
+      })
+      .strict()
+      .optional(),
     approachExplanations: z
       .array(
         z
@@ -260,6 +285,20 @@ const analysisResultJsonSchema = {
         additionalProperties: false,
       },
     },
+    missingEdgeCases: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          case: { type: 'string' },
+          whyItMatters: { type: 'string' },
+          howItBreaksCurrentApproach: { type: 'string' },
+          testInput: { type: 'string' },
+        },
+        required: ['case', 'whyItMatters', 'howItBreaksCurrentApproach'],
+        additionalProperties: false,
+      },
+    },
     pattern: {
       type: 'object',
       properties: {
@@ -341,6 +380,28 @@ const analysisResultJsonSchema = {
         ],
         additionalProperties: false,
       },
+    },
+    approachImprovement: {
+      type: 'object',
+      properties: {
+        currentStrengths: { type: 'array', items: { type: 'string' } },
+        bottlenecks: { type: 'array', items: { type: 'string' } },
+        unnecessaryWork: { type: 'array', items: { type: 'string' } },
+        nextImprovement: { type: 'string' },
+        improvedApproach: { type: 'string' },
+        patternToLearn: { type: 'string' },
+        questionsToAsk: { type: 'array', items: { type: 'string' } },
+      },
+      required: [
+        'currentStrengths',
+        'bottlenecks',
+        'unnecessaryWork',
+        'nextImprovement',
+        'improvedApproach',
+        'patternToLearn',
+        'questionsToAsk',
+      ],
+      additionalProperties: false,
     },
     approachExplanations: {
       type: 'array',
@@ -436,11 +497,13 @@ const SUPPORTED_SECTIONS = [
   'exampleExplanation',
   'constraints',
   'edgeCases',
+  'missingEdgeCases',
   'pattern',
   'hints',
   'pseudocode',
   'userCodeReview',
   'approaches',
+  'approachImprovement',
   'approachExplanations',
   'codes',
   'complexities',

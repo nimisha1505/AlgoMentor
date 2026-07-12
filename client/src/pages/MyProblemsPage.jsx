@@ -7,7 +7,7 @@ import StatusBadge from '../components/common/StatusBadge.jsx';
 import EmptyState from '../components/common/EmptyState.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { Search, RotateCw, Trash2, BookOpen, ExternalLink, PlusCircle } from 'lucide-react';
+import { Search, RotateCw, Trash2, BookOpen, ExternalLink, PlusCircle, Edit3 } from 'lucide-react';
 
 const MyProblemsPage = () => {
   const navigate = useNavigate();
@@ -294,13 +294,21 @@ const MyProblemsPage = () => {
                           <BookOpen size={14} />
                         </Link>
 
+                        <Link
+                          to={`/problems/${problem._id}/edit`}
+                          className="list-action-icon-btn"
+                          title="Edit problem"
+                        >
+                          <Edit3 size={14} />
+                        </Link>
+
                         {normalizedStatus === 'completed' && (
                           <button
                             onClick={() => handleViewLatestAnalysis(problem._id)}
                             disabled={isCardBusy}
                             className="list-action-icon-btn"
                             title="View analysis report"
-                            style={{ color: 'var(--accent)' }}
+                            style={{ color: 'var(--primary)' }}
                           >
                             <ExternalLink size={14} />
                           </button>
@@ -323,7 +331,7 @@ const MyProblemsPage = () => {
                           disabled={isCardBusy}
                           className="list-action-icon-btn danger"
                           title="Delete problem"
-                          style={{ marginLeft: '12px' }}
+                          style={{ marginLeft: '6px' }}
                         >
                           <Trash2 size={14} />
                         </button>

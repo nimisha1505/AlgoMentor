@@ -14,22 +14,24 @@ const SECTIONS_CONFIG = {
     { value: 'inputOutput', label: 'Input and output' },
     { value: 'exampleExplanation', label: 'Example walkthrough' },
     { value: 'constraints', label: 'Constraints' },
-    { value: 'edgeCases', label: 'Edge cases' },
-    { value: 'pattern', label: 'Pattern' },
+    { value: 'edgeCases', label: 'Edge cases list' },
+    { value: 'missingEdgeCases', label: 'Missing edge cases' },
+    { value: 'pattern', label: 'Pattern discovery' },
   ],
   learn: [
     { value: 'hints', label: 'Progressive hints' },
-    { value: 'pseudocode', label: 'Pseudocode' },
-    { value: 'approaches', label: 'Approaches' },
+    { value: 'pseudocode', label: 'Pseudocode outline' },
+    { value: 'approaches', label: 'All approaches' },
     { value: 'approachExplanations', label: 'Approach explanations' },
-    { value: 'codes', label: 'Code solutions' },
-    { value: 'complexities', label: 'Complexity' },
-    { value: 'dryRun', label: 'Dry run' },
-    { value: 'comparison', label: 'Compare approaches' },
+    { value: 'approachImprovement', label: 'Improve my approach' },
+    { value: 'codes', label: 'Reference code solutions' },
+    { value: 'complexities', label: 'Complexity boundaries' },
+    { value: 'dryRun', label: 'Optimal dry run trace' },
+    { value: 'comparison', label: 'Compare solutions' },
   ],
   prepare: [
     { value: 'userCodeReview', label: 'Review my code' },
-    { value: 'interviewExplanation', label: 'Interview answer' },
+    { value: 'interviewExplanation', label: 'Interview answer guide' },
   ],
 };
 
@@ -39,11 +41,13 @@ const ALL_SECTION_KEYS = [
   'exampleExplanation',
   'constraints',
   'edgeCases',
+  'missingEdgeCases',
   'pattern',
   'hints',
   'pseudocode',
   'approaches',
   'approachExplanations',
+  'approachImprovement',
   'codes',
   'complexities',
   'dryRun',
@@ -124,16 +128,33 @@ const NewAnalysisPage = () => {
   const applyPreset = (presetType) => {
     switch (presetType) {
       case 'quickHelp':
-        setRequestedSections(['problemExplanation', 'hints']);
+        setRequestedSections(['problemExplanation', 'pattern', 'hints']);
         break;
-      case 'fullSolution':
-        setRequestedSections(ALL_SECTION_KEYS);
+      case 'learnFully':
+        setRequestedSections([
+          'problemExplanation',
+          'exampleExplanation',
+          'constraints',
+          'edgeCases',
+          'missingEdgeCases',
+          'pattern',
+          'hints',
+          'approaches',
+          'approachExplanations',
+          'approachImprovement',
+          'complexities',
+          'dryRun',
+          'comparison',
+        ]);
+        break;
+      case 'improveSolution':
+        setRequestedSections(['userCodeReview', 'missingEdgeCases', 'approachImprovement', 'complexities']);
+        if (!code.trim()) {
+          alert('Code implementation is required for the "Improve my solution" preset.');
+        }
         break;
       case 'interviewPrep':
-        setRequestedSections(['pattern', 'hints', 'complexities', 'interviewExplanation']);
-        break;
-      case 'codeReview':
-        setRequestedSections(['userCodeReview', 'complexities']);
+        setRequestedSections(['pattern', 'approaches', 'complexities', 'comparison', 'interviewExplanation']);
         break;
       default:
         break;
@@ -476,14 +497,14 @@ const NewAnalysisPage = () => {
               <button type="button" onClick={() => applyPreset('quickHelp')} className="preset-chip-btn">
                 Quick help
               </button>
-              <button type="button" onClick={() => applyPreset('fullSolution')} className="preset-chip-btn">
-                Full solution
+              <button type="button" onClick={() => applyPreset('learnFully')} className="preset-chip-btn">
+                Learn fully
+              </button>
+              <button type="button" onClick={() => applyPreset('improveSolution')} className="preset-chip-btn">
+                Improve solution
               </button>
               <button type="button" onClick={() => applyPreset('interviewPrep')} className="preset-chip-btn">
                 Interview prep
-              </button>
-              <button type="button" onClick={() => applyPreset('codeReview')} className="preset-chip-btn">
-                Code review
               </button>
             </div>
 
@@ -511,17 +532,22 @@ const NewAnalysisPage = () => {
             <div className="options-group">
               <h4 className="options-group-title">Solve</h4>
               <div className="options-checkbox-list">
-                {SECTIONS_CONFIG.learn.map((sec) => (
-                  <label key={sec.value} className="checkbox-chip-label">
-                    <input
-                      type="checkbox"
-                      checked={requestedSections.includes(sec.value)}
-                      onChange={() => handleSectionChange(sec.value)}
-                      disabled={isSubmitting}
-                    />
-                    <span>{sec.label}</span>
-                  </label>
-                ))}
+                {SECTIONS_CONFIG.learn.map((sec) => {
+                  const isAI = sec.value === 'approachImprovement';
+                  return (
+                    <label key={sec.value} className="checkbox-chip-label">
+                      <input
+                        type="checkbox"
+                        checked={requestedSections.includes(sec.value)}
+                        onChange={() => handleSectionChange(sec.value)}
+                        disabled={isSubmitting}
+                      />
+                      <span style={isAI ? { color: 'var(--ai-accent)', fontWeight: '600' } : {}}>
+                        {sec.label}
+                      </span>
+                    </label>
+                  );
+                })}
               </div>
             </div>
 

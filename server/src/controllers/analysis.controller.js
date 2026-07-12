@@ -218,9 +218,81 @@ const getLatestProblemAnalysis = asyncHandler(async (req, res) => {
     );
 });
 
+/**
+ * Compare two completed analysis attempts side by side.
+ */
+const compareAnalyses = asyncHandler(async (req, res) => {
+  const { problemId } = req.validatedParams;
+  const { firstAnalysisId, secondAnalysisId } = req.validatedQuery;
+
+  // 1. Verify problem ownership
+  const problem = await Problem.findOne({
+    _id: problemId,
+    owner: req.user._id,
+  });
+
+  if (!problem) {
+    throw new ApiError(404, 'Problem not found');
+  }
+
+  // 2. Fetch both analyses
+  const firstAnalysis = await Analysis.findOne({
+    _id: firstAnalysisId,
+    problem: problemId,
+    owner: req.user._id,
+  }).select('-owner -__v');
+
+  const secondAnalysis = await Analysis.findOne({
+    _id: secondAnalysisId,
+    problem: problemId,
+    owner: req.user._id,
+  }).select('-owner -__v');
+
+  if (!firstAnalysis || !secondAnalysis) {
+    throw new ApiError(404, 'One or both analyses not found');
+  }
+
+  const firstCreatedAt = firstAnalysis.createdAt;
+  const secondCreatedAt = secondAnalysis.createdAt;
+  const firstStatus = firstAnalysis.status;
+  const secondStatus = secondAnalysis.status;
+
+  const firstSections = firstAnalysis.requestedSections || [];
+  const secondSections = secondAnalysis.requestedSections || [];
+  const requestedSectionsAdded = secondSections.filter((s) => !firstSections.includes(s));
+  const requestedSectionsRemoved = firstSections.filter((s) => !secondSections.includes(s));
+
+  const codeChanged = (firstAnalysis.inputSnapshot?.code || '') !== (secondAnalysis.inputSnapshot?.code || '');
+  const statementChanged = (firstAnalysis.inputSnapshot?.problemStatement || '') !== (secondAnalysis.inputSnapshot?.problemStatement || '');
+  const languageChanged = (firstAnalysis.inputSnapshot?.language || '') !== (secondAnalysis.inputSnapshot?.language || '');
+
+  return res.status(200).json(
+    new ApiResponse(
+      200,
+      {
+        firstAnalysis,
+        secondAnalysis,
+        comparisonSummary: {
+          firstCreatedAt,
+          secondCreatedAt,
+          firstStatus,
+          secondStatus,
+          requestedSectionsAdded,
+          requestedSectionsRemoved,
+          codeChanged,
+          statementChanged,
+          languageChanged,
+        },
+      },
+      'Analyses compared successfully'
+    )
+  );
+});
+
 export {
   startProblemAnalysis,
   getAnalysisById,
   getProblemAnalyses,
   getLatestProblemAnalysis,
+  compareAnalyses,
 };

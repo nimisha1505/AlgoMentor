@@ -24,4 +24,57 @@ const getAnalysisById = async (analysisId) => {
   return response.data.data.analysis;
 };
 
-export { startProblemAnalysis, getLatestProblemAnalysis, getAnalysisById };
+/**
+ * Retrieve paginated history of AI analysis attempts for a specific problem.
+ */
+const getProblemAnalyses = async (problemId, {
+  page = 1,
+  limit = 10,
+  status,
+  sort = 'newest'
+} = {}) => {
+  const params = {};
+  if (page) params.page = page;
+  if (limit) params.limit = limit;
+  if (status) params.status = status;
+  if (sort) params.sort = sort;
+
+  const response = await axiosClient.get(`/problems/${problemId}/analyses`, { params });
+  return response.data.data;
+};
+
+/**
+ * Submit a follow-up question for a completed analysis.
+ */
+const createAnalysisFollowUp = async (analysisId, { question, mode }) => {
+  const response = await axiosClient.post(`/analyses/${analysisId}/follow-ups`, { question, mode });
+  return response.data.data.followUp;
+};
+
+/**
+ * Retrieve previous follow-up questions for a completed analysis.
+ */
+const getAnalysisFollowUps = async (analysisId) => {
+  const response = await axiosClient.get(`/analyses/${analysisId}/follow-ups`);
+  return response.data.data.followUps;
+};
+
+/**
+ * Compare two completed analysis attempts.
+ */
+const compareProblemAnalyses = async (problemId, firstAnalysisId, secondAnalysisId) => {
+  const response = await axiosClient.get(`/problems/${problemId}/analyses/compare`, {
+    params: { firstAnalysisId, secondAnalysisId },
+  });
+  return response.data.data;
+};
+
+export {
+  startProblemAnalysis,
+  getLatestProblemAnalysis,
+  getAnalysisById,
+  getProblemAnalyses,
+  createAnalysisFollowUp,
+  getAnalysisFollowUps,
+  compareProblemAnalyses,
+};
