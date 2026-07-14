@@ -1,5 +1,6 @@
 import rateLimit from 'express-rate-limit';
 
+const isDev = process.env.NODE_ENV === 'development';
 const isTest = process.env.NODE_ENV === 'test';
 
 const loginLimiter = rateLimit({
@@ -16,13 +17,15 @@ const loginLimiter = rateLimit({
 });
 
 const registerLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
+  windowMs: isDev ? 2 * 60 * 1000 : 60 * 60 * 1000,
+  max: isDev ? 20 : 5,
   skip: () => isTest,
   validate: false,
   message: {
     success: false,
-    message: 'Too many registration attempts. Please try again after an hour.',
+    message: isDev
+      ? 'Too many registration attempts. Please wait 2 minutes.'
+      : 'Too many registration attempts. Please try again later.',
   },
   standardHeaders: true,
   legacyHeaders: false,

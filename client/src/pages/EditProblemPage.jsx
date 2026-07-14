@@ -59,6 +59,7 @@ const EditProblemPage = () => {
   const [sourceUrl, setSourceUrl] = useState('');
   const [externalProblemId, setExternalProblemId] = useState('');
   const [difficulty, setDifficulty] = useState('unknown');
+  const [showOptionalDetails, setShowOptionalDetails] = useState(false);
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -251,7 +252,7 @@ const EditProblemPage = () => {
   }
 
   return (
-    <div className="new-analysis-workspace container">
+    <div className="new-analysis-workspace container" style={{ paddingBottom: '80px', paddingTop: '16px' }}>
       {isSubmitting && (
         <div className="loading-overlay">
           <div className="loading-overlay-card">
@@ -269,30 +270,28 @@ const EditProblemPage = () => {
             alignItems: 'center',
             borderBottom: '1px solid var(--border)',
             paddingBottom: '16px',
-            marginBottom: '8px',
+            marginBottom: '16px',
           }}
         >
-          <Link to={`/problems/${problemId}`} className="back-link">
+          <Link to={`/problems/${problemId}`} className="back-link" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
             <ArrowLeft size={14} /> Back to details
           </Link>
           <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Status resets to Draft on edit</span>
         </div>
 
-        <header style={{ marginBottom: '16px' }}>
-          <h1 className="welcome-title">Edit problem draft</h1>
+        <header style={{ marginBottom: '24px' }}>
+          <h1 className="welcome-title" style={{ fontSize: '28px', fontWeight: '800', margin: 0, letterSpacing: '-0.5px' }}>Edit problem draft</h1>
           <p className="welcome-subtitle">Refine description, examples, or code implementation details.</p>
         </header>
 
-        {success && <div className="form-success" style={{ marginBottom: '16px' }}>{success}</div>}
+        {success && <div className="form-success" style={{ marginBottom: '16px', padding: '10px 14px', borderRadius: 'var(--radius-sm)' }}>{success}</div>}
         <FormError message={error} />
 
-        <form className="auth-form" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Section 1: Core specifications */}
-          <div className="editor-card">
-            <h3 className="editor-card-title">Problem Description</h3>
-
+        <form className="auth-form" onSubmit={(e) => e.preventDefault()} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          {/* Main Area: Core specifications */}
+          <div className="editor-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             <div className="form-group">
-              <label htmlFor="title">Problem Title</label>
+              <label htmlFor="title" style={{ fontWeight: '700' }}>Problem Title</label>
               <input
                 id="title"
                 type="text"
@@ -304,8 +303,8 @@ const EditProblemPage = () => {
               {validationErrors.title && <span className="field-error">{validationErrors.title}</span>}
             </div>
 
-            <div className="form-group" style={{ marginTop: '12px' }}>
-              <label htmlFor="problemStatement">Problem Statement</label>
+            <div className="form-group">
+              <label htmlFor="problemStatement" style={{ fontWeight: '700' }}>Problem Statement</label>
               <textarea
                 id="problemStatement"
                 rows={8}
@@ -313,200 +312,35 @@ const EditProblemPage = () => {
                 onChange={(e) => setProblemStatement(e.target.value)}
                 placeholder="Paste the problem description or requirements..."
                 disabled={isSubmitting}
+                style={{ fontSize: '13.5px', lineHeight: '1.5' }}
               />
               {validationErrors.problemStatement && (
                 <span className="field-error">{validationErrors.problemStatement}</span>
               )}
             </div>
 
-            <div className="form-group" style={{ marginTop: '12px' }}>
-              <label htmlFor="language">Programming Language</label>
-              <select
-                id="language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                disabled={isSubmitting}
-              >
-                <option value="cpp">C++</option>
-                <option value="java">Java</option>
-                <option value="python">Python</option>
-                <option value="javascript">JavaScript</option>
-                <option value="c">C</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-
-            <div className="form-row" style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label htmlFor="source">Source</label>
-                <select
-                  id="source"
-                  value={source}
-                  onChange={(e) => setSource(e.target.value)}
-                  disabled={isSubmitting}
-                >
-                  <option value="custom">Custom</option>
-                  <option value="leetcode">LeetCode</option>
-                  <option value="gfg">GeeksforGeeks</option>
-                  <option value="code360">Code360</option>
-                  <option value="codeforces">Codeforces</option>
-                </select>
-              </div>
-
-              <div className="form-group" style={{ flex: 1 }}>
-                <label htmlFor="difficulty">Difficulty</label>
-                <select
-                  id="difficulty"
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value)}
-                  disabled={isSubmitting}
-                >
-                  <option value="unknown">Unknown</option>
-                  <option value="easy">Easy</option>
-                  <option value="medium">Medium</option>
-                  <option value="hard">Hard</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="form-row" style={{ display: 'flex', gap: '16px', marginTop: '16px' }}>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label htmlFor="sourceUrl">Source URL</label>
-                <input
-                  id="sourceUrl"
-                  type="text"
-                  value={sourceUrl}
-                  onChange={(e) => setSourceUrl(e.target.value)}
-                  placeholder="https://leetcode.com/problems/..."
-                  disabled={isSubmitting}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div className="form-group" style={{ flex: 1 }}>
-                <label htmlFor="externalProblemId">External ID (Slug)</label>
-                <input
-                  id="externalProblemId"
-                  type="text"
-                  value={externalProblemId}
-                  onChange={(e) => setExternalProblemId(e.target.value)}
-                  placeholder="e.g. two-sum"
-                  disabled={isSubmitting}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 2: Constraints & Examples */}
-          <div className="editor-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="editor-card-title">Constraints (Optional)</h3>
-              <button
-                type="button"
-                onClick={handleAddConstraint}
-                disabled={isSubmitting}
-                className="btn btn-secondary btn-sm"
-              >
-                <Plus size={12} /> Add
-              </button>
-            </div>
-
-            <div className="dynamic-row-list" style={{ marginTop: '8px' }}>
-              {constraints.length === 0 && (
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  No constraints added.
-                </span>
-              )}
-              {constraints.map((c, idx) => (
-                <div key={idx} className="dynamic-row-item">
-                  <input
-                    type="text"
-                    value={c}
-                    onChange={(e) => handleConstraintChange(idx, e.target.value)}
-                    placeholder="e.g. 1 <= nums.length <= 10^4"
+            {/* Language and Code Editor */}
+            <div className="form-group">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label htmlFor="code" style={{ margin: 0, fontWeight: '700' }}>Code Solution (Optional)</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label htmlFor="language" style={{ margin: 0, fontSize: '12px', color: 'var(--text-secondary)' }}>Language:</label>
+                  <select
+                    id="language"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
                     disabled={isSubmitting}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveConstraint(idx)}
-                    disabled={isSubmitting}
-                    className="row-action-btn"
+                    style={{ width: 'auto', padding: '4px 8px', fontSize: '12.5px', height: '30px' }}
                   >
-                    <Trash2 size={14} />
-                  </button>
+                    <option value="cpp">C++</option>
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="c">C</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
-              ))}
-            </div>
-
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '16px 0' }} />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 className="editor-card-title">Examples (Optional)</h3>
-              <button
-                type="button"
-                onClick={handleAddExample}
-                disabled={isSubmitting}
-                className="btn btn-secondary btn-sm"
-              >
-                <Plus size={12} /> Add
-              </button>
-            </div>
-
-            <div className="examples-edit-grid" style={{ marginTop: '8px' }}>
-              {examples.length === 0 && (
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  No examples added.
-                </span>
-              )}
-              {examples.map((ex, idx) => (
-                <div key={idx} className="example-edit-item">
-                  <div className="example-edit-header">
-                    <span>Example {idx + 1}</span>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveExample(idx)}
-                      disabled={isSubmitting}
-                      className="row-action-btn"
-                    >
-                      <Trash2 size={12} />
-                    </button>
-                  </div>
-                  <div className="example-edit-body">
-                    <input
-                      type="text"
-                      value={ex.input}
-                      onChange={(e) => handleExampleChange(idx, 'input', e.target.value)}
-                      placeholder="Input description..."
-                      disabled={isSubmitting}
-                    />
-                    <input
-                      type="text"
-                      value={ex.output}
-                      onChange={(e) => handleExampleChange(idx, 'output', e.target.value)}
-                      placeholder="Expected output..."
-                      disabled={isSubmitting}
-                    />
-                    <textarea
-                      rows={1}
-                      value={ex.explanation}
-                      onChange={(e) => handleExampleChange(idx, 'explanation', e.target.value)}
-                      placeholder="Walkthrough explanation..."
-                      disabled={isSubmitting}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Section 3: Monaco Code Editor */}
-          <div className="editor-card" style={{ padding: '24px 0' }}>
-            <div style={{ padding: '0 24px' }}>
-              <h3 className="editor-card-title">Your code</h3>
-            </div>
-
-            <div className="form-group" style={{ padding: '0 24px', marginTop: '12px' }}>
+              </div>
               <CodeEditor
                 value={code}
                 onChange={setCode}
@@ -521,10 +355,226 @@ const EditProblemPage = () => {
               )}
             </div>
           </div>
+
+          {/* Collapsible Optional details */}
+          <div style={{ marginTop: '12px' }}>
+            <button
+              type="button"
+              onClick={() => setShowOptionalDetails(!showOptionalDetails)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                width: '100%',
+                padding: '12px 16px',
+                backgroundColor: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-md)',
+                cursor: 'pointer',
+                fontSize: '13.5px',
+                fontWeight: '700',
+                color: 'var(--text-primary)',
+                outline: 'none'
+              }}
+            >
+              <span>Optional details (source, difficulty, constraints, examples)</span>
+              <span>{showOptionalDetails ? '▲ Hide' : '▼ Expand'}</span>
+            </button>
+
+            {showOptionalDetails && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderTop: 'none', borderBottomLeftRadius: 'var(--radius-md)', borderBottomRightRadius: 'var(--radius-md)' }}>
+                
+                {/* Source & Difficulty */}
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ flex: 1, minWidth: '180px' }}>
+                    <label htmlFor="source">Source</label>
+                    <select
+                      id="source"
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      disabled={isSubmitting}
+                    >
+                      <option value="custom">Custom</option>
+                      <option value="leetcode">LeetCode</option>
+                      <option value="gfg">GeeksforGeeks</option>
+                      <option value="code360">Code360</option>
+                      <option value="codeforces">Codeforces</option>
+                    </select>
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1, minWidth: '180px' }}>
+                    <label htmlFor="difficulty">Difficulty</label>
+                    <select
+                      id="difficulty"
+                      value={difficulty}
+                      onChange={(e) => setDifficulty(e.target.value)}
+                      disabled={isSubmitting}
+                    >
+                      <option value="unknown">Unknown</option>
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Source URL & External ID */}
+                <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                  <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+                    <label htmlFor="sourceUrl">Source URL</label>
+                    <input
+                      id="sourceUrl"
+                      type="text"
+                      value={sourceUrl}
+                      onChange={(e) => setSourceUrl(e.target.value)}
+                      placeholder="https://leetcode.com/problems/..."
+                      disabled={isSubmitting}
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1, minWidth: '200px' }}>
+                    <label htmlFor="externalProblemId">External ID (Slug)</label>
+                    <input
+                      id="externalProblemId"
+                      type="text"
+                      value={externalProblemId}
+                      onChange={(e) => setExternalProblemId(e.target.value)}
+                      placeholder="e.g. two-sum"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                </div>
+
+                {/* Constraints */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ margin: 0, fontWeight: '700', fontSize: '13px' }}>Constraints</label>
+                    <button
+                      type="button"
+                      onClick={handleAddConstraint}
+                      disabled={isSubmitting}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '4px 10px', fontSize: '11.5px' }}
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {constraints.length === 0 && (
+                      <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No constraints added.</span>
+                    )}
+                    {constraints.map((c, idx) => (
+                      <div key={idx} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={c}
+                          onChange={(e) => handleConstraintChange(idx, e.target.value)}
+                          placeholder="e.g. 1 <= nums.length <= 10^4"
+                          disabled={isSubmitting}
+                          style={{ flex: 1 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveConstraint(idx)}
+                          disabled={isSubmitting}
+                          className="list-action-icon-btn danger"
+                          style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Examples */}
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ margin: 0, fontWeight: '700', fontSize: '13px' }}>Examples</label>
+                    <button
+                      type="button"
+                      onClick={handleAddExample}
+                      disabled={isSubmitting}
+                      className="btn btn-secondary btn-sm"
+                      style={{ padding: '4px 10px', fontSize: '11.5px' }}
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {examples.length === 0 && (
+                      <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No examples added.</span>
+                    )}
+                    {examples.map((ex, idx) => (
+                      <div key={idx} style={{ padding: '12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)', position: 'relative' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary)' }}>Example {idx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveExample(idx)}
+                            disabled={isSubmitting}
+                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <input
+                            type="text"
+                            value={ex.input}
+                            onChange={(e) => handleExampleChange(idx, 'input', e.target.value)}
+                            placeholder="Input..."
+                            disabled={isSubmitting}
+                          />
+                          <input
+                            type="text"
+                            value={ex.output}
+                            onChange={(e) => handleExampleChange(idx, 'output', e.target.value)}
+                            placeholder="Output..."
+                            disabled={isSubmitting}
+                          />
+                          <textarea
+                            rows={2}
+                            value={ex.explanation}
+                            onChange={(e) => handleExampleChange(idx, 'explanation', e.target.value)}
+                            placeholder="Explanation..."
+                            disabled={isSubmitting}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+          </div>
+
+          {/* Action Buttons: Save Changes (Primary), Save and Analyse (Secondary) */}
+          <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
+            <button
+              type="button"
+              onClick={handleSaveOnly}
+              disabled={isSubmitting}
+              className="btn btn-primary"
+              style={{ flex: 1, padding: '12px 24px', fontSize: '13.5px', fontWeight: '700' }}
+            >
+              Save Changes
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAndRegenerate}
+              disabled={isSubmitting}
+              className="btn btn-secondary"
+              style={{ flex: 1, padding: '12px 24px', fontSize: '13.5px', fontWeight: '600' }}
+            >
+              Save and Analyse Again
+            </button>
+          </div>
         </form>
       </div>
 
-      {/* Right Column: Sticky Option selections and actions */}
+      {/* Right Column: Sticky Option selections */}
       <div className="workspace-right-col">
         <div className="options-sticky-card">
           <header className="options-title-block">
@@ -607,28 +657,10 @@ const EditProblemPage = () => {
 
           {validationErrors.sections && <span className="field-error">{validationErrors.sections}</span>}
 
-          <div className="options-actions-block">
-            <span className="selected-count-label">
+          <div className="options-actions-block" style={{ marginTop: '16px' }}>
+            <span className="selected-count-label" style={{ display: 'block', textAlign: 'center', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
               {requestedSections.length} modules selected
             </span>
-            <button
-              onClick={handleSaveOnly}
-              disabled={isSubmitting}
-              className="btn btn-secondary btn-block"
-              style={{ height: '44px' }}
-            >
-              <Save size={14} />
-              <span>Save draft changes</span>
-            </button>
-            <button
-              onClick={handleSaveAndRegenerate}
-              disabled={isSubmitting}
-              className="btn btn-primary btn-block"
-              style={{ height: '44px' }}
-            >
-              <Play size={14} />
-              <span>Save and regenerate</span>
-            </button>
           </div>
         </div>
       </div>

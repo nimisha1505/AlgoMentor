@@ -221,8 +221,10 @@ const ProblemDetailPage = () => {
 
   const normalizedStatus = (problem.status || '').toLowerCase();
 
+  const [activeTab, setActiveTab] = useState('problem');
+
   return (
-    <div className="problem-detail-workspace container" style={{ paddingBottom: '80px' }}>
+    <div className="problem-detail-workspace container" style={{ paddingBottom: '80px', paddingTop: '16px' }}>
       {actionLoading && (
         <div className="loading-overlay">
           <div className="loading-overlay-card">
@@ -242,57 +244,37 @@ const ProblemDetailPage = () => {
           marginBottom: '24px',
         }}
       >
-        <Link to="/problems" className="back-link">
+        <Link to="/problems" className="back-link" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
           <ArrowLeft size={14} /> Back to My Problems
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span className="reading-tag">{getLanguageLabel(problem.language)}</span>
+          <span className="reading-tag" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: '700' }}>
+            {getLanguageLabel(problem.language)}
+          </span>
           <StatusBadge status={problem.status} />
 
-          <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-sm icon-btn">
+          <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-sm icon-btn" style={{ fontSize: '12px', padding: '6px 12px' }}>
             <Edit3 size={14} />
-            <span>Edit</span>
+            <span>Edit Problem</span>
           </Link>
-
-          {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
-            <button
-              onClick={handleGenerate}
-              disabled={actionLoading}
-              className="btn btn-primary btn-sm icon-btn"
-            >
-              <Play size={14} />
-              <span>Analyse</span>
-            </button>
-          )}
-
-          {normalizedStatus === 'completed' && (
-            <button
-              onClick={handleViewLatest}
-              disabled={actionLoading}
-              className="btn btn-primary btn-sm icon-btn"
-            >
-              <ExternalLink size={14} />
-              <span>View Latest</span>
-            </button>
-          )}
         </div>
       </div>
 
       {/* Header Info */}
-      <header style={{ marginBottom: '32px' }}>
+      <header style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
-          <h1 className="reading-title" style={{ fontSize: '32px', margin: 0 }}>
+          <h1 className="reading-title" style={{ fontSize: '28px', fontWeight: '800', margin: 0, letterSpacing: '-0.5px' }}>
             {problem.title}
           </h1>
           {problem.difficulty && problem.difficulty !== 'unknown' && (
             <span className={`difficulty-badge ${problem.difficulty}`} style={{
               fontSize: '11px',
-              fontWeight: '700',
+              fontWeight: '800',
               textTransform: 'uppercase',
               padding: '2px 8px',
               borderRadius: '12px',
               color: '#ffffff',
-              backgroundColor: problem.difficulty === 'easy' ? 'var(--success)' : problem.difficulty === 'medium' ? 'var(--warning)' : 'var(--danger)'
+              backgroundColor: problem.difficulty === 'easy' ? 'var(--primary)' : problem.difficulty === 'medium' ? 'var(--warning-amber)' : 'var(--danger)'
             }}>
               {problem.difficulty}
             </span>
@@ -331,425 +313,442 @@ const ProblemDetailPage = () => {
       </header>
 
       {/* 2-Column Detail Layout */}
-      <div className="detail-reading-layout" style={{ display: 'grid', gridTemplateColumns: '1.6fr 1fr', gap: '32px' }}>
-        {/* Left Column: Problem Details reading flow */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
-          {/* Statement */}
-          <section className="reading-section">
-            <h3 className="reading-section-title">Problem Statement</h3>
-            <div className="reading-body text-pre-wrap" style={{ marginTop: '8px' }}>
-              {problem.problemStatement}
-            </div>
-          </section>
+      <div className="detail-reading-layout" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '32px', alignItems: 'start' }}>
+        
+        {/* Left Column: Tabbed contents */}
+        <div>
+          {/* Tab Selector Buttons */}
+          <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border)', marginBottom: '24px' }}>
+            {[
+              { id: 'problem', label: 'Problem' },
+              { id: 'solution', label: 'Your Solution' },
+              { id: 'analysis', label: 'Analysis' },
+              { id: 'notes', label: 'Notes' },
+              { id: 'history', label: 'History' }
+            ].map(t => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActiveTab(t.id)}
+                style={{
+                  padding: '10px 16px',
+                  border: 'none',
+                  background: 'none',
+                  borderBottom: activeTab === t.id ? '2px solid var(--primary)' : '2px solid transparent',
+                  color: activeTab === t.id ? 'var(--primary)' : 'var(--text-secondary)',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  fontSize: '13.5px'
+                }}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
 
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border-strong)' }} />
+          {/* Tab Views */}
+          {activeTab === 'problem' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <section className="reading-section">
+                <h3 className="reading-section-title" style={{ fontSize: '16px', fontWeight: '800', marginBottom: '8px' }}>Problem Statement</h3>
+                <div className="reading-body text-pre-wrap" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                  {problem.problemStatement}
+                </div>
+              </section>
 
-          {/* Constraints */}
-          {problem.constraints && problem.constraints.length > 0 && (
-            <section className="reading-section">
-              <h3 className="reading-section-title">Constraints</h3>
-              <ul className="constraints-reading-list" style={{ marginTop: '12px', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {problem.constraints.map((c, idx) => (
-                  <li key={idx} className="learning-body-text">{c}</li>
-                ))}
-              </ul>
-            </section>
-          )}
+              {problem.constraints && problem.constraints.length > 0 && (
+                <section className="reading-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                  <h3 className="reading-section-title" style={{ fontSize: '15px', fontWeight: '800', marginBottom: '8px' }}>Constraints</h3>
+                  <ul style={{ paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13.5px', margin: 0 }}>
+                    {problem.constraints.map((c, idx) => (
+                      <li key={idx} style={{ color: 'var(--text-secondary)' }}>{c}</li>
+                    ))}
+                  </ul>
+                </section>
+              )}
 
-          {problem.constraints && problem.constraints.length > 0 && (
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border-strong)' }} />
-          )}
-
-          {/* Examples */}
-          {problem.examples && problem.examples.length > 0 && (
-            <section className="reading-section">
-              <h3 className="reading-section-title">Examples</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '12px' }}>
-                {problem.examples.map((ex, idx) => (
-                  <div key={idx} className="preview-card-item" style={{ padding: '16px' }}>
-                    <strong style={{ fontSize: '13px', display: 'block', color: 'var(--primary)', marginBottom: '8px' }}>
-                      Example {idx + 1}
-                    </strong>
-                    <p style={{ fontSize: '13px' }}>
-                      <strong>Input:</strong> <code>{ex.input}</code>
-                    </p>
-                    <p style={{ fontSize: '13px', marginTop: '4px' }}>
-                      <strong>Output:</strong> <code>{ex.output}</code>
-                    </p>
-                    {ex.explanation && (
-                      <p style={{ fontSize: '13px', marginTop: '8px', color: 'var(--text-secondary)' }}>
-                        <strong>Explanation:</strong> {ex.explanation}
-                      </p>
-                    )}
+              {problem.examples && problem.examples.length > 0 && (
+                <section className="reading-section" style={{ borderTop: '1px solid var(--border)', paddingTop: '20px' }}>
+                  <h3 className="reading-section-title" style={{ fontSize: '15px', fontWeight: '800', marginBottom: '12px' }}>Examples</h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {problem.examples.map((ex, idx) => (
+                      <div key={idx} style={{ padding: '16px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                        <strong style={{ fontSize: '13px', display: 'block', color: 'var(--primary)', marginBottom: '8px' }}>
+                          Example {idx + 1}
+                        </strong>
+                        <p style={{ fontSize: '13px', margin: '0 0 4px 0' }}>
+                          <strong>Input:</strong> <code>{ex.input}</code>
+                        </p>
+                        <p style={{ fontSize: '13px', margin: '0 0 8px 0' }}>
+                          <strong>Output:</strong> <code>{ex.output}</code>
+                        </p>
+                        {ex.explanation && (
+                          <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-secondary)' }}>
+                            <strong>Explanation:</strong> {ex.explanation}
+                          </p>
+                        )}
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {problem.examples && problem.examples.length > 0 && (
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border-strong)' }} />
-          )}
-
-          {/* Submitted code */}
-          {problem.code && (
-            <section className="reading-section">
-              <h3 className="reading-section-title">Code Submitted</h3>
-              <div style={{ marginTop: '12px' }}>
-                <CodeBlock code={problem.code} language={problem.language} />
-              </div>
-            </section>
-          )}
-
-          {problem.code && (
-            <hr style={{ border: 'none', borderTop: '1px solid var(--border-strong)' }} />
-          )}
-
-          {/* Analysis History Section */}
-          <section className="reading-section" style={{ marginTop: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '6px', marginBottom: '8px' }}>
-              <h3 className="reading-section-title" style={{ border: 'none', paddingBottom: '0', margin: '0' }}>Analysis History</h3>
-              {analyses.length > 1 && (
-                <button
-                  type="button"
-                  disabled={selectedAttempts.length !== 2}
-                  onClick={() => {
-                    const sorted = [...selectedAttempts].sort((a, b) => {
-                      const firstIdx = analyses.findIndex(x => x._id === a);
-                      const secondIdx = analyses.findIndex(x => x._id === b);
-                      return secondIdx - firstIdx;
-                    });
-                    navigate(`/problems/${problemId}/analyses/compare?first=${sorted[0]}&second=${sorted[1]}`);
-                  }}
-                  className="btn btn-primary btn-sm"
-                >
-                  Compare attempts ({selectedAttempts.length}/2)
-                </button>
+                </section>
               )}
             </div>
+          )}
 
-            {analysesLoading ? (
-              <div style={{ padding: '24px 0' }}>
-                <Loader text="Loading attempts timeline..." />
-              </div>
-            ) : analyses.length === 0 ? (
-              <div className="empty-state-container" style={{ padding: '32px 24px' }}>
-                <span className="empty-state-title">No attempts recorded</span>
-                <span className="empty-state-description">
-                  Generate your first analysis report for this problem specification.
-                </span>
-                <div className="empty-state-action">
-                  <button onClick={handleGenerate} className="btn btn-primary btn-sm icon-btn">
-                    <Play size={12} />
-                    <span>Run first analysis</span>
-                  </button>
+          {activeTab === 'solution' && (
+            <section className="reading-section">
+              <h3 className="reading-section-title" style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px' }}>Your Solution</h3>
+              {problem.code ? (
+                <CodeBlock code={problem.code} language={problem.language} />
+              ) : (
+                <div style={{ padding: '24px', textAlign: 'center', backgroundColor: 'var(--bg-page)', border: '1px dashed var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                  <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)', margin: '0 0 12px 0' }}>No code solution submitted yet.</p>
+                  <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-sm">
+                    Add code solution
+                  </Link>
+                </div>
+              )}
+            </section>
+          )}
+
+          {activeTab === 'analysis' && (
+            <section className="reading-section">
+              <h3 className="reading-section-title" style={{ fontSize: '16px', fontWeight: '800', marginBottom: '12px' }}>Analysis Report</h3>
+              <div style={{ padding: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-surface)' }}>
+                <h4 style={{ fontSize: '14.5px', fontWeight: '700', margin: '0 0 8px 0' }}>AlgoMentor DSA Lesson</h4>
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: '0 0 16px 0', lineHeight: '1.5' }}>
+                  Explore conceptual problem explanations, progressive hints, code review checks, edge cases, and runtime complexity dry runs.
+                </p>
+                <div style={{ display: 'flex', gap: '12px' }}>
+                  {normalizedStatus === 'completed' ? (
+                    <>
+                      <button onClick={handleViewLatest} disabled={actionLoading} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '700' }}>
+                        View latest report
+                      </button>
+                      <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '600' }}>
+                        Re-analyse problem
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '700' }}>
+                      Start analysis
+                    </button>
+                  )}
                 </div>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-                {analyses.map((attempt, idx) => {
-                  const attemptNum = analyses.length - idx;
-                  const reqCount = attempt.requestedSections?.length || 0;
-                  const tokenCount = attempt.usage?.totalTokens || 0;
+            </section>
+          )}
 
-                  return (
-                    <div
-                      key={attempt._id}
-                      className="preview-card-item"
-                      style={{
-                        padding: '16px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                        gap: '16px',
-                        borderLeft: selectedAttempts.includes(attempt._id) ? '4px solid var(--primary)' : '1px solid var(--border)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        {attempt.status === 'completed' ? (
-                          <input
-                            type="checkbox"
-                            checked={selectedAttempts.includes(attempt._id)}
-                            onChange={() => handleToggleSelectAttempt(attempt._id)}
-                            style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-                          />
-                        ) : (
-                          <input
-                            type="checkbox"
-                            disabled
-                            style={{ cursor: 'not-allowed', width: '16px', height: '16px', opacity: 0.5 }}
-                            title="Only completed attempts can be compared"
-                          />
-                        )}
+          {activeTab === 'notes' && (
+            <section className="reading-section" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <h3 className="reading-section-title" style={{ fontSize: '16px', fontWeight: '800', marginBottom: '0' }}>Study Notes & Metadata</h3>
+              
+              {learningError && <FormError message={learningError} />}
+              {learningSuccess && (
+                <div style={{ fontSize: '12.5px', color: 'var(--primary)', backgroundColor: 'var(--primary-soft)', padding: '8px 14px', borderRadius: 'var(--radius-sm)' }}>
+                  {learningSuccess}
+                </div>
+              )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>
-                              Attempt {attemptNum}
-                            </strong>
-                            <StatusBadge status={attempt.status} />
-                          </div>
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Clock size={12} />
-                              <span>{new Date(attempt.createdAt).toLocaleDateString()}</span>
-                            </span>
-                            {attempt.modelName && (
+              {/* Private Notes Input */}
+              <div className="form-group">
+                <label htmlFor="tabNotes" style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '700' }}>Private Study Notes</label>
+                <textarea
+                  id="tabNotes"
+                  value={studentNotes}
+                  onChange={(e) => setStudentNotes(e.target.value)}
+                  placeholder="Write observations, tricky points, patterns you struggle with, or complexity summaries..."
+                  maxLength={5000}
+                  rows={6}
+                  style={{ width: '100%', fontSize: '13.5px', padding: '10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', outline: 'none', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Topics Select Grid */}
+              <div className="form-group">
+                <span style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: '700' }}>DSA Topics</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {SUPPORTED_TOPICS.map((topic) => {
+                    const active = topics.includes(topic);
+                    return (
+                      <button
+                        key={topic}
+                        type="button"
+                        onClick={() => handleTopicToggle(topic)}
+                        style={{
+                          fontSize: '12px',
+                          padding: '6px 12px',
+                          border: '1px solid var(--border)',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          backgroundColor: active ? 'var(--primary-soft)' : 'var(--bg-surface)',
+                          color: active ? 'var(--primary)' : 'var(--text-secondary)',
+                          fontWeight: active ? '700' : '600'
+                        }}
+                      >
+                        {topic}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Pattern Tags Edit Panel */}
+              <div className="form-group">
+                <span style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: '700' }}>Pattern Tags</span>
+                {patterns.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {patterns.map((p) => (
+                      <span
+                        key={p}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          fontSize: '11px',
+                          backgroundColor: 'var(--bg-soft)',
+                          border: '1px solid var(--border)',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          textTransform: 'capitalize',
+                        }}
+                      >
+                        <span>{p}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemovePattern(p)}
+                          style={{ border: 'none', background: 'none', padding: '0', display: 'inline-flex', color: 'var(--text-muted)', cursor: 'pointer' }}
+                        >
+                          <X size={10} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <form onSubmit={handleAddPattern} style={{ display: 'flex', gap: '8px', maxWidth: '320px' }}>
+                  <input
+                    type="text"
+                    placeholder="Add pattern e.g. sliding-window"
+                    value={patternInput}
+                    onChange={(e) => setPatternInput(e.target.value)}
+                    maxLength={100}
+                    style={{ flex: 1, padding: '6px 12px', fontSize: '12px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}
+                  />
+                  <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0 12px' }}>
+                    <Plus size={14} />
+                  </button>
+                </form>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
+                <button
+                  type="button"
+                  onClick={handleSaveLearning}
+                  disabled={isSavingLearning}
+                  className="btn btn-primary"
+                  style={{ padding: '10px 24px', fontSize: '13px', fontWeight: '700' }}
+                >
+                  {isSavingLearning ? 'Saving...' : 'Save study changes'}
+                </button>
+              </div>
+            </section>
+          )}
+
+          {activeTab === 'history' && (
+            <section className="reading-section">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px' }}>
+                <h3 className="reading-section-title" style={{ border: 'none', paddingBottom: '0', margin: '0', fontSize: '16px', fontWeight: '800' }}>Analysis History</h3>
+                {analyses.length > 1 && (
+                  <button
+                    type="button"
+                    disabled={selectedAttempts.length !== 2}
+                    onClick={() => {
+                      const sorted = [...selectedAttempts].sort((a, b) => {
+                        const firstIdx = analyses.findIndex(x => x._id === a);
+                        const secondIdx = analyses.findIndex(x => x._id === b);
+                        return secondIdx - firstIdx;
+                      });
+                      navigate(`/problems/${problemId}/analyses/compare?first=${sorted[0]}&second=${sorted[1]}`);
+                    }}
+                    className="btn btn-primary btn-sm"
+                  >
+                    Compare attempts ({selectedAttempts.length}/2)
+                  </button>
+                )}
+              </div>
+
+              {analysesLoading ? (
+                <div style={{ padding: '24px 0' }}>
+                  <Loader text="Loading attempts timeline..." />
+                </div>
+              ) : analyses.length === 0 ? (
+                <div className="empty-state-container" style={{ padding: '32px 24px', textAlign: 'center' }}>
+                  <p style={{ fontSize: '13.5px', color: 'var(--text-secondary)' }}>No attempts recorded.</p>
+                  <button onClick={handleGenerate} className="btn btn-primary btn-sm">
+                    Run analysis
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {analyses.map((attempt, idx) => {
+                    const attemptNum = analyses.length - idx;
+                    const reqCount = attempt.requestedSections?.length || 0;
+                    const tokenCount = attempt.usage?.totalTokens || 0;
+
+                    return (
+                      <div
+                        key={attempt._id}
+                        className="preview-card-item"
+                        style={{
+                          padding: '16px',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '16px',
+                          backgroundColor: 'var(--bg-page)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-sm)',
+                          borderLeft: selectedAttempts.includes(attempt._id) ? '4px solid var(--primary)' : '1px solid var(--border)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {attempt.status === 'completed' ? (
+                            <input
+                              type="checkbox"
+                              checked={selectedAttempts.includes(attempt._id)}
+                              onChange={() => handleToggleSelectAttempt(attempt._id)}
+                              style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                            />
+                          ) : (
+                            <input
+                              type="checkbox"
+                              disabled
+                              style={{ cursor: 'not-allowed', width: '16px', height: '16px', opacity: 0.5 }}
+                            />
+                          )}
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <strong style={{ fontSize: '14px', color: 'var(--text-primary)' }}>
+                                Attempt {attemptNum}
+                              </strong>
+                              <StatusBadge status={attempt.status} />
+                            </div>
+                            <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', flexWrap: 'wrap' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Cpu size={12} />
-                                <span>{attempt.modelName}</span>
+                                <Clock size={12} />
+                                <span>{new Date(attempt.createdAt).toLocaleDateString()}</span>
                               </span>
-                            )}
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <Layers size={12} />
+                              {attempt.modelName && (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <Cpu size={12} />
+                                  <span>{attempt.modelName}</span>
+                                </span>
+                              )}
                               <span>{reqCount} modules</span>
-                            </span>
-                            {tokenCount > 0 && (
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Award size={12} />
-                                <span>{tokenCount} tokens</span>
-                              </span>
-                            )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        {attempt.status === 'completed' && (
-                          <Link to={`/analyses/${attempt._id}`} className="btn btn-secondary btn-sm">
-                            Open report
-                          </Link>
-                        )}
-                        {attempt.status === 'failed' && (
-                          <span style={{ fontSize: '12px', color: 'var(--danger)', marginRight: '8px' }}>
-                            Failed
-                          </span>
-                        )}
-                        {attempt.status === 'processing' && (
-                          <span style={{ fontSize: '12px', color: 'var(--warning)', marginRight: '8px' }}>
-                            Processing...
-                          </span>
-                        )}
-                        {attempt.status === 'queued' && (
-                          <span style={{ fontSize: '12px', color: 'var(--primary)', marginRight: '8px' }}>
-                            Queued...
-                          </span>
-                        )}
+                        <div>
+                          {attempt.status === 'completed' && (
+                            <Link to={`/analyses/${attempt._id}`} className="btn btn-secondary btn-sm">
+                              Open report
+                            </Link>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
         </div>
 
-        {/* Right Column: Summary rail & Learning Panel */}
+        {/* Right Column: Summary rail (learning stats card) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          {/* Quick Actions Card */}
-          <aside className="summary-rail-card" style={{ margin: '0' }}>
-            <div className="rail-section">
-              <span className="rail-label">Status</span>
-              <span className="rail-value">
-                <StatusBadge status={problem.status} />
-              </span>
-            </div>
-
-            <div className="rail-section">
-              <span className="rail-label">Language</span>
-              <span className="rail-value">{getLanguageLabel(problem.language)}</span>
-            </div>
-
-            {/* Practice Metrics Section */}
-            <div className="rail-section">
-              <span className="rail-label">Practice Count</span>
-              <span className="rail-value">{problem.practiceCount || 0} times</span>
-            </div>
-
-            <div className="rail-section">
-              <span className="rail-label">Last Practiced</span>
-              <span className="rail-value">
-                {problem.lastPractisedAt ? new Date(problem.lastPractisedAt).toLocaleDateString() : 'Never'}
-              </span>
-            </div>
-
-            <div className="rail-section">
-              <span className="rail-label">Next Revision</span>
-              <span className="rail-value" style={problem.nextRevisionAt && new Date(problem.nextRevisionAt) <= new Date() ? { color: 'var(--warning)', fontWeight: '600' } : {}}>
-                {problem.nextRevisionAt ? new Date(problem.nextRevisionAt).toLocaleDateString() : 'None scheduled'}
-              </span>
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-block icon-btn">
-                <Edit3 size={14} />
-                <span>Edit problem specification</span>
-              </Link>
-
-              {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
-                <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-primary btn-block">
-                  <Play size={14} />
-                  <span>Analyse problem</span>
-                </button>
-              )}
-
-              {normalizedStatus === 'completed' && (
-                <>
-                  <button onClick={handleViewLatest} disabled={actionLoading} className="btn btn-primary btn-block">
-                    <ExternalLink size={14} />
-                    <span>View latest report</span>
-                  </button>
-                  <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-secondary btn-block">
-                    <RotateCw size={14} />
-                    <span>Re-analyse</span>
-                  </button>
-                </>
-              )}
-            </div>
-          </aside>
-
-          {/* Learning Metadata Panel */}
-          <section className="summary-rail-card" style={{ margin: '0', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '15px', fontWeight: '700', margin: '0' }}>Learning Focus</h3>
+          <aside className="summary-rail-card" style={{ margin: '0', padding: '24px', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-surface)', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: '800', margin: '0' }}>Learning Stats</h3>
               <button
                 type="button"
-                onClick={() => setIsBookmarked(!isBookmarked)}
+                onClick={() => {
+                  setIsBookmarked(!isBookmarked);
+                  updateProblemLearning(problemId, { isBookmarked: !isBookmarked });
+                }}
                 className="clear-text-btn"
-                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', border: 'none', background: 'none' }}
                 title="Toggle Bookmark"
               >
                 <Star size={18} fill={isBookmarked ? 'var(--warning)' : 'none'} stroke={isBookmarked ? 'var(--warning)' : 'var(--text-muted)'} />
               </button>
             </div>
 
-            {learningError && <FormError message={learningError} />}
-            {learningSuccess && (
-              <div style={{ fontSize: '12px', color: 'var(--success)', backgroundColor: 'var(--bg-soft)', padding: '6px 12px', borderRadius: 'var(--radius-sm)' }}>
-                {learningSuccess}
-              </div>
-            )}
-
-            {/* Topics Multi-Select checkboxes */}
-            <div className="form-group">
-              <span className="rail-label" style={{ display: 'block', marginBottom: '6px' }}>DSA Topics</span>
-              <div style={{ maxHeight: '120px', overflowY: 'auto', border: '1px solid var(--border)', padding: '8px', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                {SUPPORTED_TOPICS.map((topic) => (
-                  <label key={topic} style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={topics.includes(topic)}
-                      onChange={() => handleTopicToggle(topic)}
-                    />
-                    <span style={{ textTransform: 'capitalize' }}>{topic}</span>
-                  </label>
-                ))}
-              </div>
+            <div className="rail-section" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span className="rail-label" style={{ color: 'var(--text-secondary)' }}>Difficulty</span>
+              <span className="rail-value" style={{ fontWeight: '700', textTransform: 'uppercase', color: problem.difficulty === 'easy' ? 'var(--primary)' : problem.difficulty === 'medium' ? 'var(--warning-amber)' : 'var(--danger)' }}>
+                {problem.difficulty || 'Unknown'}
+              </span>
             </div>
 
-            {/* Pattern Tag Input */}
-            <div className="form-group">
-              <span className="rail-label" style={{ display: 'block', marginBottom: '4px' }}>Pattern Tags (max 20)</span>
-              
-              {/* Render Tags */}
-              {patterns.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
-                  {patterns.map((p) => (
-                    <span
-                      key={p}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        fontSize: '11px',
-                        backgroundColor: 'var(--bg-soft)',
-                        border: '1px solid var(--border)',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      <span>{p}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemovePattern(p)}
-                        style={{ border: 'none', background: 'none', padding: '0', display: 'inline-flex', color: 'var(--text-muted)', cursor: 'pointer' }}
-                      >
-                        <X size={10} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              <form onSubmit={handleAddPattern} style={{ display: 'flex', gap: '6px' }}>
-                <input
-                  type="text"
-                  placeholder="e.g. hash-map-lookup"
-                  value={patternInput}
-                  onChange={(e) => setPatternInput(e.target.value)}
-                  maxLength={100}
-                  style={{ flex: 1, padding: '4px 8px', fontSize: '12px', height: '30px' }}
-                />
-                <button type="submit" className="btn btn-secondary btn-sm" style={{ padding: '0 8px', height: '30px' }}>
-                  <Plus size={14} />
-                </button>
-              </form>
+            <div className="rail-section" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span className="rail-label" style={{ color: 'var(--text-secondary)' }}>Confidence</span>
+              <span className="rail-value" style={{ fontWeight: '700', textTransform: 'capitalize' }}>
+                {confidence}
+              </span>
             </div>
 
-            {/* Confidence Dropdown */}
-            <div className="form-group">
-              <label htmlFor="confidence" className="rail-label">Confidence</label>
-              <select
-                id="confidence"
-                value={confidence}
-                onChange={(e) => setConfidence(e.target.value)}
-                style={{ fontSize: '13px', padding: '6px', height: '32px' }}
-              >
-                <option value="weak">Weak</option>
-                <option value="learning">Learning</option>
-                <option value="confident">Confident</option>
-                <option value="mastered">Mastered</option>
-              </select>
+            <div className="rail-section" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span className="rail-label" style={{ color: 'var(--text-secondary)' }}>Practice Count</span>
+              <span className="rail-value" style={{ fontWeight: '700' }}>{problem.practiceCount || 0} times</span>
             </div>
 
-            {/* Next Revision Date Calendar Picker */}
-            <div className="form-group">
-              <label htmlFor="nextRevision" className="rail-label">Next Revision Date</label>
+            <div className="rail-section" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span className="rail-label" style={{ color: 'var(--text-secondary)' }}>Last Practiced</span>
+              <span className="rail-value" style={{ fontWeight: '700' }}>
+                {problem.lastPractisedAt ? new Date(problem.lastPractisedAt).toLocaleDateString() : 'Never'}
+              </span>
+            </div>
+
+            {/* Revision Date Picker directly inside the stats card */}
+            <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <label htmlFor="nextRevision" style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Revision Date</label>
               <input
                 id="nextRevision"
                 type="date"
                 value={nextRevisionAt}
-                onChange={(e) => setNextRevisionAt(e.target.value)}
-                style={{ fontSize: '13px', padding: '4px 8px', height: '32px' }}
+                onChange={(e) => {
+                  setNextRevisionAt(e.target.value);
+                  updateProblemLearning(problemId, { nextRevisionAt: e.target.value ? new Date(e.target.value).toISOString() : null });
+                }}
+                style={{ fontSize: '13px', padding: '6px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', outline: 'none' }}
               />
             </div>
 
-            {/* Private Notes Textarea */}
-            <div className="form-group">
-              <label htmlFor="studentNotes" className="rail-label">Private Notes</label>
-              <textarea
-                id="studentNotes"
-                value={studentNotes}
-                onChange={(e) => setStudentNotes(e.target.value)}
-                placeholder="Write observations, tricky points, or code edge cases..."
-                maxLength={5000}
-                rows={3}
-                style={{ fontSize: '12.5px', padding: '6px', minHeight: '60px' }}
-              />
-            </div>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Link to={`/problems/${problem._id}/edit`} className="btn btn-secondary btn-block icon-btn" style={{ padding: '10px', fontSize: '12.5px', fontWeight: '600' }}>
+                <Edit3 size={14} />
+                <span>Edit problem statement</span>
+              </Link>
 
-            <button
-              onClick={handleSaveLearning}
-              disabled={isSavingLearning}
-              className="btn btn-primary btn-block"
-              style={{ padding: '8px 16px' }}
-            >
-              {isSavingLearning ? 'Saving metadata...' : 'Save learning progress'}
-            </button>
-          </section>
+              {normalizedStatus === 'completed' ? (
+                <>
+                  <button onClick={handleViewLatest} disabled={actionLoading} className="btn btn-primary btn-block" style={{ padding: '10px', fontSize: '12.5px', fontWeight: '700' }}>
+                    <ExternalLink size={14} />
+                    <span>View latest analysis</span>
+                  </button>
+                </>
+              ) : (
+                <button onClick={handleGenerate} disabled={actionLoading} className="btn btn-primary btn-block" style={{ padding: '10px', fontSize: '12.5px', fontWeight: '700' }}>
+                  <Play size={14} />
+                  <span>Start analysis</span>
+                </button>
+              )}
+            </div>
+          </aside>
 
         </div>
       </div>

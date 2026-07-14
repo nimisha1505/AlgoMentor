@@ -388,152 +388,166 @@ const MyProblemsPage = () => {
           }
         />
       ) : (
-        <div className="table-card">
-          <table className="problems-list-table">
-            <thead>
-              <tr>
-                <th>Problem</th>
-                <th>Language</th>
-                <th>Status</th>
-                <th>Confidence</th>
-                <th>Revision</th>
-                <th>Modules</th>
-                <th>Updated</th>
-                <th style={{ textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {problems.map((problem) => {
-                const isCardBusy = !!cardActionLoading[problem._id];
-                const normalizedStatus = (problem.status || '').toLowerCase();
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {problems.map((problem) => {
+            const isCardBusy = !!cardActionLoading[problem._id];
+            const normalizedStatus = (problem.status || '').toLowerCase();
+            const hasRevisionToday = problem.nextRevisionAt && new Date(problem.nextRevisionAt) <= new Date();
 
-                return (
-                  <tr key={problem._id}>
-                    <td>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {problem.isBookmarked && (
-                            <Star size={14} fill="var(--warning)" stroke="var(--warning)" style={{ flexShrink: 0 }} />
-                          )}
-                          <Link
-                            to={`/problems/${problem._id}`}
-                            className="problem-row-title-link"
-                            style={{ fontSize: '14px', fontWeight: '700' }}
-                          >
-                            {problem.title}
-                          </Link>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px' }}>
-                          {problem.difficulty && problem.difficulty !== 'unknown' && (
-                            <span style={{
-                              fontWeight: '700',
-                              color: problem.difficulty === 'easy' ? 'var(--success)' : problem.difficulty === 'medium' ? 'var(--warning)' : 'var(--danger)',
-                              textTransform: 'uppercase'
-                            }}>
-                              {problem.difficulty}
-                            </span>
-                          )}
-                          {problem.source && problem.source !== 'custom' && (
-                            <span style={{ color: 'var(--text-secondary)' }}>
-                              • {problem.source === 'gfg' ? 'GeeksforGeeks' : problem.source === 'leetcode' ? 'LeetCode' : problem.source}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="list-meta-text">
-                        {getLanguageLabel(problem.language)}
+            return (
+              <div
+                key={problem._id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '20px',
+                  backgroundColor: 'var(--bg-surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-md)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
+                  gap: '24px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                {/* Left side details */}
+                <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {problem.isBookmarked && (
+                      <Star size={16} fill="var(--warning)" stroke="var(--warning)" style={{ flexShrink: 0 }} />
+                    )}
+                    <Link
+                      to={`/problems/${problem._id}`}
+                      style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', textDecoration: 'none' }}
+                      className="hover-underline"
+                    >
+                      {problem.title}
+                    </Link>
+                  </div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                    {problem.difficulty && problem.difficulty !== 'unknown' && (
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        color: problem.difficulty === 'easy' ? 'var(--primary)' : problem.difficulty === 'medium' ? 'var(--warning-amber)' : 'var(--danger)',
+                        backgroundColor: problem.difficulty === 'easy' ? 'var(--primary-soft)' : problem.difficulty === 'medium' ? 'var(--warning-soft)' : 'var(--danger-soft)',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        textTransform: 'uppercase'
+                      }}>
+                        {problem.difficulty}
                       </span>
-                    </td>
-                    <td>
-                      <StatusBadge status={problem.status} />
-                    </td>
-                    <td>
-                      <span className={`status-badge badge-${problem.confidence || 'learning'}`} style={{ textTransform: 'capitalize' }}>
-                        {problem.confidence || 'learning'}
+                    )}
+
+                    {problem.patterns && problem.patterns.length > 0 && (
+                      <span style={{
+                        fontSize: '11.5px',
+                        fontWeight: '600',
+                        color: 'var(--ai-accent)',
+                        backgroundColor: 'var(--ai-soft)',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                      }}>
+                        💡 {problem.patterns[0]}
                       </span>
-                    </td>
-                    <td>
-                      {problem.nextRevisionAt ? (
-                        <span
-                          style={new Date(problem.nextRevisionAt) <= new Date() ? { color: 'var(--warning)', fontWeight: '600', fontSize: '12px' } : { fontSize: '12px' }}
-                          title="Next scheduled revision"
-                        >
-                          {new Date(problem.nextRevisionAt).toLocaleDateString()}
-                        </span>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>None</span>
-                      )}
-                    </td>
-                    <td>
-                      <span className="list-meta-text">
-                        {problem.requestedSections?.length || 0} modules
+                    )}
+
+                    {problem.source && problem.source !== 'custom' && (
+                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                        • {problem.source === 'gfg' ? 'GeeksforGeeks' : problem.source === 'leetcode' ? 'LeetCode' : problem.source}
                       </span>
-                    </td>
-                    <td>
-                      <span className="list-date-text">
-                        {new Date(problem.updatedAt).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="list-row-actions" style={{ justifyContent: 'flex-end' }}>
-                        <Link
-                          to={`/problems/${problem._id}`}
-                          className="list-action-icon-btn"
-                          title="Open details"
-                        >
-                          <BookOpen size={14} />
-                        </Link>
+                    )}
 
-                        <Link
-                          to={`/problems/${problem._id}/edit`}
-                          className="list-action-icon-btn"
-                          title="Edit problem"
-                        >
-                          <Edit3 size={14} />
-                        </Link>
+                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                      • {getLanguageLabel(problem.language)}
+                    </span>
+                  </div>
+                </div>
 
-                        {normalizedStatus === 'completed' && (
-                          <button
-                            onClick={() => handleViewLatestAnalysis(problem._id)}
-                            disabled={isCardBusy}
-                            className="list-action-icon-btn"
-                            title="View analysis report"
-                            style={{ color: 'var(--primary)' }}
-                          >
-                            <ExternalLink size={14} />
-                          </button>
-                        )}
+                {/* Status and Confidence */}
+                <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700' }}>Confidence</span>
+                    <span style={{
+                      fontSize: '12.5px',
+                      fontWeight: '700',
+                      textTransform: 'capitalize',
+                      color: problem.confidence === 'mastered' ? 'var(--primary)' : problem.confidence === 'weak' ? 'var(--danger)' : 'var(--text-primary)'
+                    }}>
+                      {problem.confidence || 'learning'}
+                    </span>
+                  </div>
 
-                        {(normalizedStatus === 'draft' || normalizedStatus === 'failed') && (
-                          <button
-                            onClick={() => handleRetryAnalysis(problem._id)}
-                            disabled={isCardBusy}
-                            className="list-action-icon-btn"
-                            title="Try again"
-                            style={{ color: 'var(--warning)' }}
-                          >
-                            <RotateCw size={14} />
-                          </button>
-                        )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700' }}>Revision</span>
+                    <span style={{
+                      fontSize: '12.5px',
+                      fontWeight: hasRevisionToday ? '700' : '600',
+                      color: hasRevisionToday ? 'var(--warning-amber)' : 'var(--text-secondary)'
+                    }}>
+                      {problem.nextRevisionAt ? new Date(problem.nextRevisionAt).toLocaleDateString() : 'Not scheduled'}
+                    </span>
+                  </div>
 
-                        <button
-                          onClick={() => handleDelete(problem._id)}
-                          disabled={isCardBusy}
-                          className="list-action-icon-btn danger"
-                          title="Delete problem"
-                          style={{ marginLeft: '6px' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700' }}>Analysis</span>
+                    <StatusBadge status={problem.status} />
+                  </div>
+                </div>
+
+                {/* Right side actions */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <Link
+                    to={`/problems/${problem._id}`}
+                    className="btn btn-secondary"
+                    style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '600' }}
+                  >
+                    Open
+                  </Link>
+
+                  {normalizedStatus === 'completed' ? (
+                    <button
+                      onClick={() => handleViewLatestAnalysis(problem._id)}
+                      disabled={isCardBusy}
+                      className="btn btn-primary"
+                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700' }}
+                    >
+                      Latest Analysis
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRetryAnalysis(problem._id)}
+                      disabled={isCardBusy}
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '600', color: 'var(--warning-amber)' }}
+                    >
+                      Analyse Again
+                    </button>
+                  )}
+
+                  {/* Trash action */}
+                  <button
+                    onClick={() => handleDelete(problem._id)}
+                    disabled={isCardBusy}
+                    className="list-action-icon-btn danger"
+                    style={{
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      padding: '8px',
+                      borderRadius: 'var(--radius-sm)',
+                      color: 'var(--text-muted)',
+                      transition: 'color 0.15s ease'
+                    }}
+                    title="Delete problem"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

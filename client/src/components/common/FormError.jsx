@@ -1,4 +1,5 @@
 import React from 'react';
+import { AlertCircle } from 'lucide-react';
 
 /**
  * Common component to render validation or API errors safely.
@@ -8,7 +9,8 @@ const FormError = ({ message }) => {
 
   return (
     <div className="form-error" role="alert">
-      {message}
+      <AlertCircle size={16} style={{ flexShrink: 0 }} />
+      <span>{message}</span>
     </div>
   );
 };
