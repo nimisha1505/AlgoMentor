@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.js';
-import { getPracticeDashboard, getPracticeRecommendations, getAiUsage, updateRecommendationProgress } from '../api/practice.api.js';
+import { getPracticeDashboard, getPracticeRecommendations, getAiUsage } from '../api/practice.api.js';
 import { getLatestProblemAnalysis } from '../api/analysis.api.js';
 import { getMyProblems } from '../api/problem.api.js';
-import StatusBadge from '../components/common/StatusBadge.jsx';
-import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { PlusCircle, MoreVertical, BookOpen, Sparkles, RefreshCw, ChevronRight, Play } from 'lucide-react';
 
 const DashboardPage = () => {
   const { user } = useAuth();
@@ -20,9 +17,6 @@ const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [openLoadings, setOpenLoadings] = useState({});
-  const [activeRecFeedback, setActiveRecFeedback] = useState(null);
-
-  const firstName = user?.fullName ? user.fullName.split(' ')[0] : (user?.username || 'Student');
 
   const fetchDashboardAndRecommendations = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -79,20 +73,13 @@ const DashboardPage = () => {
     }
   };
 
-  const handleFeedback = async (recKey, feedbackVal) => {
-    try {
-      await updateRecommendationProgress(recKey, { feedback: feedbackVal });
-      setActiveRecFeedback(null);
-      await fetchDashboardAndRecommendations(false);
-    } catch (err) {
-      alert('Failed to save feedback: ' + err.message);
-    }
-  };
-
   if (isLoading) {
     return (
-      <div className="loader-container" style={{ minHeight: '50vh' }}>
-        <Loader text="Loading your learning workspace..." />
+      <div className="db-redesign db-loading-skeleton">
+        <div className="db-skel-header"></div>
+        <div className="db-skel-panel"></div>
+        <div className="db-skel-row"></div>
+        <div className="db-skel-row"></div>
       </div>
     );
   }
@@ -101,9 +88,6 @@ const DashboardPage = () => {
     totalProblems = 0,
     completedProblems = 0,
     revisionDueCount = 0,
-    masteredCount = 0,
-    learningCount = 0,
-    weakCount = 0,
     topWeakPatterns = [],
     reviseToday = [],
   } = dashboardData || {};
@@ -114,183 +98,115 @@ const DashboardPage = () => {
     nextDifficultyStep = [],
   } = recommendationData?.recommendations || {};
 
-  const getWeaknessSignal = (pat) => {
-    if (pat.bruteForceDependenceCount > 0) return 'Brute force dependence';
-    if (pat.missedEdgeCaseCount > 0) return 'Repeated missed edge cases';
-    if (pat.codeIssueCount > 0) return 'Code logic bugs';
-    return 'Needs general practice';
-  };
-
-
   const allRecs = [
     ...weakPatternPractice.map(r => ({ ...r, category: 'weak' })),
     ...importantInterviewPatterns.map(r => ({ ...r, category: 'interview' })),
     ...nextDifficultyStep.map(r => ({ ...r, category: 'nextStep' }))
   ].slice(0, 3);
 
+  let weeklyInsight = null;
+  if (topWeakPatterns.length > 0) {
+    weeklyInsight = `You are improving in problem-solving, but ${topWeakPatterns[0].pattern.toLowerCase()} confidence still needs work.`;
+  } else if (totalProblems > 0) {
+    weeklyInsight = "You're building a solid foundation. Keep reviewing regularly.";
+  }
+
   return (
-    <div className="dashboard-page">
-      
-      {/* Top Row: Welcome strip and AI usage widget */}
-      <div className="dashboard-top-grid">
-        
-        {/* Welcome strip */}
-        <div className="db-welcome-panel">
-          <div>
-            <h1 className="db-welcome-title">Good evening, {firstName} 👋</h1>
-            <p className="db-welcome-subtitle">Ready for one focused DSA session?</p>
-          </div>
-          <div>
-            <Link to="/problems/new" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', fontSize: '14px', fontWeight: '700', height: '44px', borderRadius: '8px' }}>
-              <PlusCircle size={16} />
-              <span>Start a Problem</span>
-            </Link>
-          </div>
+    <div className="db-redesign db-page-container">
+      {error && (
+        <div className="db-error-inline">
+          <FormError message={error} />
+          <button className="db-btn-text" onClick={() => fetchDashboardAndRecommendations(true)}>Retry</button>
         </div>
+      )}
 
-        {/* AI usage widget */}
-        {usageData ? (
-          <div className="db-ai-usage-card">
-            <div className="db-ai-header">
-              <span className="db-ai-title">AI Usage Today</span>
-              <span className="db-ai-value">
-                {usageData.analysisRequests} / {usageData.limits?.analysisRequests || 50}
-              </span>
-            </div>
-            
-            {/* Thin progress bar */}
-            <div className="db-ai-progress-bar">
-              <div style={{
-                width: `${Math.min(100, Math.round(((usageData.analysisRequests || 0) / (usageData.limits?.analysisRequests || 50)) * 100))}%`
-              }}></div>
-            </div>
+      {/* 1. PAGE INTRODUCTION */}
+      <section className="db-intro">
+        <div className="db-intro-content">
+          <span className="db-intro-eyebrow">Your learning workspace</span>
+          <h1 className="db-intro-heading">Continue building your problem-solving process.</h1>
+          <p className="db-intro-support">Pick up where you stopped, revise weak patterns, and practise what will help you improve next.</p>
+        </div>
+        <div className="db-intro-action">
+          <Link to="/problems/new" className="db-btn-primary">Learn a Problem</Link>
+        </div>
+      </section>
 
-            <div className="db-ai-subtext">
-              {usageData.remaining?.analysisRequests || 0} remaining analyses
-            </div>
-          </div>
-        ) : (
-          <div className="db-ai-usage-card">
-            <span className="db-ai-title">AI Usage Today</span>
-            <div className="db-ai-subtext">Usage statistics not available.</div>
-          </div>
-        )}
-      </div>
+      <div className="db-divider-main"></div>
 
-      {error && <FormError message={error} />}
-
-      {/* Main Content Row: Two columns */}
-      <div className="dashboard-content-grid">
-        
-        {/* Left Column: Continue Learning and Recommended For You */}
-        <div className="db-left-col">
-          
-          {/* Continue Learning card */}
-          <section className="db-card-panel continue-learning-card" style={{ minHeight: '245px', padding: '24px' }}>
-            <div className="db-continue-bg-accent"></div>
-            <h3 className="db-section-header" style={{ fontSize: '18px', marginBottom: '16px' }}>Continue Learning</h3>
-
+      <div className="db-main-layout">
+        <div className="db-col-main">
+          {/* 2. CURRENT LEARNING */}
+          <section className="db-section">
+            <h2 className="db-section-title">Current Learning</h2>
             {continueProblem ? (
-              <div className="continue-learning-box-content">
-                <div>
-                  <h4 className="continue-problem-title" style={{ fontSize: '22px' }}>{continueProblem.title}</h4>
-                  <div className="continue-problem-tags" style={{ marginTop: '8px' }}>
-                    {continueProblem.patterns && continueProblem.patterns.length > 0 && (
-                      <span className="continue-meta-tag">💡 {continueProblem.patterns[0]}</span>
-                    )}
-                    <span className="continue-problem-sub-meta">
-                      • Status: <StatusBadge status={continueProblem.status} />
-                    </span>
+              <div className="db-current-panel">
+                <div className="db-current-info">
+                  <h3 className="db-current-title">{continueProblem.title}</h3>
+                  <div className="db-current-meta">
+                    <span>{continueProblem.difficulty || 'Medium'}</span>
+                    <span className="db-meta-dot">·</span>
+                    <span>{continueProblem.patterns && continueProblem.patterns.length > 0 ? continueProblem.patterns[0] : 'Uncategorised'}</span>
+                  </div>
+                  <div className="db-current-status">
+                    Last activity: {new Date(continueProblem.updatedAt).toLocaleDateString()}
                   </div>
                 </div>
-
-                <div className="continue-problem-activity" style={{ fontSize: '14px', color: '#667085' }}>
-                  You were analysing hints
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', zIndex: 5 }}>
-                  <span className="continue-problem-sub-meta" style={{ fontSize: '13px' }}>
-                    Last activity: {new Date(continueProblem.updatedAt).toLocaleDateString()}
-                  </span>
+                <div className="db-current-actions">
                   <button
                     onClick={() => handleOpenProblem(continueProblem)}
                     disabled={openLoadings[continueProblem._id]}
-                    className="btn btn-primary"
-                    style={{ padding: '10px 24px', fontSize: '14px', fontWeight: '700', height: '42px', borderRadius: '8px' }}
+                    className="db-btn-secondary"
                   >
-                    {openLoadings[continueProblem._id] ? 'Opening...' : 'Continue'}
+                    View Problem
+                  </button>
+                  <button
+                    onClick={() => handleOpenProblem(continueProblem)}
+                    disabled={openLoadings[continueProblem._id]}
+                    className="db-btn-primary"
+                  >
+                    {openLoadings[continueProblem._id] ? 'Loading...' : 'Continue Learning'}
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="continue-learning-empty" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', flexGrow: 1, padding: '20px' }}>
-                <h4 className="continue-empty-title" style={{ fontSize: '18px', fontWeight: '700', color: '#17212B', margin: 0 }}>
-                  Start your first learning session
-                </h4>
-                <p className="continue-empty-text" style={{ fontSize: '14px', color: '#667085', margin: 0, textAlign: 'center', maxWidth: '480px' }}>
-                  Add a problem and AlgoMentor will begin building your personalised learning path from your real attempts.
-                </p>
-                <Link to="/problems/new" className="btn btn-primary" style={{ padding: '10px 24px', fontSize: '14px', fontWeight: '700', height: '42px', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', marginTop: '8px' }}>
-                  Analyse a Problem
-                </Link>
+              <div className="db-current-panel db-empty-current">
+                <p className="db-empty-text">No active problem yet.<br/>Start with a problem you want to understand deeply.</p>
+                <Link to="/problems/new" className="db-btn-primary" style={{ marginTop: '12px' }}>Learn a Problem</Link>
               </div>
             )}
           </section>
 
-          {/* Recommended For You */}
-          <section className="db-card-panel">
-            <div className="db-section-header-row" style={{ marginBottom: '20px' }}>
-              <h3 className="db-section-header">Recommended For You</h3>
+          {/* 3. RECOMMENDED NEXT */}
+          <section className="db-section" style={{ marginTop: '48px' }}>
+            <div className="db-section-header">
+              <h2 className="db-section-title">Recommended Next</h2>
+              <p className="db-section-subtitle">Practice chosen from your weak areas and recent attempts.</p>
             </div>
-
             {allRecs.length === 0 ? (
-              <div className="revision-empty-box" style={{ padding: '36px', textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: '14px', color: '#667085' }}>Complete analyses to unlock personalized recommended problems.</p>
+              <div className="db-empty-row">
+                <p>No recommendations yet. Complete one problem so AlgoMentor can personalise your practice.</p>
               </div>
             ) : (
-              <div className="db-recs-grid">
-                {allRecs.map((recommendation, idx) => (
-                  <div key={idx} className="db-rec-card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <span className={`difficulty-indicator-${recommendation.difficulty || 'unknown'}`}>
-                        {recommendation.difficulty || 'medium'}
-                      </span>
-
-                      {/* Feedback three-dot menu */}
-                      <div style={{ position: 'relative' }}>
-                        <button
-                          type="button"
-                          onClick={() => setActiveRecFeedback(activeRecFeedback === idx ? null : idx)}
-                          style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '2px' }}
-                        >
-                          <MoreVertical size={18} />
-                        </button>
-                        {activeRecFeedback === idx && (
-                          <div className="db-feedback-dropdown">
-                            <span className="db-dropdown-title">Feedback</span>
-                            <button onClick={() => handleFeedback(recommendation.recommendationKey, 'tooEasy')}>Too Easy</button>
-                            <button onClick={() => handleFeedback(recommendation.recommendationKey, 'tooDifficult')}>Too Difficult</button>
-                            <button onClick={() => handleFeedback(recommendation.recommendationKey, 'notRelevant')}>Not Relevant</button>
-                          </div>
-                        )}
+              <div className="db-list">
+                {allRecs.map((rec, idx) => (
+                  <div key={idx} className="db-list-row">
+                    <div className="db-row-content">
+                      <h4 className="db-row-title">{rec.title}</h4>
+                      <div className="db-row-meta">
+                        <span>{rec.difficulty || 'Medium'}</span>
+                        <span className="db-meta-dot">·</span>
+                        <span>{rec.pattern || 'Pattern'}</span>
                       </div>
+                      <p className="db-row-desc">{rec.reason}</p>
                     </div>
-
-                    <strong className="db-rec-title">{recommendation.title}</strong>
-                    {recommendation.pattern && <span className="db-rec-pattern">💡 {recommendation.pattern}</span>}
-                    <p className="db-rec-reason">{recommendation.reason}</p>
-
-                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column' }}>
+                    <div className="db-row-action">
+                      {rec.category === 'weak' && <span className="db-priority-label">High Priority</span>}
                       <button
-                        onClick={() => navigate('/problems/new', {
-                          state: {
-                            recommendedProblem: recommendation
-                          }
-                        })}
-                        className="btn btn-primary btn-block"
-                        style={{ padding: '10px 16px', fontSize: '13px', fontWeight: '700', height: '42px', borderRadius: '8px' }}
+                        onClick={() => navigate('/problems/new', { state: { recommendedProblem: rec } })}
+                        className="db-btn-text"
                       >
-                        Practise
+                        Start →
                       </button>
                     </div>
                   </div>
@@ -298,138 +214,95 @@ const DashboardPage = () => {
               </div>
             )}
           </section>
-
         </div>
 
-        {/* Right Column: Today's Revision, Weak Patterns, and Weekly Progress */}
-        <div className="db-right-col">
-          
-          {/* Today's Revision */}
-          <section className="db-card-panel" style={{ padding: '20px' }}>
-            <div className="db-section-header-row" style={{ marginBottom: '16px' }}>
-              <h3 className="db-section-header" style={{ fontSize: '17px' }}>Today’s Revision</h3>
-              {revisionDueCount > 0 && (
-                <Link to="/revise" className="db-view-all-link">
-                  View all
-                </Link>
-              )}
+        <div className="db-col-side">
+          {/* 4. REVISE TODAY */}
+          <section className="db-section">
+            <div className="db-section-header">
+              <h2 className="db-section-title">Revise Today</h2>
+              <p className="db-section-subtitle">Problems due for recall before the solution fades.</p>
             </div>
-
             {reviseToday.length === 0 ? (
-              <div className="revision-empty-box" style={{ padding: '28px', textAlign: 'center' }}>
-                <p style={{ margin: 0, fontSize: '14px', color: '#667085' }}>You are caught up for today.</p>
+              <div className="db-empty-row">
+                <p>Nothing is due today. Your next revision will appear here when scheduled.</p>
               </div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {reviseToday.slice(0, 3).map((problem) => (
-                  <div key={problem._id} className="revision-item-row">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                      <span className="revision-item-title">{problem.title}</span>
-                      <div className="revision-item-meta">
-                        {problem.patterns && problem.patterns.length > 0 && (
-                          <span className="revision-item-pattern">{problem.patterns[0]}</span>
-                        )}
-                        <span>Confidence: {problem.confidence || 0}%</span>
-                        {problem.nextRevisionAt && (
-                          <span>• Due today</span>
-                        )}
+              <div className="db-list">
+                {reviseToday.slice(0, 3).map((problem) => {
+                  const isUrgent = problem.confidence < 50;
+                  return (
+                    <div key={problem._id} className="db-compact-row">
+                      <div className="db-compact-content">
+                        <h4 className="db-compact-title">{problem.title}</h4>
+                        <div className="db-compact-meta">
+                          <span>{problem.patterns?.[0] || 'Uncategorised'}</span>
+                          <span className="db-meta-dot">·</span>
+                          <span>Confidence: {problem.confidence || 0}%</span>
+                        </div>
+                        <div className={`db-due-status ${isUrgent ? 'db-urgent' : ''}`}>
+                          Due today
+                        </div>
+                      </div>
+                      <div className="db-compact-action">
+                        <button
+                          onClick={() => handleOpenProblem(problem)}
+                          disabled={openLoadings[problem._id]}
+                          className="db-btn-text"
+                        >
+                          Review →
+                        </button>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleOpenProblem(problem)}
-                      disabled={openLoadings[problem._id]}
-                      className="btn btn-secondary btn-sm"
-                      style={{ padding: '6px 12px', fontSize: '12px', fontWeight: '700', height: '32px', borderRadius: '8px' }}
-                    >
-                      {openLoadings[problem._id] ? 'Opening...' : 'Revise'}
-                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* 5. WEAK PATTERNS */}
+          <section className="db-section" style={{ marginTop: '48px' }}>
+            <div className="db-section-header">
+              <h2 className="db-section-title">Weak Patterns</h2>
+              <p className="db-section-subtitle">Patterns that need more deliberate practice.</p>
+            </div>
+            {topWeakPatterns.length === 0 ? (
+              <div className="db-empty-row">
+                <p>Weak patterns will appear after a few analysed problems.</p>
+              </div>
+            ) : (
+              <div className="db-progress-list">
+                {topWeakPatterns.slice(0, 4).map((pat, idx) => (
+                  <div key={idx} className="db-progress-row">
+                    <div className="db-progress-labels">
+                      <span className="db-progress-name">{pat.pattern}</span>
+                      <span className="db-progress-val">{Math.round(pat.confidenceScore)}%</span>
+                    </div>
+                    <div className="db-progress-track">
+                      <div className="db-progress-fill" style={{ width: `${Math.round(pat.confidenceScore)}%` }}></div>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </section>
 
-          {/* Weak Patterns */}
-          <section className="db-card-panel" style={{ padding: '20px' }}>
-            <div className="db-section-header-row" style={{ marginBottom: '16px' }}>
-              <h3 className="db-section-header" style={{ fontSize: '17px' }}>Weak Patterns</h3>
-              {topWeakPatterns.length > 0 && (
-                <Link to="/revise" className="db-view-all-link">
-                  View all
-                </Link>
+          {/* 6. THIS WEEK */}
+          <section className="db-section" style={{ marginTop: '48px' }}>
+            <h2 className="db-section-title">This Week</h2>
+            <div className="db-weekly-summary">
+              <p className="db-weekly-stats">
+                {totalProblems} problems studied <span className="db-meta-dot">·</span> {completedProblems} revisions completed <span className="db-meta-dot">·</span> {usageData?.analysisRequests || 0} hints used
+              </p>
+              {weeklyInsight && (
+                <p className="db-weekly-insight">{weeklyInsight}</p>
               )}
             </div>
-
-            {topWeakPatterns.length === 0 ? (
-              <p style={{ fontSize: '14px', color: '#667085', margin: 0, padding: '12px 0' }}>
-                No weakness patterns detected yet. Complete reviews to see weak patterns.
-              </p>
-            ) : (
-              <div className="db-weak-list">
-                {topWeakPatterns.slice(0, 4).map((pat, idx) => (
-                  <div key={idx} className="db-weak-row">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span className="db-weak-name">{pat.pattern}</span>
-                      <span className="db-weak-pct">{Math.round(pat.confidenceScore)}%</span>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="db-weak-progress-bar">
-                      <div style={{ width: `${Math.round(pat.confidenceScore)}%` }}></div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', gap: '12px', flexWrap: 'wrap' }}>
-                      <span className="db-weak-signal">
-                        {getWeaknessSignal(pat)}
-                      </span>
-                      <button
-                        onClick={() => navigate('/problems/new', { state: { topic: pat.topic, pattern: pat.pattern } })}
-                        className="btn btn-secondary btn-sm"
-                        style={{ padding: '4px 12px', fontSize: '12px', height: '28px', fontWeight: '700', borderRadius: '6px' }}
-                      >
-                        Practise
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </section>
-
-          {/* Weekly Progress */}
-          <section className="db-card-panel">
-            <h3 className="db-section-header" style={{ fontSize: '17px', marginBottom: '16px' }}>Weekly Progress</h3>
-            <div className="db-metrics-grid-2x2">
-              <div className="db-metric-item">
-                <span className="db-metric-value-large">{totalProblems}</span>
-                <span className="db-metric-label-text">Problems Practised</span>
-              </div>
-              <div className="db-metric-item">
-                <span className="db-metric-value-large">{completedProblems}</span>
-                <span className="db-metric-label-text">Analyses Completed</span>
-              </div>
-              <div className="db-metric-item">
-                <span className="db-metric-value-large" style={{ color: revisionDueCount > 0 ? '#B7791F' : 'inherit' }}>
-                  {revisionDueCount}
-                </span>
-                <span className="db-metric-label-text">Revisions Due</span>
-              </div>
-              <div className="db-metric-item">
-                <span className="db-metric-value-large">
-                  {user?.learningPreferences?.dailyGoal || 3}
-                </span>
-                <span className="db-metric-label-text">Daily Goal</span>
-              </div>
-            </div>
-          </section>
-
         </div>
-
       </div>
-
     </div>
   );
 };
 
 export default DashboardPage;
-export { DashboardPage };
