@@ -35,6 +35,10 @@
   --radius-sm: 6px;
   --radius-md: 12px;
   --radius-lg: 16px;
+
+  --color-teal: #157A75;
+  --color-teal-soft: #E8F6F4;
+  --color-teal-border: #BFE5DF;
 }
 
 /* Base Styles */
@@ -4519,3 +4523,208 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
     gap: 36px;
   }
 }
+
+/* --- New Analysis Page Scoped Styles --- */
+.new-analysis-page .workspace-page-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 24px;
+  margin-bottom: 32px;
+  display: block;
+}
+
+.new-analysis-page .new-analysis-header-content {
+  max-width: 680px;
+}
+
+.new-analysis-page .new-analysis-eyebrow {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.new-analysis-page .page-title {
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+
+.new-analysis-page .page-subtitle {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.new-analysis-page .workspace-section {
+  margin-bottom: 32px;
+  gap: 28px;
+}
+
+.new-analysis-page .workspace-section-title {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.new-analysis-page .workspace-section-helper {
+  font-size: 13.5px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.new-analysis-page .problem-textarea {
+  border-radius: 10px;
+}
+
+.new-analysis-page .problem-textarea:focus {
+  border-color: var(--color-blue, #2563EB);
+  box-shadow: 0 0 0 3px var(--color-blue-soft, #DBEAFE);
+}
+
+/* Learning Modes Rail */
+.new-analysis-page .rail-option-row {
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  display: flex;
+  gap: 12px;
+  background: var(--bg-surface);
+  transition: all 0.2s;
+  line-height: 1.45;
+}
+
+.new-analysis-page .rail-option-row:hover {
+  background: var(--bg-page);
+}
+
+.new-analysis-page .rail-option-label {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.new-analysis-page .rail-option-description {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.new-analysis-page .rail-radio-circle {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.new-analysis-page .rail-radio-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* Semantic Mode Styles */
+.new-analysis-page .rail-option-row.selected-blue {
+  background: var(--color-blue-soft, #F0F4FF);
+  border-color: var(--color-blue-border, #D6E0FF);
+  border-left: 4px solid var(--color-blue, #2B5CE6);
+}
+.new-analysis-page .rail-option-row.selected-blue .rail-radio-circle {
+  border-color: var(--color-blue, #2B5CE6);
+}
+.new-analysis-page .rail-option-row.selected-blue .rail-radio-dot {
+  background: var(--color-blue, #2B5CE6);
+}
+
+.new-analysis-page .rail-option-row.selected-amber {
+  background: var(--color-amber-soft, #FFF8EB);
+  border-color: var(--color-amber-border, #FFE8B8);
+  border-left: 4px solid var(--color-amber, #D97706);
+}
+.new-analysis-page .rail-option-row.selected-amber .rail-radio-circle {
+  border-color: var(--color-amber, #D97706);
+}
+.new-analysis-page .rail-option-row.selected-amber .rail-radio-dot {
+  background: var(--color-amber, #D97706);
+}
+
+.new-analysis-page .rail-option-row.selected-green {
+  background: var(--color-green-soft, #EAF7F1);
+  border-color: var(--color-green-border, #BDE5D3);
+  border-left: 4px solid var(--color-green, #168B62);
+}
+.new-analysis-page .rail-option-row.selected-green .rail-radio-circle {
+  border-color: var(--color-green, #168B62);
+}
+.new-analysis-page .rail-option-row.selected-green .rail-radio-dot {
+  background: var(--color-green, #168B62);
+}
+
+.new-analysis-page .rail-option-row.selected-violet {
+  background: var(--color-violet-soft, #F5F3FF);
+  border-color: var(--color-violet-border, #E3D9FF);
+  border-left: 4px solid var(--color-violet, #6D5CE7);
+}
+.new-analysis-page .rail-option-row.selected-violet .rail-radio-circle {
+  border-color: var(--color-violet, #6D5CE7);
+}
+.new-analysis-page .rail-option-row.selected-violet .rail-radio-dot {
+  background: var(--color-violet, #6D5CE7);
+}
+
+.new-analysis-page .rail-option-row.selected-teal {
+  background: var(--color-teal-soft, #E8F6F4);
+  border-color: var(--color-teal-border, #BFE5DF);
+  border-left: 4px solid var(--color-teal, #157A75);
+}
+.new-analysis-page .rail-option-row.selected-teal .rail-radio-circle {
+  border-color: var(--color-teal, #157A75);
+}
+.new-analysis-page .rail-option-row.selected-teal .rail-radio-dot {
+  background: var(--color-teal, #157A75);
+}
+
+/* Button colors */
+.new-analysis-page .rail-submit-btn {
+  width: 100%;
+  height: 46px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: none;
+  background-image: none;
+}
+
+.new-analysis-page .rail-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.new-analysis-page .rail-submit-btn.btn-blue { background: var(--color-blue, #2B5CE6); }
+.new-analysis-page .rail-submit-btn.btn-blue:hover:not(:disabled) { background: #1D4ED8; }
+
+.new-analysis-page .rail-submit-btn.btn-amber { background: var(--color-amber, #D97706); }
+.new-analysis-page .rail-submit-btn.btn-amber:hover:not(:disabled) { background: #B45309; }
+
+.new-analysis-page .rail-submit-btn.btn-green { background: var(--color-green, #168B62); }
+.new-analysis-page .rail-submit-btn.btn-green:hover:not(:disabled) { background: #047857; }
+
+.new-analysis-page .rail-submit-btn.btn-violet { background: var(--color-violet, #6D5CE7); }
+.new-analysis-page .rail-submit-btn.btn-violet:hover:not(:disabled) { background: #5B48D9; }
+
+.new-analysis-page .rail-submit-btn.btn-teal { background: var(--color-teal, #157A75); }
+.new-analysis-page .rail-submit-btn.btn-teal:hover:not(:disabled) { background: #0F5C58; }

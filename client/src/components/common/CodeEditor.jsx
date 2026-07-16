@@ -50,11 +50,7 @@ const CodeEditor = ({
             {getLanguageLabel(language)}
           </span>
         </div>
-        {!isCodeReviewSelected && (
-          <span className="editor-warning-indicator" style={{ fontSize: '11px', color: 'var(--warning)', fontStyle: 'italic' }}>
-            Code review module is not selected
-          </span>
-        )}
+
       </div>
 
       <div style={{ position: 'relative', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>

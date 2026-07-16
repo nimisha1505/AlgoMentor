@@ -22,7 +22,7 @@ const LEARNING_MODES = {
     requestedSections: ['problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases'],
     analysisDepth: 'quick',
     requiresCode: false,
-    accentVariant: 'green',
+    accentVariant: 'blue',
   },
   start: {
     label: 'Help Me Start',
@@ -32,7 +32,7 @@ const LEARNING_MODES = {
     requestedSections: ['pattern', 'hints'],
     analysisDepth: 'quick',
     requiresCode: false,
-    accentVariant: 'green',
+    accentVariant: 'amber',
   },
   build: {
     label: 'Build the Solution With Me',
@@ -66,7 +66,7 @@ const LEARNING_MODES = {
     ],
     analysisDepth: 'deep',
     requiresCode: false,
-    accentVariant: 'green',
+    accentVariant: 'teal',
   },
 };
 
@@ -400,10 +400,13 @@ const NewAnalysisPage = () => {
         >
           ← Back
         </button>
-        <h1 className="page-title">Learn this problem</h1>
-        <p className="page-subtitle">
-          Add the question, include your code if you have one, and choose where you need help.
-        </p>
+        <div className="new-analysis-header-content">
+          <span className="new-analysis-eyebrow">Learning workspace</span>
+          <h1 className="page-title">Learn this problem</h1>
+          <p className="page-subtitle">
+            Add the question, include your code if you have one, and choose where you need help.
+          </p>
+        </div>
       </header>
 
       {partialFailure && (
@@ -877,7 +880,7 @@ const NewAnalysisPage = () => {
                 const m = LEARNING_MODES[modeId];
                 const isSelected = selectedMode === modeId;
                 const accentClass = isSelected
-                  ? m.accentVariant === 'violet' ? 'selected-violet' : 'selected-green'
+                  ? `selected-${m.accentVariant}`
                   : '';
                 return (
                   <div
@@ -923,7 +926,7 @@ const NewAnalysisPage = () => {
                 requestedSections.length === 0 ||
                 (LEARNING_MODES[selectedMode]?.requiresCode && (!code || code.trim().length === 0))
               }
-              className="rail-submit-btn"
+              className={`rail-submit-btn btn-${LEARNING_MODES[selectedMode]?.accentVariant || 'blue'}`}
             >
               {isSubmitting
                 ? (LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing...')
