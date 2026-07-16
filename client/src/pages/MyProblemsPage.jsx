@@ -156,398 +156,282 @@ const MyProblemsPage = () => {
   const hasActiveFilters = searchQuery || language || status || topic || confidence || isBookmarked || revisionDue;
 
   return (
-    <div className="my-problems-container container" style={{ paddingBottom: '80px' }}>
-      {/* Page Header */}
-      <div className="page-header-row" style={{ marginBottom: '24px' }}>
-        <div>
-          <h1 className="page-title">My problems</h1>
-          <p className="page-subtitle">Everything you have saved and analysed.</p>
+    <div className="saved-problems-page container">
+      {/* 1. Page Intro */}
+      <section className="sp-intro">
+        <div className="sp-intro-text">
+          <span className="sp-intro-eyebrow">Your learning library</span>
+          <h1 className="sp-intro-heading">Saved Problems</h1>
+          <p className="sp-intro-support">Revisit problems, continue unfinished learning, and review what you have already studied.</p>
         </div>
-        <Link to="/problems/new" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <PlusCircle size={14} />
-          <span>Analyse a problem</span>
-        </Link>
-      </div>
-
-      {/* Top Toolbar */}
-      <form onSubmit={handleSearchSubmit} className="toolbar-row" style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', width: '100%' }}>
-          <div className="search-bar-box" style={{ flex: 1, minWidth: '240px' }}>
-            <Search size={14} className="search-bar-icon" />
-            <input
-              type="text"
-              placeholder="Search saved problems..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          
-          <button type="submit" className="btn btn-secondary">Search</button>
+        <div className="sp-intro-action">
+          <Link to="/problems/new" className="sp-btn-primary">
+            <PlusCircle size={16} />
+            <span>Learn a Problem</span>
+          </Link>
         </div>
+      </section>
 
-        <div className="filter-selects-row" style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div className="filter-select-box">
-            <label htmlFor="lang-filter">Language</label>
-            <select
-              id="lang-filter"
-              value={language}
-              onChange={(e) => {
-                setPage(1);
-                setLanguage(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="cpp">C++</option>
-              <option value="java">Java</option>
-              <option value="python">Python</option>
-              <option value="javascript">JavaScript</option>
-              <option value="c">C</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+      <div className="sp-divider"></div>
 
-          <div className="filter-select-box">
-            <label htmlFor="status-filter">Status</label>
-            <select
-              id="status-filter"
-              value={status}
-              onChange={(e) => {
-                setPage(1);
-                setStatus(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="draft">Draft</option>
-              <option value="queued">Queued</option>
-              <option value="processing">Processing</option>
-              <option value="completed">Completed</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
+      {/* 2. Compact Summary Strip */}
+      {pagination.totalProblems !== undefined && (
+        <div className="sp-summary-strip">
+          <span className="sp-summary-item">
+            <span className="sp-dot db-blue"></span>
+            {pagination.totalProblems} saved
+          </span>
+        </div>
+      )}
 
-          {/* Topic Filter */}
-          <div className="filter-select-box">
-            <label htmlFor="topic-filter">Topic</label>
-            <select
-              id="topic-filter"
-              value={topic}
-              onChange={(e) => {
-                setPage(1);
-                setTopic(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="arrays">Arrays</option>
-              <option value="strings">Strings</option>
-              <option value="hashing">Hashing</option>
-              <option value="linkedList">Linked List</option>
-              <option value="stack">Stack</option>
-              <option value="queue">Queue</option>
-              <option value="binarySearch">Binary Search</option>
-              <option value="recursion">Recursion</option>
-              <option value="backtracking">Backtracking</option>
-              <option value="trees">Trees</option>
-              <option value="bst">BST</option>
-              <option value="heap">Heap</option>
-              <option value="graph">Graph</option>
-              <option value="dynamicProgramming">DP</option>
-              <option value="greedy">Greedy</option>
-              <option value="slidingWindow">Sliding Window</option>
-              <option value="twoPointers">Two Pointers</option>
-              <option value="prefixSum">Prefix Sum</option>
-              <option value="bitManipulation">Bitwise</option>
-              <option value="mathematics">Maths</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
+      {/* 3. Search and Filter Row */}
+      <form onSubmit={handleSearchSubmit} className="sp-toolbar">
+        <div className="sp-search-box">
+          <Search size={16} className="sp-icon-muted" />
+          <input
+            type="text"
+            placeholder="Search saved problems..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        
+        <div className="sp-filters">
+          <select value={difficulty} onChange={(e) => { setPage(1); setDifficulty(e.target.value); }}>
+            <option value="">All Difficulties</option>
+            <option value="unknown">Unknown</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
 
-          {/* Confidence Filter */}
-          <div className="filter-select-box">
-            <label htmlFor="confidence-filter">Confidence</label>
-            <select
-              id="confidence-filter"
-              value={confidence}
-              onChange={(e) => {
-                setPage(1);
-                setConfidence(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="weak">Weak</option>
-              <option value="learning">Learning</option>
-              <option value="confident">Confident</option>
-              <option value="mastered">Mastered</option>
-            </select>
-          </div>
+          <select value={topic} onChange={(e) => { setPage(1); setTopic(e.target.value); }}>
+            <option value="">All Patterns</option>
+            <option value="arrays">Arrays</option>
+            <option value="strings">Strings</option>
+            <option value="hashing">Hashing</option>
+            <option value="linkedList">Linked List</option>
+            <option value="stack">Stack</option>
+            <option value="queue">Queue</option>
+            <option value="binarySearch">Binary Search</option>
+            <option value="recursion">Recursion</option>
+            <option value="backtracking">Backtracking</option>
+            <option value="trees">Trees</option>
+            <option value="bst">BST</option>
+            <option value="heap">Heap</option>
+            <option value="graph">Graph</option>
+            <option value="dynamicProgramming">DP</option>
+            <option value="greedy">Greedy</option>
+            <option value="slidingWindow">Sliding Window</option>
+            <option value="twoPointers">Two Pointers</option>
+            <option value="prefixSum">Prefix Sum</option>
+            <option value="bitManipulation">Bitwise</option>
+            <option value="mathematics">Maths</option>
+            <option value="other">Other</option>
+          </select>
 
-          {/* Source Filter */}
-          <div className="filter-select-box">
-            <label htmlFor="source-filter">Source</label>
-            <select
-              id="source-filter"
-              value={source}
-              onChange={(e) => {
-                setPage(1);
-                setSource(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="custom">Custom</option>
-              <option value="leetcode">LeetCode</option>
-              <option value="gfg">GeeksforGeeks</option>
-              <option value="code360">Code360</option>
-              <option value="codeforces">Codeforces</option>
-            </select>
-          </div>
+          <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value); }}>
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="queued">Queued</option>
+            <option value="processing">Processing</option>
+            <option value="completed">Completed</option>
+            <option value="failed">Failed</option>
+          </select>
 
-          {/* Difficulty Filter */}
-          <div className="filter-select-box">
-            <label htmlFor="difficulty-filter">Difficulty</label>
-            <select
-              id="difficulty-filter"
-              value={difficulty}
-              onChange={(e) => {
-                setPage(1);
-                setDifficulty(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="unknown">Unknown</option>
-              <option value="easy">Easy</option>
-              <option value="medium">Medium</option>
-              <option value="hard">Hard</option>
-            </select>
-          </div>
+          <select value={confidence} onChange={(e) => { setPage(1); setConfidence(e.target.value); }}>
+            <option value="">All Confidences</option>
+            <option value="weak">Weak</option>
+            <option value="learning">Learning</option>
+            <option value="confident">Confident</option>
+            <option value="mastered">Mastered</option>
+          </select>
 
-          {/* Bookmark Filter */}
-          <div className="filter-select-box">
-            <label htmlFor="bookmark-filter">Bookmarks</label>
-            <select
-              id="bookmark-filter"
-              value={isBookmarked}
-              onChange={(e) => {
-                setPage(1);
-                setIsBookmarked(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="true">Bookmarked</option>
-              <option value="false">Unbookmarked</option>
-            </select>
-          </div>
+          <select value={revisionDue} onChange={(e) => { setPage(1); setRevisionDue(e.target.value); }}>
+            <option value="">All Revisions</option>
+            <option value="true">Revision Due Today</option>
+          </select>
 
-          {/* Revision Due Filter */}
-          <div className="filter-select-box">
-            <label htmlFor="revision-filter">Revision</label>
-            <select
-              id="revision-filter"
-              value={revisionDue}
-              onChange={(e) => {
-                setPage(1);
-                setRevisionDue(e.target.value);
-              }}
-            >
-              <option value="">All</option>
-              <option value="true">Revision Due Today</option>
-            </select>
-          </div>
+          <select value={language} onChange={(e) => { setPage(1); setLanguage(e.target.value); }}>
+            <option value="">All Languages</option>
+            <option value="cpp">C++</option>
+            <option value="java">Java</option>
+            <option value="python">Python</option>
+            <option value="javascript">JavaScript</option>
+            <option value="c">C</option>
+            <option value="other">Other</option>
+          </select>
+
+          <select value={source} onChange={(e) => { setPage(1); setSource(e.target.value); }}>
+            <option value="">All Sources</option>
+            <option value="custom">Custom</option>
+            <option value="leetcode">LeetCode</option>
+            <option value="gfg">GeeksforGeeks</option>
+            <option value="code360">Code360</option>
+            <option value="codeforces">Codeforces</option>
+          </select>
+
+          <select value={isBookmarked} onChange={(e) => { setPage(1); setIsBookmarked(e.target.value); }}>
+            <option value="">All Bookmarks</option>
+            <option value="true">Bookmarked</option>
+            <option value="false">Unbookmarked</option>
+          </select>
+
+          <button type="submit" className="sp-btn-secondary">Search</button>
 
           {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="clear-text-btn"
-              style={{ fontWeight: '600', marginLeft: '12px' }}
-            >
+            <button type="button" onClick={handleClearFilters} className="sp-btn-text">
               Clear Filters
             </button>
           )}
         </div>
       </form>
 
-      {generalError && <FormError message={generalError} />}
+      {/* 7. Error State */}
+      {generalError && (
+        <div className="sp-error-inline">
+          <span>We couldn’t load your saved problems.</span>
+          <button onClick={() => fetchProblems()} className="sp-btn-text">Try Again</button>
+        </div>
+      )}
 
+      {/* 6. Loading State */}
       {isLoading ? (
-        <div className="loader-container">
-          <Loader text="Fetching saved problems..." />
+        <div className="sp-loading-skeleton">
+          <div className="sp-skel-title"></div>
+          <div className="sp-skel-toolbar"></div>
+          <div className="sp-skel-row"></div>
+          <div className="sp-skel-row"></div>
+          <div className="sp-skel-row"></div>
+          <div className="sp-skel-row"></div>
         </div>
       ) : problems.length === 0 ? (
-        <EmptyState
-          title="No saved problems yet"
-          description={
-            hasActiveFilters
-              ? "No saved problems match these filters."
-              : "Start with a problem you recently found difficult."
-          }
-          action={
-            !hasActiveFilters ? (
-              <Link to="/problems/new" className="btn btn-primary">
-                Analyse your first problem
-              </Link>
-            ) : null
-          }
-        />
+        /* 5. Empty State */
+        <div className="sp-empty">
+          <p className="sp-empty-text">No saved problems yet.<br/>Start with a problem you want to understand deeply.</p>
+          <Link to="/problems/new" className="sp-btn-primary">Learn a Problem</Link>
+        </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        /* 4. Saved Problem List */
+        <div className="sp-list">
           {problems.map((problem) => {
             const isCardBusy = !!cardActionLoading[problem._id];
             const normalizedStatus = (problem.status || '').toLowerCase();
             const hasRevisionToday = problem.nextRevisionAt && new Date(problem.nextRevisionAt) <= new Date();
+            
+            // Status mapping
+            let statusText = 'Not started';
+            if (normalizedStatus === 'draft') statusText = 'Not started';
+            else if (normalizedStatus === 'queued') statusText = 'Queued';
+            else if (normalizedStatus === 'processing') statusText = 'Analyzing';
+            else if (normalizedStatus === 'completed') statusText = 'Complete';
+            else if (normalizedStatus === 'failed') statusText = 'Failed';
 
+            // Confidence handling
+            const confRaw = (problem.confidence || 'learning').toLowerCase();
+            let confPct = 50; 
+            let confColorClass = 'sp-conf-blue';
+            if (confRaw === 'weak') { confPct = 25; confColorClass = 'sp-conf-amber'; }
+            else if (confRaw === 'mastered') { confPct = 90; confColorClass = 'sp-conf-green'; }
+            else if (confRaw === 'confident') { confPct = 75; confColorClass = 'sp-conf-green'; }
+
+            // Row color logic
+            let rowAccent = 'sp-accent-blue'; 
+            if (normalizedStatus === 'completed' || confRaw === 'mastered') rowAccent = 'sp-accent-green';
+            else if (normalizedStatus === 'processing') rowAccent = 'sp-accent-violet';
+            else if (hasRevisionToday) rowAccent = 'sp-accent-amber';
+            else if (normalizedStatus === 'failed') rowAccent = 'sp-accent-red';
+
+            // Difficulty styling
+            const diff = (problem.difficulty || 'unknown').toLowerCase();
+            let diffClass = '';
+            if (diff === 'easy') diffClass = 'sp-diff-easy';
+            if (diff === 'medium') diffClass = 'sp-diff-medium';
+            if (diff === 'hard') diffClass = 'sp-diff-hard';
+
+            // Revision string
+            let revText = 'Not scheduled';
+            if (hasRevisionToday) {
+              revText = 'Due today';
+            } else if (problem.nextRevisionAt) {
+              const days = Math.ceil((new Date(problem.nextRevisionAt) - new Date()) / (1000 * 60 * 60 * 24));
+              if (days === 1) revText = 'Due tomorrow';
+              else if (days > 1) revText = `In ${days} days`;
+            }
+            
             return (
-              <div
-                key={problem._id}
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '20px',
-                  backgroundColor: 'var(--bg-surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-md)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.01)',
-                  gap: '24px',
-                  flexWrap: 'wrap'
-                }}
-              >
-                {/* Left side details */}
-                <div style={{ flex: 1, minWidth: '240px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div key={problem._id} className={`sp-row ${rowAccent}`}>
+                <div className="sp-col-left">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {problem.isBookmarked && (
-                      <Star size={16} fill="var(--warning)" stroke="var(--warning)" style={{ flexShrink: 0 }} />
-                    )}
-                    <Link
-                      to={`/problems/${problem._id}`}
-                      style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-primary)', textDecoration: 'none' }}
-                      className="hover-underline"
-                    >
+                    {problem.isBookmarked && <Star size={14} fill="#c98512" stroke="#c98512" />}
+                    <Link to={`/problems/${problem._id}`} className="sp-problem-title">
                       {problem.title}
                     </Link>
                   </div>
-
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                    {problem.difficulty && problem.difficulty !== 'unknown' && (
-                      <span style={{
-                        fontSize: '11px',
-                        fontWeight: '800',
-                        color: problem.difficulty === 'easy' ? 'var(--primary)' : problem.difficulty === 'medium' ? 'var(--warning-amber)' : 'var(--danger)',
-                        backgroundColor: problem.difficulty === 'easy' ? 'var(--primary-soft)' : problem.difficulty === 'medium' ? 'var(--warning-soft)' : 'var(--danger-soft)',
-                        padding: '3px 8px',
-                        borderRadius: '12px',
-                        textTransform: 'uppercase'
-                      }}>
-                        {problem.difficulty}
-                      </span>
-                    )}
-
-                    {problem.patterns && problem.patterns.length > 0 && (
-                      <span style={{
-                        fontSize: '11.5px',
-                        fontWeight: '600',
-                        color: 'var(--ai-accent)',
-                        backgroundColor: 'var(--ai-soft)',
-                        padding: '3px 8px',
-                        borderRadius: '12px',
-                      }}>
-                        💡 {problem.patterns[0]}
-                      </span>
-                    )}
-
-                    {problem.source && problem.source !== 'custom' && (
-                      <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        • {problem.source === 'gfg' ? 'GeeksforGeeks' : problem.source === 'leetcode' ? 'LeetCode' : problem.source}
-                      </span>
-                    )}
-
-                    <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                      • {getLanguageLabel(problem.language)}
+                  <div className="sp-problem-meta">
+                    {diff !== 'unknown' && <span className={`sp-diff-badge ${diffClass}`}>{diff}</span>}
+                    {diff !== 'unknown' && <span className="sp-dot-separator">·</span>}
+                    <span className="sp-meta-text">
+                      {problem.patterns && problem.patterns.length > 0 ? problem.patterns[0] : 'Uncategorised'}
                     </span>
+                  </div>
+                  <div className="sp-problem-date">
+                     {problem.updatedAt ? `Last studied ${new Date(problem.updatedAt).toLocaleDateString()}` : 'No activity'}
+                  </div>
+                  <div className="sp-problem-status-text">
+                    {statusText}
                   </div>
                 </div>
 
-                {/* Status and Confidence */}
-                <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700' }}>Confidence</span>
-                    <span style={{
-                      fontSize: '12.5px',
-                      fontWeight: '700',
-                      textTransform: 'capitalize',
-                      color: problem.confidence === 'mastered' ? 'var(--primary)' : problem.confidence === 'weak' ? 'var(--danger)' : 'var(--text-primary)'
-                    }}>
-                      {problem.confidence || 'learning'}
-                    </span>
+                <div className="sp-col-center">
+                  <div className="sp-conf-block">
+                    <span className="sp-conf-label">Confidence {confPct}%</span>
+                    <div className="sp-conf-track">
+                      <div className={`sp-conf-fill ${confColorClass}`} style={{ width: `${confPct}%` }}></div>
+                    </div>
                   </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700' }}>Revision</span>
-                    <span style={{
-                      fontSize: '12.5px',
-                      fontWeight: hasRevisionToday ? '700' : '600',
-                      color: hasRevisionToday ? 'var(--warning-amber)' : 'var(--text-secondary)'
-                    }}>
-                      {problem.nextRevisionAt ? new Date(problem.nextRevisionAt).toLocaleDateString() : 'Not scheduled'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                    <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--text-muted)', fontWeight: '700' }}>Analysis</span>
-                    <StatusBadge status={problem.status} />
+                  <div className={`sp-rev-block ${hasRevisionToday ? 'sp-rev-due' : ''}`}>
+                    {hasRevisionToday ? 'Revision due' : `Revision in ${revText === 'Not scheduled' ? 'N/A' : revText.replace('In ', '')}`}
                   </div>
                 </div>
 
-                {/* Right side actions */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                  <Link
-                    to={`/problems/${problem._id}`}
-                    className="btn btn-secondary"
-                    style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '600' }}
-                  >
-                    Open
-                  </Link>
-
+                <div className="sp-col-right">
                   {normalizedStatus === 'completed' ? (
-                    <button
-                      onClick={() => handleViewLatestAnalysis(problem._id)}
-                      disabled={isCardBusy}
-                      className="btn btn-primary"
-                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '700' }}
-                    >
-                      Latest Analysis
-                    </button>
+                     <button onClick={() => handleViewLatestAnalysis(problem._id)} disabled={isCardBusy} className="sp-btn-text">
+                        Continue →
+                     </button>
                   ) : (
-                    <button
-                      onClick={() => handleRetryAnalysis(problem._id)}
-                      disabled={isCardBusy}
-                      className="btn btn-secondary"
-                      style={{ padding: '8px 14px', fontSize: '12px', fontWeight: '600', color: 'var(--warning-amber)' }}
-                    >
-                      Analyse Again
-                    </button>
+                     <button onClick={() => handleRetryAnalysis(problem._id)} disabled={isCardBusy} className="sp-btn-text">
+                        View →
+                     </button>
                   )}
-
-                  {/* Trash action */}
-                  <button
-                    onClick={() => handleDelete(problem._id)}
-                    disabled={isCardBusy}
-                    className="list-action-icon-btn danger"
-                    style={{
-                      border: 'none',
-                      background: 'none',
-                      cursor: 'pointer',
-                      padding: '8px',
-                      borderRadius: 'var(--radius-sm)',
-                      color: 'var(--text-muted)',
-                      transition: 'color 0.15s ease'
-                    }}
-                    title="Delete problem"
-                  >
-                    <Trash2 size={16} />
+                  <button onClick={() => handleDelete(problem._id)} disabled={isCardBusy} className="sp-btn-icon" title="Delete">
+                     <Trash2 size={16} />
                   </button>
                 </div>
               </div>
             );
           })}
+
+          {pagination.totalPages > 1 && (
+            <div className="sp-pagination">
+              <button 
+                disabled={!pagination.hasPreviousPage} 
+                onClick={() => setPage(p => p - 1)}
+                className="sp-btn-secondary"
+              >
+                Previous
+              </button>
+              <span className="sp-page-info">Page {pagination.page} of {pagination.totalPages}</span>
+              <button 
+                disabled={!pagination.hasNextPage} 
+                onClick={() => setPage(p => p + 1)}
+                className="sp-btn-secondary"
+              >
+                Next
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
