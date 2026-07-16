@@ -1,30 +1,29 @@
-// Mapping of instructions for each supported analysis section
 const ANALYSIS_SECTION_INSTRUCTIONS = {
-  problemExplanation: 'Explain the problem in simple language without giving the final solution immediately.',
-  inputOutput: 'Explain the expected input and output format.',
-  exampleExplanation: 'Walk through every provided example.',
+  problemExplanation: 'Explain the problem in simple language without giving the final solution immediately. Use short bullet points.',
+  inputOutput: 'Explain the expected input and output format. Use short bullet points.',
+  exampleExplanation: 'Walk through every provided example step-by-step.',
   constraints: 'Explain what each constraint implies for algorithm selection.',
-  edgeCases: 'List important edge cases and why they matter.',
+  edgeCases: 'List important edge cases and why they matter as concise items.',
   missingEdgeCases: "Identify important edge cases missing from the student's solution or supplied examples. Explain why each case matters, how it may break the current approach, and include a concise test input when possible.",
-  pattern: 'Identify the primary DSA pattern and clues that reveal it.',
-  hints: 'Return progressive hints from subtle to stronger without revealing everything in the first hint.',
-  pseudocode: 'Provide language-independent pseudocode for the recommended approach.',
-  userCodeReview: 'Review only the supplied user code. Include correctness, bugs, missed cases, complexity, strengths, and improvements. Never claim code was supplied when it was empty.',
-  approaches: 'List all major realistic approaches from brute force to optimal.',
-  approachImprovement: "Evaluate the student's current reasoning or code and explain how to improve it step by step. Identify strengths, bottlenecks, unnecessary work, the next better approach, the relevant DSA pattern, and reflective questions the student should ask.",
+  pattern: 'Identify the primary DSA pattern and clues that reveal it. State the pattern name and provide a list of reasons.',
+  hints: 'Return progressive hints from least revealing to most revealing. Level 1: Focus on the key observation. Level 2: Mention the useful data structure or pattern. Level 3: Explain the main transition or algorithm step. Level 4: Give near-complete pseudocode. Keep each hint to 1–3 short bullets.',
+  pseudocode: 'Provide language-independent pseudocode for the recommended approach as a step-by-step list.',
+  userCodeReview: 'Review only the supplied user code. Include correctness, bugs, missed cases, complexity, strengths, and improvements. Never claim code was supplied when it was empty. Group findings under Bugs, Edge Cases, Complexity, and Improvements.',
+  approaches: 'List all major realistic approaches starting from brute force, better approach (when applicable), to the optimal approach. For every approach, include: name, category, intuition/idea, step-by-step algorithm steps, why it works, timeComplexity, spaceComplexity, limitations, and when to use it.',
+  approachImprovement: "Evaluate the student's current reasoning or code and explain how to improve it step by step. Identify strengths, bottlenecks, unnecessary work, the next better approach, the relevant DSA pattern, and reflective questions the student should ask. Limit to maximum 5 actionable suggestions.",
   approachExplanations: 'Explain the intuition and steps of every listed approach.',
-  codes: 'Provide complete code for major approaches in the selected language. Do not mix programming languages.',
-  complexities: 'Give time and auxiliary-space complexity for every approach with reasoning.',
-  dryRun: 'Dry-run the optimal approach using a provided example. If no example exists, create a small clearly labelled illustrative example.',
-  comparison: 'Compare approaches by time, space, simplicity, and interview suitability.',
-  interviewExplanation: 'Give a concise explanation that a candidate could speak during an interview.',
+  codes: "Provide complete, clean code for each generated approach using the student's selected programming language. Each code entry must clearly identify which approach it corresponds to.",
+  complexities: 'Return structured time and space complexity information for every approach. Each entry must define: approachName, timeComplexity, spaceComplexity, and explanation.',
+  dryRun: 'Provide a step-by-step dry run tracing of the optimal approach using a provided example. If no example exists, create a small, clearly labelled illustrative example.',
+  comparison: 'Return comparison table data comparing all approaches. For each approach, define: approach, mainIdea, timeComplexity, spaceComplexity, advantages, limitations, and recommendedUse.',
+  interviewExplanation: 'Provide concise speaking points explaining: key observation, selected pattern, approach progression, optimal approach, complexity, and important edge case. Do not produce long essays; use bullet points and structured objects.',
 };
 
 /**
  * Builds a structured, mentor-focused AI analysis prompt for a DSA problem.
  * Ensures strict output instructions and prompt-injection defense.
  */
-const buildAnalysisPrompt = ({ inputSnapshot, requestedSections }) => {
+const buildAnalysisPrompt = ({ inputSnapshot, requestedSections, analysisDepth = 'quick', mode = 'complete' }) => {
   if (!inputSnapshot) {
     throw new Error('inputSnapshot is required');
   }
@@ -62,6 +61,26 @@ const buildAnalysisPrompt = ({ inputSnapshot, requestedSections }) => {
     }
   }
 
+  let modeInstruction = '';
+  switch (mode) {
+    case 'understand':
+      modeInstruction = `Keep every requested section extremely concise and scannable. Limit each section to a maximum of 4-6 bullet points. Do not include any code or approaches. Explain one idea per bullet. Focus purely on understanding the problem.`;
+      break;
+    case 'start':
+      modeInstruction = `Provide a maximum of 4 bullet points for the pattern explanation. Return exactly 3 progressive hints. Keep each hint to a maximum of 2 bullet points. Do not reveal the full solution or write complete code. Keep the output very small.`;
+      break;
+    case 'build':
+      modeInstruction = `Limit to a maximum of 3 approaches (brute force, better, optimal). For each approach, keep step-by-step algorithms to a maximum of 5 steps. Provide concise complexity explanations and concise comparison rows. Keep information structured and to the point.`;
+      break;
+    case 'review':
+      modeInstruction = `Review the code concisely. Provide a maximum of 5 bugs/issues, a maximum of 5 missed edge cases, and a maximum of 5 actionable improvements. Keep complexity explanations concise. Focus strictly on reviewing the user code.`;
+      break;
+    case 'complete':
+    default:
+      modeInstruction = `Provide a complete but strictly structured lesson. Do not repeat explanations across sections. Avoid long introductions, conclusions, or motivational filler. Use headings and concise bullet points to keep the content highly scannable.`;
+      break;
+  }
+
   const prompt = `You are an expert DSA mentor focused on teaching rather than merely producing answers.
 You are expected to use beginner-friendly but technically correct explanations, move from brute force to optimal approaches, not invent missing constraints or examples, and clearly state assumptions when necessary.
 
@@ -82,10 +101,18 @@ Here are the specific instructions for each of the requested sections:
 ${sectionPromptParts.join('\n')}
 
 Instructions for your response:
-1. Generate only the requested sections. Do not include any unrequested sections.
+1. Return content only for the requested sections. Do not generate, infer, summarize, or populate any unrequested section. Generate only the requested sections. Do not include any unrequested sections.
 2. Return only valid JSON. Do not wrap the JSON output in Markdown code fences (e.g. \`\`\`json).
 3. Use the exact requested-section names as top-level keys in the response JSON object.
 4. Follow the structured response schema provided in the request options.
+5. Return concise educational content.
+6. Use bullet points wherever possible.
+7. Respect the selected analysis depth: ${analysisDepth}.
+8. Omit unrequested sections and avoid repetition.
+9. Use simple language suitable for a student.
+10. Prioritise clarity over length.
+11. Provide actionable points rather than broad theory.
+12. Strict Mode Guidelines: ${modeInstruction}
 `;
 
   return prompt;

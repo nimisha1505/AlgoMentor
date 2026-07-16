@@ -35,20 +35,20 @@ const AppHeader = () => {
             onClick={(e) => handleAnchorClick(e, 'how-it-works')}
             className="public-nav-link"
           >
-            How it works
+            How It Works
           </a>
           <a
             href="#features"
-            onClick={(e) => handleAnchorClick(e, 'how-it-works')} // Smooth scrolls to section
+            onClick={(e) => handleAnchorClick(e, 'features')}
             className="public-nav-link"
           >
             Features
           </a>
           <Link to="/login" className="public-nav-link">
-            Sign in
+            Login
           </Link>
           <Link to="/register" className="btn btn-primary btn-sm">
-            Get started
+            Start Learning
           </Link>
         </nav>
       </div>

@@ -180,6 +180,7 @@ const createProblemSchema = z
         message: 'Duplicate requested sections are not allowed',
       })
       .default(['problemExplanation', 'exampleExplanation', 'hints']),
+    analysisDepth: z.enum(['quick', 'deep']).default('quick').optional(),
     ...learningMetadataFields,
   })
   .strict()
@@ -367,6 +368,7 @@ const updateProblemSchema = z
         message: 'Duplicate requested sections are not allowed',
       })
       .optional(),
+    analysisDepth: z.enum(['quick', 'deep']).optional(),
     ...learningMetadataFields,
   })
   .strict()

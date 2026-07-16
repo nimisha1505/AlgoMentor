@@ -249,11 +249,11 @@ const DashboardPage = () => {
               </div>
             ) : (
               <div className="db-recs-grid">
-                {allRecs.map((rec, idx) => (
+                {allRecs.map((recommendation, idx) => (
                   <div key={idx} className="db-rec-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                      <span className={`difficulty-indicator-${rec.difficulty || 'unknown'}`}>
-                        {rec.difficulty || 'medium'}
+                      <span className={`difficulty-indicator-${recommendation.difficulty || 'unknown'}`}>
+                        {recommendation.difficulty || 'medium'}
                       </span>
 
                       {/* Feedback three-dot menu */}
@@ -268,27 +268,23 @@ const DashboardPage = () => {
                         {activeRecFeedback === idx && (
                           <div className="db-feedback-dropdown">
                             <span className="db-dropdown-title">Feedback</span>
-                            <button onClick={() => handleFeedback(rec.recommendationKey, 'tooEasy')}>Too Easy</button>
-                            <button onClick={() => handleFeedback(rec.recommendationKey, 'tooDifficult')}>Too Difficult</button>
-                            <button onClick={() => handleFeedback(rec.recommendationKey, 'notRelevant')}>Not Relevant</button>
+                            <button onClick={() => handleFeedback(recommendation.recommendationKey, 'tooEasy')}>Too Easy</button>
+                            <button onClick={() => handleFeedback(recommendation.recommendationKey, 'tooDifficult')}>Too Difficult</button>
+                            <button onClick={() => handleFeedback(recommendation.recommendationKey, 'notRelevant')}>Not Relevant</button>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    <strong className="db-rec-title">{rec.title}</strong>
-                    {rec.pattern && <span className="db-rec-pattern">💡 {rec.pattern}</span>}
-                    <p className="db-rec-reason">{rec.reason}</p>
+                    <strong className="db-rec-title">{recommendation.title}</strong>
+                    {recommendation.pattern && <span className="db-rec-pattern">💡 {recommendation.pattern}</span>}
+                    <p className="db-rec-reason">{recommendation.reason}</p>
 
                     <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column' }}>
                       <button
                         onClick={() => navigate('/problems/new', {
                           state: {
-                            recommendedTitle: rec.title,
-                            topic: rec.topic,
-                            pattern: rec.pattern,
-                            focus: rec.focus,
-                            recommendationKey: rec.recommendationKey
+                            recommendedProblem: recommendation
                           }
                         })}
                         className="btn btn-primary btn-block"

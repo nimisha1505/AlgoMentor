@@ -66,6 +66,7 @@ const startProblemAnalysis = asyncHandler(async (req, res) => {
     problem: problem._id,
     owner: req.user._id,
     requestedSections: problem.requestedSections,
+    analysisDepth: problem.analysisDepth || 'quick',
     inputSnapshot,
     status: 'queued',
     provider: 'gemini',
@@ -76,35 +77,26 @@ const startProblemAnalysis = asyncHandler(async (req, res) => {
   problem.status = 'queued';
   await problem.save();
 
-  // Synchronous for now; this can later move to a background job queue.
-  let completedAnalysis;
-  try {
-    completedAnalysis = await processAnalysis(analysis._id);
-  } catch (err) {
-    completedAnalysis = await Analysis.findById(analysis._id);
-    if (!completedAnalysis) {
-      throw err;
-    }
-  }
+  // 7. Fire and forget the background processing
+  // This allows the frontend to navigate immediately and poll the status
+  processAnalysis(analysis._id).catch((err) => {
+    console.error('Background analysis failed:', err);
+  });
 
   return res.status(200).json(
     new ApiResponse(
       200,
       {
         analysis: {
-          _id: completedAnalysis._id,
-          problem: completedAnalysis.problem,
-          status: completedAnalysis.status,
-          requestedSections: completedAnalysis.requestedSections,
-          result: completedAnalysis.result,
-          modelName: completedAnalysis.modelName,
-          usage: completedAnalysis.usage,
-          errorMessage: completedAnalysis.errorMessage || '',
-          createdAt: completedAnalysis.createdAt,
-          completedAt: completedAnalysis.completedAt,
+          _id: analysis._id,
+          problem: analysis.problem,
+          status: analysis.status,
+          requestedSections: analysis.requestedSections,
+          errorMessage: analysis.errorMessage || '',
+          createdAt: analysis.createdAt,
         },
       },
-      'Analysis completed successfully'
+      'Analysis queued successfully'
     )
   );
 });

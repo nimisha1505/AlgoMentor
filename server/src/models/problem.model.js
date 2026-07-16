@@ -102,6 +102,11 @@ const problemSchema = new mongoose.Schema(
       ],
       default: ['problemExplanation', 'exampleExplanation', 'hints'],
     },
+    analysisDepth: {
+      type: String,
+      enum: ['quick', 'deep'],
+      default: 'quick',
+    },
     status: {
       type: String,
       enum: ['draft', 'queued', 'processing', 'completed', 'failed'],

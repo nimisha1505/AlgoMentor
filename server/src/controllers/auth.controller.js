@@ -110,7 +110,7 @@ const logoutUser = asyncHandler(async (req, res) => {
         refreshToken: '',
       },
     },
-    { new: true }
+    { returnDocument: 'after' }
   );
 
   const cookieOptions = {
@@ -225,7 +225,7 @@ const updateProfile = asyncHandler(async (req, res) => {
       $set: updateData,
     },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }
   ).select('-password -refreshToken');

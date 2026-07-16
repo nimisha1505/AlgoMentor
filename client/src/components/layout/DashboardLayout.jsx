@@ -96,24 +96,27 @@ const DashboardLayout = () => {
             </NavLink>
             <NavLink
               to="/problems/new"
+              end
               className={({ isActive }) =>
                 isActive ? 'sidebar-link active' : 'sidebar-link'
               }
             >
               <PlusCircle size={18} />
-              <span>Analyse Problem</span>
+              <span>Learn a Problem</span>
             </NavLink>
             <NavLink
               to="/revise"
+              end
               className={({ isActive }) =>
                 isActive ? 'sidebar-link active' : 'sidebar-link'
               }
             >
               <RefreshCw size={18} />
-              <span>Revise Today</span>
+              <span>Revise</span>
             </NavLink>
             <NavLink
               to="/problems"
+              end
               className={({ isActive }) =>
                 isActive ? 'sidebar-link active' : 'sidebar-link'
               }
@@ -175,13 +178,14 @@ const DashboardLayout = () => {
         <div className="sidebar-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid var(--bg-sidebar-hover)', paddingTop: '16px', padding: '16px' }}>
           <NavLink
             to="/preferences"
+            end
             className={({ isActive }) =>
               isActive ? 'sidebar-link active' : 'sidebar-link'
             }
             style={{ width: '100%' }}
           >
             <Sliders size={18} />
-            <span>Learning Preferences</span>
+            <span>Preferences</span>
           </NavLink>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>
@@ -261,26 +265,29 @@ const DashboardLayout = () => {
               </NavLink>
               <NavLink
                 to="/problems/new"
+                end
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   isActive ? 'sidebar-link active' : 'sidebar-link'
                 }
               >
                 <PlusCircle size={18} />
-                <span>Analyse Problem</span>
+                <span>Learn a Problem</span>
               </NavLink>
               <NavLink
                 to="/revise"
+                end
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   isActive ? 'sidebar-link active' : 'sidebar-link'
                 }
               >
                 <RefreshCw size={18} />
-                <span>Revise Today</span>
+                <span>Revise</span>
               </NavLink>
               <NavLink
                 to="/problems"
+                end
                 onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   isActive ? 'sidebar-link active' : 'sidebar-link'
@@ -343,6 +350,7 @@ const DashboardLayout = () => {
           <div className="sidebar-bottom" style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid var(--bg-sidebar-hover)', paddingTop: '16px', padding: '16px 16px 0' }}>
             <NavLink
               to="/preferences"
+              end
               onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) =>
                 isActive ? 'sidebar-link active' : 'sidebar-link'
@@ -350,7 +358,7 @@ const DashboardLayout = () => {
               style={{ width: '100%' }}
             >
               <Sliders size={18} />
-              <span>Learning Preferences</span>
+              <span>Preferences</span>
             </NavLink>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', gap: '8px' }}>

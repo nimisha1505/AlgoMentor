@@ -52,8 +52,13 @@ const AnalysisDetailPage = () => {
   const [followUpError, setFollowUpError] = useState('');
 
   useEffect(() => {
+    let pollingInterval = null;
+
     const fetchAnalysisAndFollowUps = async () => {
-      setIsLoading(true);
+      // Only set initial loading if we don't have analysis data yet
+      if (!analysis) {
+        setIsLoading(true);
+      }
       setError('');
       try {
         const data = await getAnalysisById(analysisId);
@@ -62,15 +67,31 @@ const AnalysisDetailPage = () => {
         if (data && data.status === 'completed') {
           const history = await getAnalysisFollowUps(analysisId);
           setFollowUps(history || []);
+          if (pollingInterval) clearInterval(pollingInterval);
+        } else if (data && data.status === 'failed') {
+          if (pollingInterval) clearInterval(pollingInterval);
         }
       } catch (err) {
         setError(getApiErrorMessage(err));
+        if (pollingInterval) clearInterval(pollingInterval);
       } finally {
         setIsLoading(false);
       }
     };
+
     fetchAnalysisAndFollowUps();
-  }, [analysisId]);
+
+    // Start polling if analysis is not complete or failed yet
+    if (!analysis || (analysis.status === 'queued' || analysis.status === 'processing')) {
+      pollingInterval = setInterval(() => {
+        fetchAnalysisAndFollowUps();
+      }, 3000);
+    }
+
+    return () => {
+      if (pollingInterval) clearInterval(pollingInterval);
+    };
+  }, [analysisId, analysis?.status]);
 
   const handleAskMentor = async (e) => {
     e.preventDefault();
@@ -122,56 +143,80 @@ const AnalysisDetailPage = () => {
   const status = (analysis.status || '').toLowerCase();
   const totalHints = result.hints?.length || 0;
 
-  // Sidenav items filtered dynamically based on reveal state
+  const getComplexityRows = () => {
+    if (result.complexities && result.complexities.length > 0) {
+      return result.complexities.map(comp => ({
+        approach: comp.approach,
+        timeComplexity: comp.timeComplexity,
+        timeReason: comp.timeReason || 'Standard implementation analysis',
+        spaceComplexity: comp.spaceComplexity,
+        spaceReason: comp.spaceReason || 'Auxiliary space allocation details',
+      }));
+    }
+    if (result.approaches && result.approaches.length > 0) {
+      return result.approaches.map(ap => ({
+        approach: ap.name,
+        timeComplexity: ap.timeComplexity,
+        timeReason: ap.intuition || 'Asymptotic bound based on algorithm steps',
+        spaceComplexity: ap.spaceComplexity,
+        spaceReason: 'In-place processing space requirements',
+      }));
+    }
+    return [];
+  };
+
+  const complexityRows = getComplexityRows();
+
+  // Sidenav items filtered dynamically based on available sections
   const getSidenavItems = () => {
     const items = [];
-    if (result.problemExplanation || result.inputOutput) {
-      items.push({ id: 'overview', label: 'Overview' });
+    if (result.problemExplanation) {
+      items.push({ id: 'problemExplanation', label: '1. Simple Words' });
+    }
+    if (result.inputOutput) {
+      items.push({ id: 'inputOutput', label: '2. Input & Output' });
     }
     if (result.exampleExplanation && result.exampleExplanation.length > 0) {
-      items.push({ id: 'examples', label: 'Examples' });
+      items.push({ id: 'examples', label: '3. Examples' });
+    }
+    if (result.constraints && result.constraints.length > 0) {
+      items.push({ id: 'constraints', label: '4. Constraints' });
+    }
+    if (result.edgeCases && result.edgeCases.length > 0) {
+      items.push({ id: 'edgeCases', label: '5. Edge Cases' });
     }
     if (result.missingEdgeCases && result.missingEdgeCases.length > 0) {
-      items.push({ id: 'missingedgecases', label: 'Missing edge cases' });
+      items.push({ id: 'missingedgecases', label: '6. Missed Cases' });
     }
     if (result.pattern) {
-      items.push({ id: 'pattern', label: 'Pattern' });
+      items.push({ id: 'pattern', label: '7. DSA Pattern' });
     }
     if (result.hints && result.hints.length > 0) {
-      items.push({ id: 'hints', label: 'Hints' });
+      items.push({ id: 'hints', label: '8. Progressive Hints' });
     }
-    if (result.userCodeReview) {
-      items.push({ id: 'codereview', label: 'Code review' });
+    if (result.approaches && result.approaches.length > 0) {
+      items.push({ id: 'approaches', label: '9. Approaches' });
     }
-    if (result.approachImprovement) {
-      items.push({ id: 'approachimprovement', label: 'Improve approach' });
+    if (result.pseudocode && result.pseudocode.length > 0) {
+      items.push({ id: 'pseudocode', label: '10. Pseudocode' });
     }
-
-    if (solutionRevealed) {
-      if (result.pseudocode && result.pseudocode.length > 0) {
-        items.push({ id: 'pseudocode', label: 'Pseudocode' });
-      }
-      if (result.approaches && result.approaches.length > 0) {
-        items.push({ id: 'approaches', label: 'Approaches' });
-      }
-      if (result.codes && result.codes.length > 0) {
-        items.push({ id: 'code', label: 'Code' });
-      }
-      if (result.complexities && result.complexities.length > 0) {
-        items.push({ id: 'complexity', label: 'Complexity' });
-      }
-      if (result.dryRun) {
-        items.push({ id: 'dryrun', label: 'Dry run' });
-      }
-      if (result.comparison && result.comparison.length > 0) {
-        items.push({ id: 'comparison', label: 'Comparison' });
-      }
-    } else {
-      items.push({ id: 'locked-solution', label: 'Full solution [Locked]' });
+    if (result.codes && result.codes.length > 0) {
+      items.push({ id: 'code', label: '11. Solutions' });
     }
-
+    if (complexityRows.length > 0) {
+      items.push({ id: 'complexity', label: '12. Complexity' });
+    }
+    if (result.dryRun) {
+      items.push({ id: 'dryrun', label: '13. Dry Run' });
+    }
+    if (result.comparison && result.comparison.length > 0) {
+      items.push({ id: 'comparison', label: '14. Comparison Table' });
+    }
     if (result.interviewExplanation) {
-      items.push({ id: 'interview', label: 'Interview answer' });
+      items.push({ id: 'interviewExplanation', label: '15. Interview Guide' });
+    }
+    if (result.userCodeReview || result.approachImprovement) {
+      items.push({ id: 'approachImprovement', label: '16. Improve Logic' });
     }
 
     // Always append follow-up navigation
@@ -237,7 +282,7 @@ const AnalysisDetailPage = () => {
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link to="/analyses/new" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '600' }}>
+          <Link to="/problems/new" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '600' }}>
             Analyse Again
           </Link>
           <Link to="/problems" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '600' }}>
@@ -354,38 +399,45 @@ const AnalysisDetailPage = () => {
               <div className="spinner" style={{ margin: '0 auto 16px auto' }}></div>
               <h3 className="status-card-title" style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '800' }}>Building your analysis</h3>
               <p className="status-card-desc" style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                AlgoMentor is constructing hints, strategies, and reviews.
+                {(() => {
+                  const reqSec = analysis.requestedSections || [];
+                  if (reqSec.includes('hints') && !reqSec.includes('problemExplanation')) return 'Finding the key observation...';
+                  if (reqSec.includes('problemExplanation') && reqSec.length <= 5) return 'Simplifying the problem...';
+                  if (reqSec.includes('comparison') && !reqSec.includes('userCodeReview')) return 'Comparing possible approaches...';
+                  if (reqSec.includes('userCodeReview') && !reqSec.includes('hints')) return 'Reviewing your code and edge cases...';
+                  return 'Preparing the complete lesson...';
+                })()}
               </p>
             </div>
           )}
 
           {status === 'completed' && (
             <>
-              {/* 1. Start Here */}
-              {(result.problemExplanation || result.inputOutput) && (
-                <section id="overview" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+              {/* 1. Problem in Simple Words */}
+              {result.problemExplanation && (
+                <section id="problemExplanation" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                   <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    1. Start Here
+                    1. Problem in Simple Words
                   </h3>
-                  {result.problemExplanation && (
-                    <p className="learning-body-text" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{result.problemExplanation}</p>
-                  )}
-                  {result.inputOutput && (
-                    <div style={{ marginTop: '16px' }}>
-                      <strong style={{ fontSize: '12px', display: 'block', marginBottom: '6px', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
-                        Input & Output structure
-                      </strong>
-                      <p className="learning-body-text" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{result.inputOutput}</p>
-                    </div>
-                  )}
+                  <p className="learning-body-text" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{result.problemExplanation}</p>
                 </section>
               )}
 
-              {/* Examples (rendered inside Start Here section if overview exists, or independently) */}
+              {/* 2. Input and Output */}
+              {result.inputOutput && (
+                <section id="inputOutput" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    2. Input and Output
+                  </h3>
+                  <p className="learning-body-text" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{result.inputOutput}</p>
+                </section>
+              )}
+
+              {/* 3. Example Walkthrough */}
               {result.exampleExplanation && result.exampleExplanation.length > 0 && (
                 <section id="examples" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                   <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    Example Walkthroughs
+                    3. Example Walkthrough
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {result.exampleExplanation.map((ex, idx) => (
@@ -400,41 +452,49 @@ const AnalysisDetailPage = () => {
                 </section>
               )}
 
-              {/* 2. Think about this */}
-              {result.pattern && (
-                <section id="pattern" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+              {/* 4. Constraints */}
+              {result.constraints && result.constraints.length > 0 && (
+                <section id="constraints" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                   <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    2. Think about this
+                    4. Constraints
                   </h3>
-                  <div className="say-in-interview-callout" style={{ backgroundColor: 'var(--ai-soft)', borderLeft: '4px solid var(--ai-accent)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
-                    <span className="callout-title" style={{ color: 'var(--ai-accent)', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase' }}>Identified Strategy Pattern</span>
-                    <strong style={{ fontSize: '15px', color: 'var(--text-primary)', display: 'block', marginTop: '4px' }}>
-                      {result.pattern.name}
-                    </strong>
-                    <p className="learning-body-text" style={{ fontSize: '13.5px', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
-                      {result.pattern.reason}
-                    </p>
-                    {result.pattern.clues && result.pattern.clues.length > 0 && (
-                      <div style={{ marginTop: '12px', borderTop: '1px solid #ddd6fe', paddingTop: '8px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--ai-accent)' }}>
-                          Key clues in problem description
-                        </span>
-                        <ul style={{ paddingLeft: '20px', marginTop: '4px', fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {result.pattern.clues.map((clue, idx) => (
-                            <li key={idx}>{clue}</li>
-                          ))}
-                        </ul>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {result.constraints.map((c, idx) => (
+                      <div key={idx} style={{ padding: '12px 16px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                        <code style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--primary)' }}>{c.constraint}</code>
+                        <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>
+                          <strong>Implication:</strong> {c.implication}
+                        </p>
                       </div>
-                    )}
+                    ))}
                   </div>
                 </section>
               )}
 
-              {/* 3. Cases you may have missed */}
+              {/* 5. Important Edge Cases */}
+              {result.edgeCases && result.edgeCases.length > 0 && (
+                <section id="edgeCases" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    5. Important Edge Cases
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {result.edgeCases.map((ec, idx) => (
+                      <div key={idx} style={{ padding: '12px 16px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid var(--primary)' }}>
+                        <strong style={{ fontSize: '13.5px', color: 'var(--text-primary)' }}>{ec.case}</strong>
+                        <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>
+                          <strong>Reason:</strong> {ec.reason}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 6. Missing Edge Cases */}
               {result.missingEdgeCases && result.missingEdgeCases.length > 0 && (
                 <section id="missingedgecases" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                   <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    3. Cases you may have missed
+                    6. Missing Edge Cases
                   </h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     {result.missingEdgeCases.map((ec, idx) => (
@@ -461,11 +521,41 @@ const AnalysisDetailPage = () => {
                 </section>
               )}
 
-              {/* 4. Guided hints */}
+              {/* 7. DSA Pattern */}
+              {result.pattern && (
+                <section id="pattern" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    7. DSA Pattern
+                  </h3>
+                  <div className="say-in-interview-callout" style={{ backgroundColor: 'var(--ai-soft)', borderLeft: '4px solid var(--ai-accent)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
+                    <span className="callout-title" style={{ color: 'var(--ai-accent)', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase' }}>Identified Strategy Pattern</span>
+                    <strong style={{ fontSize: '15px', color: 'var(--text-primary)', display: 'block', marginTop: '4px' }}>
+                      {result.pattern.name}
+                    </strong>
+                    <p className="learning-body-text" style={{ fontSize: '13.5px', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
+                      {result.pattern.reason}
+                    </p>
+                    {result.pattern.clues && result.pattern.clues.length > 0 && (
+                      <div style={{ marginTop: '12px', borderTop: '1px solid #ddd6fe', paddingTop: '8px' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--ai-accent)' }}>
+                          Key clues in problem description
+                        </span>
+                        <ul style={{ paddingLeft: '20px', marginTop: '4px', fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          {result.pattern.clues.map((clue, idx) => (
+                            <li key={idx}>{clue}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* 8. Progressive Hints */}
               {result.hints && result.hints.length > 0 && (
                 <section id="hints" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                   <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    4. Guided hints
+                    8. Progressive Hints
                   </h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                     <p className="card-subtitle-text" style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
@@ -514,29 +604,232 @@ const AnalysisDetailPage = () => {
                         );
                       })}
                   </div>
-
-                  {!solutionRevealed && (
-                    <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => {
-                          setSolutionRevealed(true);
-                          saveState(revealedLevel, true);
-                        }}
-                        className="clear-text-btn"
-                        style={{ color: 'var(--primary)', fontWeight: '700', cursor: 'pointer', background: 'none', border: 'none' }}
-                      >
-                        I want to see the solution
-                      </button>
-                    </div>
-                  )}
                 </section>
               )}
 
-              {/* 5. Improve your approach (Code review + approach improvement) */}
-              {(result.userCodeReview || result.approachImprovement) && (
-                <section id="codereview" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+              {/* 9. Approaches */}
+              {result.approaches && result.approaches.length > 0 && (
+                <section id="approaches" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
                   <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    5. Improve your approach
+                    9. Approaches
+                  </h3>
+                  <div className="progression-stack" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {result.approaches.map((ap, idx) => {
+                      const isOptimal = (ap.category || '').toLowerCase().includes('optimal');
+                      return (
+                        <div key={idx} className={`progression-card ${isOptimal ? 'optimal' : ''}`} style={{ padding: '20px', border: `1px solid ${isOptimal ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', backgroundColor: isOptimal ? 'var(--primary-soft)' : 'var(--bg-page)' }}>
+                          <div className="progression-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span className="progression-label" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: isOptimal ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                              {isOptimal ? 'Optimal Strategy' : (ap.category || 'Approach')}
+                            </span>
+                            <span className="progression-name" style={{ fontSize: '15px', fontWeight: '700' }}>
+                              {ap.name}
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', margin: '8px 0', color: 'var(--text-secondary)' }}>
+                            <span>Time: <code style={{ fontWeight: '600' }}>{ap.timeComplexity}</code></span>
+                            <span>Space: <code style={{ fontWeight: '600' }}>{ap.spaceComplexity}</code></span>
+                          </div>
+
+                          <p style={{ fontSize: '13.5px', marginTop: '6px', margin: 0, lineHeight: '1.4' }}>
+                            <strong>Intuition:</strong> {ap.intuition}
+                          </p>
+
+                          {ap.steps && ap.steps.length > 0 && (
+                            <div style={{ fontSize: '13px', marginTop: '12px' }}>
+                              <strong>Steps:</strong>
+                              <ol style={{ paddingLeft: '20px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                {ap.steps.map((step, sIdx) => (
+                                  <li key={sIdx}>{step}</li>
+                                ))}
+                              </ol>
+                            </div>
+                          )}
+
+                          {ap.code && (
+                            <div style={{ marginTop: '16px' }}>
+                              <CodeBlock code={ap.code} language={analysis.inputSnapshot?.language} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </section>
+              )}
+
+              {/* 10. Pseudocode */}
+              {result.pseudocode && result.pseudocode.length > 0 && (
+                <section id="pseudocode" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    10. Pseudocode
+                  </h3>
+                  <div className="monospace-block" style={{ backgroundColor: 'var(--bg-page)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+                    {result.pseudocode.map((line, idx) => (
+                      <div key={idx} className="pseudocode-line" style={{ display: 'flex', gap: '12px', fontSize: '12.5px', fontFamily: 'monospace', lineHeight: '1.6' }}>
+                        <span className="line-num" style={{ color: 'var(--text-muted)', width: '20px', textAlign: 'right' }}>{idx + 1}</span>
+                        <span className="line-text" style={{ color: 'var(--text-primary)' }}>{line}</span>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 11. Solutions */}
+              {result.codes && result.codes.length > 0 && (
+                <section id="code" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    11. Solutions
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {result.codes.map((sol, idx) => (
+                      <div key={idx}>
+                        <h5 style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: 'var(--primary)' }}>
+                          {sol.approach}
+                        </h5>
+                        <CodeBlock code={sol.code} language={sol.language} />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* 12. Time and Space Complexity */}
+              {complexityRows.length > 0 && (
+                <section id="complexity" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    12. Time and Space Complexity
+                  </h3>
+                  <div className="comparison-table-wrapper" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                    <table className="comparison-table-view" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: 'var(--bg-page)', borderBottom: '1px solid var(--border)' }}>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Approach</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Time Complexity</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Space Complexity</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Why</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {complexityRows.map((row, idx) => (
+                          <tr key={idx} style={{ borderBottom: idx < complexityRows.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                            <td style={{ padding: '12px', fontWeight: '600' }}>{row.approach}</td>
+                            <td style={{ padding: '12px' }}><code style={{ color: 'var(--primary)', fontWeight: '700' }}>{row.timeComplexity}</code></td>
+                            <td style={{ padding: '12px' }}><code style={{ color: 'var(--ai-accent)', fontWeight: '700' }}>{row.spaceComplexity}</code></td>
+                            <td style={{ padding: '12px' }}>
+                              <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                                <strong>Time:</strong> {row.timeReason}
+                                <br />
+                                <strong>Space:</strong> {row.spaceReason}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {/* 13. Dry Run */}
+              {result.dryRun && (
+                <section id="dryrun" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    13. Dry Run Tracing
+                  </h3>
+                  <div className="nested-card" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
+                    <p style={{ fontSize: '13px', marginBottom: '12px', color: 'var(--text-secondary)' }}>
+                      Trace Strategy: <strong>{result.dryRun.approach}</strong> | Input: <code>{result.dryRun.input}</code>
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+                      {result.dryRun.steps?.map((step, idx) => (
+                        <div key={idx} className="dry-run-step-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px' }}>
+                          <span className="dry-run-num-badge" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700' }}>{idx + 1}</span>
+                          <span className="dry-run-text" style={{ color: 'var(--text-primary)' }}>{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', fontSize: '13px', fontWeight: '600' }}>
+                      Output values computed: <code>{result.dryRun.output}</code>
+                    </div>
+                  </div>
+                </section>
+              )}
+
+              {/* 14. Approaches Comparison */}
+              {result.comparison && result.comparison.length > 0 && (
+                <section id="comparison" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    14. Approaches Comparison
+                  </h3>
+                  <div className="comparison-table-wrapper" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+                    <table className="comparison-table-view" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: 'var(--bg-page)', borderBottom: '1px solid var(--border)' }}>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Approach</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Main Idea</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Time</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Space</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Advantages</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Limitations</th>
+                          <th style={{ padding: '12px', textAlign: 'left' }}>Best Used When</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.comparison.map((row, idx) => {
+                          const isOptimal = row.approach?.toLowerCase().includes('optimal') || row.interviewSuitability?.toLowerCase().includes('recommended') || row.recommendedUse?.toLowerCase().includes('recommended') || row.recommendedUse?.toLowerCase().includes('optimal');
+                          return (
+                            <tr key={idx} style={{ 
+                              borderBottom: idx < result.comparison.length - 1 ? '1px solid var(--border)' : 'none',
+                              backgroundColor: isOptimal ? 'var(--bg-soft)' : 'transparent',
+                              fontWeight: isOptimal ? '600' : 'normal'
+                            }}>
+                              <td style={{ padding: '12px', fontWeight: '700', color: isOptimal ? 'var(--primary)' : 'var(--text-primary)' }}>{row.approach}</td>
+                              <td style={{ padding: '12px' }}>{row.mainIdea || row.approach}</td>
+                              <td style={{ padding: '12px' }}><code>{row.timeComplexity}</code></td>
+                              <td style={{ padding: '12px' }}><code>{row.spaceComplexity}</code></td>
+                              <td style={{ padding: '12px' }}>
+                                <ul className="bullet-td-list" style={{ margin: 0, paddingLeft: '16px' }}>
+                                  {row.advantages?.map((adv, aIdx) => <li key={aIdx}>{adv}</li>)}
+                                </ul>
+                              </td>
+                              <td style={{ padding: '12px' }}>
+                                <ul className="bullet-td-list" style={{ margin: 0, paddingLeft: '16px' }}>
+                                  {(row.limitations || row.disadvantages)?.map((lim, lIdx) => <li key={lIdx}>{lim}</li>)}
+                                </ul>
+                              </td>
+                              <td style={{ padding: '12px' }}>{row.recommendedUse || row.interviewSuitability}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              )}
+
+              {/* 15. Interview Explanation */}
+              {result.interviewExplanation && (
+                <section id="interviewExplanation" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    15. Interview Explanation
+                  </h3>
+                  <div className="say-in-interview-callout" style={{ backgroundColor: 'var(--primary-soft)', borderLeft: '4px solid var(--primary)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
+                    <span className="callout-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase' }}>
+                      <Award size={14} />
+                      How to explain this in an interview
+                    </span>
+                    <div className="callout-body text-pre-wrap" style={{ fontSize: '13.5px', marginTop: '8px', lineHeight: '1.6' }}>{result.interviewExplanation}</div>
+                  </div>
+                </section>
+              )}
+
+              {/* 16. How to Improve the Approach */}
+              {(result.userCodeReview || result.approachImprovement) && (
+                <section id="approachImprovement" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
+                    16. How to Improve the Approach
                   </h3>
 
                   {result.userCodeReview && (
@@ -677,239 +970,7 @@ const AnalysisDetailPage = () => {
                 </section>
               )}
 
-              {/* 6. Ready for the full solution? */}
-              {solutionRevealed ? (
-                <>
-                  <section id="locked-solution" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                    <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                      6. Full Solution Unlocked
-                    </h3>
 
-                    {/* Pseudocode */}
-                    {result.pseudocode && result.pseudocode.length > 0 && (
-                      <div id="pseudocode" style={{ marginBottom: '32px' }}>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-primary)' }}>Pseudocode</h4>
-                        <div className="monospace-block" style={{ backgroundColor: 'var(--bg-page)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                          {result.pseudocode.map((line, idx) => (
-                            <div key={idx} className="pseudocode-line" style={{ display: 'flex', gap: '12px', fontSize: '12.5px', fontFamily: 'monospace', lineHeight: '1.6' }}>
-                              <span className="line-num" style={{ color: 'var(--text-muted)', width: '20px', textAlign: 'right' }}>{idx + 1}</span>
-                              <span className="line-text" style={{ color: 'var(--text-primary)' }}>{line}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Approaches (Progressive Naive -> Optimal) */}
-                    {result.approaches && result.approaches.length > 0 && (
-                      <div id="approaches" style={{ marginBottom: '32px' }}>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-primary)' }}>Approaches</h4>
-                        <div className="progression-stack" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                          {result.approaches.map((ap, idx) => {
-                            const isOptimal = (ap.category || '').toLowerCase().includes('optimal');
-
-                            return (
-                              <div key={idx} className={`progression-card ${isOptimal ? 'optimal' : ''}`} style={{ padding: '20px', border: `1px solid ${isOptimal ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', backgroundColor: isOptimal ? 'var(--primary-soft)' : 'var(--bg-page)' }}>
-                                <div className="progression-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <span className="progression-label" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: isOptimal ? 'var(--primary)' : 'var(--text-secondary)' }}>
-                                    {isOptimal ? 'Optimal Strategy' : (ap.category || 'Approach')}
-                                  </span>
-                                  <span className="progression-name" style={{ fontSize: '15px', fontWeight: '700' }}>
-                                    {ap.name}
-                                  </span>
-                                </div>
-
-                                <div style={{ display: 'flex', gap: '16px', fontSize: '12px', margin: '8px 0', color: 'var(--text-secondary)' }}>
-                                  <span>Time: <code style={{ fontWeight: '600' }}>{ap.timeComplexity}</code></span>
-                                  <span>Space: <code style={{ fontWeight: '600' }}>{ap.spaceComplexity}</code></span>
-                                </div>
-
-                                <p style={{ fontSize: '13.5px', marginTop: '6px', margin: 0, lineHeight: '1.4' }}>
-                                  <strong>Intuition:</strong> {ap.intuition}
-                                </p>
-
-                                {ap.steps && ap.steps.length > 0 && (
-                                  <div style={{ fontSize: '13px', marginTop: '12px' }}>
-                                    <strong>Steps:</strong>
-                                    <ol style={{ paddingLeft: '20px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                      {ap.steps.map((step, sIdx) => (
-                                        <li key={sIdx}>{step}</li>
-                                      ))}
-                                    </ol>
-                                  </div>
-                                )}
-
-                                {ap.code && (
-                                  <div style={{ marginTop: '16px' }}>
-                                    <CodeBlock code={ap.code} language={analysis.inputSnapshot?.language} />
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Reference Code solutions */}
-                    {result.codes && result.codes.length > 0 && (
-                      <div id="code" style={{ marginBottom: '32px' }}>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-primary)' }}>Code solutions</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                          {result.codes.map((sol, idx) => (
-                            <div key={idx}>
-                              <h5 style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: 'var(--primary)' }}>
-                                {sol.approach}
-                              </h5>
-                              <CodeBlock code={sol.code} language={sol.language} />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Complexity (Why explanation) */}
-                    {result.complexities && result.complexities.length > 0 && (
-                      <div id="complexity" style={{ marginBottom: '32px' }}>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-primary)' }}>Complexity analysis</h4>
-                        <div className="complexity-panels-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                          {result.complexities.map((comp, idx) => (
-                            <div key={idx} className="complexity-panel" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                              <span className="complexity-panel-title" style={{ fontSize: '13.5px', fontWeight: '700', display: 'block', borderBottom: '1px solid var(--border)', paddingBottom: '6px' }}>{comp.approach}</span>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '12px' }}>
-                                <div>
-                                  <span className="complexity-value" style={{ fontWeight: '600', fontSize: '13px' }}>Time: {comp.timeComplexity}</span>
-                                  <p className="complexity-desc" style={{ fontSize: '12px', marginTop: '2px', color: 'var(--text-secondary)', margin: 0 }}>{comp.timeReason}</p>
-                                </div>
-                                <div style={{ borderTop: '1px solid var(--border)', paddingTop: '8px', marginTop: '4px' }}>
-                                  <span className="complexity-value" style={{ fontWeight: '600', fontSize: '13px' }}>Space: {comp.spaceComplexity}</span>
-                                  <p className="complexity-desc" style={{ fontSize: '12px', marginTop: '2px', color: 'var(--text-secondary)', margin: 0 }}>{comp.spaceReason}</p>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Dry Run Tracing */}
-                    {result.dryRun && (
-                      <div id="dryrun" style={{ marginBottom: '32px' }}>
-                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-primary)' }}>Dry run trace</h4>
-                        <div className="nested-card" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                          <p style={{ fontSize: '13px', marginBottom: '12px', color: 'var(--text-secondary)' }}>
-                            Trace Strategy: <strong>{result.dryRun.approach}</strong> | Input: <code>{result.dryRun.input}</code>
-                          </p>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-                            {result.dryRun.steps?.map((step, idx) => (
-                              <div key={idx} className="dry-run-step-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px' }}>
-                                <span className="dry-run-num-badge" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700' }}>{idx + 1}</span>
-                                <span className="dry-run-text" style={{ color: 'var(--text-primary)' }}>{step}</span>
-                              </div>
-                            ))}
-                          </div>
-                          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', fontSize: '13px', fontWeight: '600' }}>
-                            Output values computed: <code>{result.dryRun.output}</code>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Compare approaches table */}
-                    {result.comparison && result.comparison.length > 0 && (
-                      <div id="comparison">
-                        <h4 style={{ fontSize: '14px', fontWeight: '700', marginBottom: '12px', color: 'var(--text-primary)' }}>Compare approaches</h4>
-                        <div className="comparison-table-wrapper" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                          <table className="comparison-table-view" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                            <thead>
-                              <tr style={{ backgroundColor: 'var(--bg-page)', borderBottom: '1px solid var(--border)' }}>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Approach</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Time</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Space</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Advantages</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Disadvantages</th>
-                                <th style={{ padding: '12px', textAlign: 'left' }}>Suitability</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {result.comparison.map((row, idx) => (
-                                <tr key={idx} style={{ borderBottom: idx < result.comparison.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                                  <td style={{ padding: '12px', fontWeight: '600' }}>{row.approach}</td>
-                                  <td style={{ padding: '12px' }}><code>{row.timeComplexity}</code></td>
-                                  <td style={{ padding: '12px' }}><code>{row.spaceComplexity}</code></td>
-                                  <td style={{ padding: '12px' }}>
-                                    <ul className="bullet-td-list" style={{ margin: 0, paddingLeft: '16px' }}>
-                                      {row.advantages?.map((adv, aIdx) => <li key={aIdx}>{adv}</li>)}
-                                    </ul>
-                                  </td>
-                                  <td style={{ padding: '12px' }}>
-                                    <ul className="bullet-td-list" style={{ margin: 0, paddingLeft: '16px' }}>
-                                      {row.disadvantages?.map((dis, dIdx) => <li key={dIdx}>{dis}</li>)}
-                                    </ul>
-                                  </td>
-                                  <td style={{ padding: '12px' }}>{row.interviewSuitability}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-                </>
-              ) : (
-                /* Compact Locked Learning Panel */
-                <section id="locked-solution" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    6. Ready for the full solution?
-                  </h3>
-                  <div className="empty-state-container" style={{ padding: '32px', border: '1px dashed var(--border)', background: 'var(--bg-page)', margin: '0', textAlign: 'center', borderRadius: 'var(--radius-sm)' }}>
-                    <h4 style={{ fontSize: '15px', fontWeight: '700', marginBottom: '8px', color: 'var(--text-primary)' }}>Ready to see the full solution?</h4>
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
-                      Try the hints and think through your approach first.
-                    </p>
-                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
-                      {revealedLevel < totalHints && (
-                        <button
-                          onClick={() => {
-                            const next = Math.min(revealedLevel + 1, totalHints);
-                            setRevealedLevel(next);
-                            saveState(next, false);
-                          }}
-                          className="btn btn-secondary btn-sm"
-                        >
-                          Reveal next hint
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSolutionRevealed(true);
-                          saveState(revealedLevel, true);
-                        }}
-                        className="btn btn-primary btn-sm animate-pulse"
-                      >
-                        Show full solution
-                      </button>
-                    </div>
-                  </div>
-                </section>
-              )}
-
-              {/* Interview Answer */}
-              {result.interviewExplanation && (
-                <section id="interview" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    Interview explanation
-                  </h3>
-                  <div className="say-in-interview-callout" style={{ backgroundColor: 'var(--primary-soft)', borderLeft: '4px solid var(--primary)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
-                    <span className="callout-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase' }}>
-                      <Award size={14} />
-                      How to explain this in an interview
-                    </span>
-                    <div className="callout-body text-pre-wrap" style={{ fontSize: '13.5px', marginTop: '8px', lineHeight: '1.6' }}>{result.interviewExplanation}</div>
-                  </div>
-                </section>
-              )}
 
               {/* Ask AlgoMentor Notebook Section */}
               <section id="mentor-qa" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>

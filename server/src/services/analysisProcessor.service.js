@@ -29,7 +29,7 @@ const processAnalysis = async (analysisId) => {
       },
     },
     {
-      new: true,
+      returnDocument: 'after',
     }
   );
 
@@ -60,6 +60,7 @@ const processAnalysis = async (analysisId) => {
     const genResult = await generateProblemAnalysis({
       inputSnapshot: analysis.inputSnapshot,
       requestedSections: analysis.requestedSections,
+      analysisDepth: analysis.analysisDepth,
     });
 
     // Record token counts on success
@@ -79,7 +80,7 @@ const processAnalysis = async (analysisId) => {
         },
       },
       {
-        new: true,
+        returnDocument: 'after',
       }
     );
 
@@ -99,7 +100,7 @@ const processAnalysis = async (analysisId) => {
         },
       },
       {
-        new: true,
+        returnDocument: 'after',
       }
     );
 

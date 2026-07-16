@@ -18,6 +18,7 @@ const createProblem = asyncHandler(async (req, res) => {
     language,
     code,
     requestedSections,
+    analysisDepth,
     topics,
     patterns,
     confidence,
@@ -65,6 +66,7 @@ const createProblem = asyncHandler(async (req, res) => {
     language,
     code,
     requestedSections,
+    analysisDepth,
     topics,
     patterns,
     confidence,
@@ -215,6 +217,7 @@ const updateProblem = asyncHandler(async (req, res) => {
     language,
     code,
     requestedSections,
+    analysisDepth,
     topics,
     patterns,
     confidence,
@@ -236,6 +239,7 @@ const updateProblem = asyncHandler(async (req, res) => {
   if (language !== undefined) updateData.language = language;
   if (code !== undefined) updateData.code = code;
   if (requestedSections !== undefined) updateData.requestedSections = requestedSections;
+  if (analysisDepth !== undefined) updateData.analysisDepth = analysisDepth;
   if (topics !== undefined) updateData.topics = topics;
   if (patterns !== undefined) updateData.patterns = patterns;
   if (confidence !== undefined) updateData.confidence = confidence;
@@ -259,7 +263,7 @@ const updateProblem = asyncHandler(async (req, res) => {
       $set: updateData,
     },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }
   );
@@ -312,7 +316,7 @@ const updateProblemLearning = asyncHandler(async (req, res) => {
       $set: updateData,
     },
     {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }
   );

@@ -16,14 +16,7 @@ export default defineConfig({
       shuffle: false,
     },
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-      threads: {
-        singleThread: true,
-      },
-    },
+    maxWorkers: 1,
     coverage: {
       provider: 'v8',
       include: ['src/controllers/**', 'src/middlewares/**', 'src/services/**', 'src/utils/**'],

@@ -12,6 +12,9 @@ const approachSchema = z
     timeComplexity: nonEmptyString,
     spaceComplexity: nonEmptyString,
     code: z.string().default(''),
+    advantages: z.array(z.string()).optional(),
+    disadvantages: z.array(z.string()).optional(),
+    limitations: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -51,7 +54,7 @@ const analysisResultSchema = z
       .array(
         z
           .object({
-            exampleNumber: z.number().int().positive(),
+            exampleNumber: z.union([z.number(), z.string()]).transform(val => typeof val === 'string' ? parseInt(val, 10) || 1 : val),
             explanation: nonEmptyString,
           })
           .strict()
@@ -140,14 +143,7 @@ const analysisResultSchema = z
         z
           .object({
             approach: nonEmptyString,
-            language: z.enum([
-              'cpp',
-              'java',
-              'python',
-              'javascript',
-              'c',
-              'other',
-            ]),
+            language: z.string().default('other'),
             code: nonEmptyString,
           })
           .strict()
@@ -214,8 +210,112 @@ const parseAnalysisResult = ({ rawResult, requestedSections }) => {
     throw new Error('Invalid rawResult format');
   }
 
+  // Handle 'codes' field name fallback
+  if (requestedSections.includes('codes') && parsedObj.codes === undefined) {
+    const codeCandidates = parsedObj.codes || parsedObj.code || parsedObj.solutions || parsedObj.solutionCode || parsedObj.solutionCodes;
+    if (Array.isArray(codeCandidates)) {
+      const hasCode = codeCandidates.every(item => item && typeof item.code === 'string' && item.code.trim().length > 0);
+      if (hasCode) {
+        parsedObj.codes = codeCandidates;
+      }
+    } else if (typeof codeCandidates === 'string' && codeCandidates.trim().length > 0) {
+      parsedObj.codes = [{ approach: 'Optimal', language: parsedObj.language || 'cpp', code: codeCandidates }];
+    } else if (Array.isArray(parsedObj.approaches)) {
+      const extracted = parsedObj.approaches
+        .filter(app => app && typeof app.code === 'string' && app.code.trim().length > 0)
+        .map(app => ({
+          approach: app.name || 'Approach',
+          language: parsedObj.language || 'cpp',
+          code: app.code
+        }));
+      if (extracted.length > 0) {
+        parsedObj.codes = extracted;
+      }
+    }
+  }
+
+  // Handle 'complexities' field name fallback
+  if (requestedSections.includes('complexities') && parsedObj.complexities === undefined) {
+    if (Array.isArray(parsedObj.approaches) && parsedObj.approaches.length > 0) {
+      const allHaveComplexity = parsedObj.approaches.every(app => 
+        app && 
+        typeof app.timeComplexity === 'string' && app.timeComplexity.trim().length > 0 &&
+        typeof app.spaceComplexity === 'string' && app.spaceComplexity.trim().length > 0
+      );
+      if (allHaveComplexity) {
+        parsedObj.complexities = parsedObj.approaches.map(app => ({
+          approach: app.name || 'Approach',
+          timeComplexity: app.timeComplexity,
+          timeReason: app.intuition || 'Asymptotic complexity analysis',
+          spaceComplexity: app.spaceComplexity,
+          spaceReason: 'Auxiliary memory requirements'
+        }));
+      }
+    }
+  }
+
+  // Handle 'comparison' field name fallback
+  if (requestedSections.includes('comparison') && parsedObj.comparison === undefined) {
+    if (Array.isArray(parsedObj.approaches) && parsedObj.approaches.length > 0) {
+      const canDeriveComparison = parsedObj.approaches.every(app => 
+        app &&
+        typeof app.name === 'string' && app.name.trim().length > 0 &&
+        typeof app.timeComplexity === 'string' && app.timeComplexity.trim().length > 0 &&
+        typeof app.spaceComplexity === 'string' && app.spaceComplexity.trim().length > 0 &&
+        (
+          (Array.isArray(app.advantages) && app.advantages.length > 0) || 
+          (Array.isArray(app.disadvantages) && app.disadvantages.length > 0) ||
+          (Array.isArray(app.limitations) && app.limitations.length > 0) ||
+          (typeof app.limitations === 'string' && app.limitations.trim().length > 0) ||
+          (typeof app.advantages === 'string' && app.advantages.trim().length > 0)
+        )
+      );
+
+      if (canDeriveComparison) {
+        parsedObj.comparison = parsedObj.approaches.map(app => {
+          let advantages = [];
+          if (Array.isArray(app.advantages)) {
+            advantages = app.advantages.filter(x => typeof x === 'string' && x.trim().length > 0);
+          } else if (typeof app.advantages === 'string' && app.advantages.trim()) {
+            advantages = [app.advantages.trim()];
+          }
+
+          let disadvantages = [];
+          if (Array.isArray(app.disadvantages)) {
+            disadvantages = app.disadvantages.filter(x => typeof x === 'string' && x.trim().length > 0);
+          } else if (Array.isArray(app.limitations)) {
+            disadvantages = app.limitations.filter(x => typeof x === 'string' && x.trim().length > 0);
+          } else if (typeof app.limitations === 'string' && app.limitations.trim()) {
+            disadvantages = [app.limitations.trim()];
+          } else if (typeof app.disadvantages === 'string' && app.disadvantages.trim()) {
+            disadvantages = [app.disadvantages.trim()];
+          }
+
+          return {
+            approach: app.name,
+            timeComplexity: app.timeComplexity,
+            spaceComplexity: app.spaceComplexity,
+            advantages: advantages,
+            disadvantages: disadvantages,
+            interviewSuitability: app.category || 'Suitable'
+          };
+        });
+      }
+    }
+  }
+
+  // Whitelist filtering: keep only keys present in requestedSections
+  const filteredResult = {};
+  for (const section of requestedSections) {
+    if (parsedObj[section] !== undefined) {
+      filteredResult[section] = parsedObj[section];
+    } else {
+      throw new Error(`Gemini response is missing requested section: ${section}`);
+    }
+  }
+
   // Perform schema validation
-  const validation = analysisResultSchema.safeParse(parsedObj);
+  const validation = analysisResultSchema.safeParse(filteredResult);
   if (!validation.success) {
     const errorDetails = validation.error.issues
       .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
@@ -225,7 +325,7 @@ const parseAnalysisResult = ({ rawResult, requestedSections }) => {
 
   const resultData = validation.data;
 
-  // Validate that all requested sections exist in output
+  // Validate that every requested section is present in resultData
   for (const section of requestedSections) {
     if (resultData[section] === undefined) {
       throw new Error(`Gemini response is missing requested section: ${section}`);

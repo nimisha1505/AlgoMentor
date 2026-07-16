@@ -27,7 +27,7 @@ const checkAndReserveAnalysisUsage = async (userId) => {
       totalTokens: { $lt: DAILY_TOKEN_LIMIT },
     },
     { $inc: { analysisRequests: 1 } },
-    { new: true, upsert: false }
+    { returnDocument: 'after', upsert: false }
   );
 
   if (!res) {
@@ -44,7 +44,7 @@ const checkAndReserveAnalysisUsage = async (userId) => {
     await AiUsage.findOneAndUpdate(
       { owner: userId, dateKey },
       { $inc: { analysisRequests: 1 } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 };
@@ -63,7 +63,7 @@ const checkAndReserveFollowUpUsage = async (userId) => {
       totalTokens: { $lt: DAILY_TOKEN_LIMIT },
     },
     { $inc: { followUpRequests: 1 } },
-    { new: true, upsert: false }
+    { returnDocument: 'after', upsert: false }
   );
 
   if (!res) {
@@ -80,7 +80,7 @@ const checkAndReserveFollowUpUsage = async (userId) => {
     await AiUsage.findOneAndUpdate(
       { owner: userId, dateKey },
       { $inc: { followUpRequests: 1 } },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 };
@@ -97,7 +97,7 @@ const recordTokenUsage = async (userId, usage) => {
   await AiUsage.findOneAndUpdate(
     { owner: userId, dateKey },
     { $inc: { inputTokens, outputTokens, totalTokens } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 };
 

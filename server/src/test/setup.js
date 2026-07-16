@@ -45,13 +45,93 @@ vi.mock('../services/geminiAnalysis.service.js', () => ({
       problemExplanation: 'Mocked explanation content',
       inputOutput: 'Mocked input and output format specifications',
       exampleExplanation: [{ exampleNumber: 1, explanation: 'Walkthrough description' }],
-      constraints: ['Mock constraint'],
-      edgeCases: ['Edge case 1'],
-      missingEdgeCases: [{ case: 'Empty array', whyItMatters: 'Triggers exception', howItBreaksCurrentApproach: 'Throws null exception' }],
-      pattern: { name: 'sliding-window', reason: 'Indices move forward' },
+      constraints: [{ constraint: 'Mock constraint', implication: 'Constraint details' }],
+      edgeCases: [{ case: 'Edge case 1', reason: 'Edge case details' }],
+      missingEdgeCases: [{ case: 'Empty array', whyItMatters: 'Triggers exception', howItBreaksCurrentApproach: 'Throws null exception', testInput: '[]' }],
+      pattern: { name: 'sliding-window', clues: ['two pointers moving'], reason: 'Indices move forward' },
       hints: [{ level: 1, hint: 'First hint' }],
-      userCodeReview: { isCorrect: true, summary: 'Good job', bugs: [] },
-      approachImprovement: { bottlenecks: ['Inefficient loops'], patternToLearn: 'Two pointers' },
+      pseudocode: ['Initialize pointers', 'Iterate elements'],
+      userCodeReview: { 
+        summary: 'Good job', 
+        isCorrect: true, 
+        strengths: ['clean layout'], 
+        bugs: [], 
+        missedEdgeCases: [], 
+        timeComplexity: 'O(N)', 
+        spaceComplexity: 'O(1)', 
+        improvements: [], 
+        correctedCode: '' 
+      },
+      approaches: [
+        { 
+          name: 'Brute Force', 
+          category: 'bruteForce', 
+          intuition: 'Check all pairs', 
+          steps: ['nested loop'], 
+          timeComplexity: 'O(N^2)', 
+          spaceComplexity: 'O(1)', 
+          code: 'class BruteForce {};' 
+        },
+        { 
+          name: 'Optimal Approach', 
+          category: 'optimal', 
+          intuition: 'Use two pointers', 
+          steps: ['two pointers step'], 
+          timeComplexity: 'O(N)', 
+          spaceComplexity: 'O(1)', 
+          code: 'class Optimal {};' 
+        }
+      ],
+      approachImprovement: { 
+        currentStrengths: ['simple logic'], 
+        bottlenecks: ['Inefficient loops'], 
+        unnecessaryWork: ['redundant comparisons'], 
+        nextImprovement: 'Use linear scan', 
+        improvedApproach: 'optimal', 
+        patternToLearn: 'Two pointers', 
+        questionsToAsk: ['Can we do it in one pass?'] 
+      },
+      approachExplanations: [
+        { approach: 'Brute Force', explanation: 'Simple brute force' },
+        { approach: 'Optimal Approach', explanation: 'Linear optimal solution' }
+      ],
+      codes: [
+        { approach: 'Brute Force', language: 'cpp', code: 'class BruteForce {};' },
+        { approach: 'Optimal Approach', language: 'cpp', code: 'class Optimal {};' }
+      ],
+      complexities: [
+        { approach: 'Brute Force', timeComplexity: 'O(N^2)', timeReason: 'nested loops', spaceComplexity: 'O(1)', spaceReason: 'no extra memory' },
+        { approach: 'Optimal Approach', timeComplexity: 'O(N)', timeReason: 'single pass', spaceComplexity: 'O(1)', spaceReason: 'no extra memory' }
+      ],
+      dryRun: {
+        approach: 'Optimal Approach',
+        input: 'target = 9',
+        steps: ['start pointers', 'add elements', 'match found'],
+        output: '[0, 1]'
+      },
+      comparison: [
+        { 
+          approach: 'Brute Force', 
+          mainIdea: 'Check all pairs', 
+          timeComplexity: 'O(N^2)', 
+          spaceComplexity: 'O(1)', 
+          advantages: ['Simple'], 
+          disadvantages: ['Slow'], 
+          interviewSuitability: 'Poor',
+          recommendedUse: 'Small inputs'
+        },
+        { 
+          approach: 'Optimal Approach', 
+          mainIdea: 'Use hash map', 
+          timeComplexity: 'O(N)', 
+          spaceComplexity: 'O(1)', 
+          advantages: ['Fast'], 
+          disadvantages: ['Extra space'], 
+          interviewSuitability: 'Excellent',
+          recommendedUse: 'Standard production'
+        }
+      ],
+      interviewExplanation: 'First search for pairs then optimize with pointers.',
     },
     modelName: 'gemini-mock',
     usage: { promptTokenCount: 100, candidatesTokenCount: 150, totalTokenCount: 250 },

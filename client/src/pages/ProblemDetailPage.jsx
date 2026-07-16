@@ -58,6 +58,7 @@ const ProblemDetailPage = () => {
   const [isSavingLearning, setIsSavingLearning] = useState(false);
   const [learningError, setLearningError] = useState('');
   const [learningSuccess, setLearningSuccess] = useState('');
+  const [activeTab, setActiveTab] = useState('problem');
 
   const handleToggleSelectAttempt = (attemptId) => {
     setSelectedAttempts((prev) => {
@@ -219,9 +220,8 @@ const ProblemDetailPage = () => {
     );
   }
 
-  const normalizedStatus = (problem.status || '').toLowerCase();
 
-  const [activeTab, setActiveTab] = useState('problem');
+  const normalizedStatus = (problem.status || '').toLowerCase();
 
   return (
     <div className="problem-detail-workspace container" style={{ paddingBottom: '80px', paddingTop: '16px' }}>

@@ -189,9 +189,13 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
 
       weakPatternPractice.push({
         title: item.title,
+        source: 'leetcode',
+        sourceUrl: `https://leetcode.com/problems/${item.key || item.recommendationKey}/`,
+        externalId: item.key || item.recommendationKey,
+        difficulty: item.difficulty,
         topic: item.topic,
         pattern: item.pattern,
-        difficulty: item.difficulty,
+        problemStatement: item.problemStatement || '',
         focus: item.focus,
         reason,
         recommendationType: recType,
@@ -214,9 +218,13 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
 
       reviseNow.push({
         title: item.title,
+        source: 'leetcode',
+        sourceUrl: `https://leetcode.com/problems/${item.key || item.recommendationKey}/`,
+        externalId: item.key || item.recommendationKey,
+        difficulty: item.difficulty,
         topic: item.topic,
         pattern: item.pattern,
-        difficulty: item.difficulty,
+        problemStatement: item.problemStatement || '',
         focus: item.focus,
         reason,
         recommendationType: recType,
@@ -237,9 +245,13 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
 
       importantInterviewPatterns.push({
         title: item.title,
+        source: 'leetcode',
+        sourceUrl: `https://leetcode.com/problems/${item.key || item.recommendationKey}/`,
+        externalId: item.key || item.recommendationKey,
+        difficulty: item.difficulty,
         topic: item.topic,
         pattern: item.pattern,
-        difficulty: item.difficulty,
+        problemStatement: item.problemStatement || '',
         focus: item.focus,
         reason,
         recommendationType: recType,
@@ -260,9 +272,13 @@ const getPersonalisedRecommendations = async ({ userId, limit = 10 }) => {
 
       nextDifficultyStep.push({
         title: item.title,
+        source: 'leetcode',
+        sourceUrl: `https://leetcode.com/problems/${item.key || item.recommendationKey}/`,
+        externalId: item.key || item.recommendationKey,
+        difficulty: item.difficulty,
         topic: item.topic,
         pattern: item.pattern,
-        difficulty: item.difficulty,
+        problemStatement: item.problemStatement || '',
         focus: item.focus,
         reason,
         recommendationType: recType,

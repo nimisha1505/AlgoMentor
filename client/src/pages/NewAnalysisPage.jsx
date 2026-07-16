@@ -6,82 +6,94 @@ import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
 import { useAuth } from '../hooks/useAuth.js';
 import FormError from '../components/common/FormError.jsx';
 import Loader from '../components/common/Loader.jsx';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import CodeEditor from '../components/common/CodeEditor.jsx';
 
-const SECTIONS_CONFIG = {
-  understand: [
-    { value: 'problemExplanation', label: 'Simple explanation' },
-    { value: 'inputOutput', label: 'Input and output' },
-    { value: 'exampleExplanation', label: 'Example walkthrough' },
-    { value: 'constraints', label: 'Constraints' },
-    { value: 'edgeCases', label: 'Edge cases list' },
-    { value: 'missingEdgeCases', label: 'Missing edge cases' },
-    { value: 'pattern', label: 'Pattern discovery' },
-  ],
-  learn: [
-    { value: 'hints', label: 'Progressive hints' },
-    { value: 'pseudocode', label: 'Pseudocode outline' },
-    { value: 'approaches', label: 'All approaches' },
-    { value: 'approachExplanations', label: 'Approach explanations' },
-    { value: 'approachImprovement', label: 'Improve my approach' },
-    { value: 'codes', label: 'Reference code solutions' },
-    { value: 'complexities', label: 'Complexity boundaries' },
-    { value: 'dryRun', label: 'Optimal dry run trace' },
-    { value: 'comparison', label: 'Compare solutions' },
-  ],
-  prepare: [
-    { value: 'userCodeReview', label: 'Review my code' },
-    { value: 'interviewExplanation', label: 'Interview answer guide' },
-  ],
+// ============================================================
+// CENTRAL LEARNING MODE CONFIGURATION
+// All mode logic lives here — do not duplicate below.
+// ============================================================
+const LEARNING_MODES = {
+  understand: {
+    label: 'Understand the Problem',
+    description: 'Simplify the statement, input/output, examples, constraints, and important edge cases.',
+    buttonLabel: 'Understand the Problem',
+    loadingLabel: 'Simplifying the problem...',
+    requestedSections: ['problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases'],
+    analysisDepth: 'quick',
+    requiresCode: false,
+    accentVariant: 'green',
+  },
+  start: {
+    label: 'Help Me Start',
+    description: 'Identify the likely pattern and reveal progressive hints without showing the full solution.',
+    buttonLabel: 'Show My First Hint',
+    loadingLabel: 'Finding the key observation...',
+    requestedSections: ['pattern', 'hints'],
+    analysisDepth: 'quick',
+    requiresCode: false,
+    accentVariant: 'green',
+  },
+  build: {
+    label: 'Build the Solution With Me',
+    description: 'Learn brute-force, better, and optimal approaches with pseudocode and complexity.',
+    buttonLabel: 'Build the Solution',
+    loadingLabel: 'Comparing possible approaches...',
+    requestedSections: ['approaches', 'pseudocode', 'complexities', 'comparison'],
+    analysisDepth: 'deep',
+    requiresCode: false,
+    accentVariant: 'green',
+  },
+  review: {
+    label: 'Review My Code',
+    description: 'Find bugs, failing cases, missed edge cases, complexity issues, and improvements.',
+    buttonLabel: 'Review My Code',
+    loadingLabel: 'Reviewing your code and edge cases...',
+    requestedSections: ['userCodeReview', 'missingEdgeCases', 'complexities', 'approachImprovement'],
+    analysisDepth: 'deep',
+    requiresCode: true,
+    accentVariant: 'violet',
+  },
+  complete: {
+    label: 'Show Complete Solution',
+    description: 'See the full structured lesson with approaches, code, dry run, complexity, and interview explanation.',
+    buttonLabel: 'Generate Complete Solution',
+    loadingLabel: 'Preparing the complete lesson...',
+    requestedSections: [
+      'problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases',
+      'missingEdgeCases', 'pattern', 'hints', 'approaches', 'pseudocode', 'codes',
+      'complexities', 'dryRun', 'comparison', 'interviewExplanation', 'approachImprovement',
+    ],
+    analysisDepth: 'deep',
+    requiresCode: false,
+    accentVariant: 'green',
+  },
 };
 
-const ALL_SECTION_KEYS = [
-  'problemExplanation',
-  'inputOutput',
-  'exampleExplanation',
-  'constraints',
-  'edgeCases',
-  'missingEdgeCases',
-  'pattern',
-  'hints',
-  'pseudocode',
-  'approaches',
-  'approachExplanations',
-  'approachImprovement',
-  'codes',
-  'complexities',
-  'dryRun',
-  'comparison',
-  'userCodeReview',
-  'interviewExplanation',
-];
+const MODE_ORDER = ['understand', 'start', 'build', 'review', 'complete'];
 
-const DEFAULT_SECTIONS = [
-  'problemExplanation',
-  'exampleExplanation',
-  'hints',
-  'approaches',
-  'complexities',
-  'interviewExplanation',
-];
 
 const NewAnalysisPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const recommendation = location.state || null;
+
+  const initialized = React.useRef(false);
+  const recommendedProblem = location.state?.recommendedProblem ?? null;
 
   // Form inputs
-  const [title, setTitle] = useState(recommendation?.recommendedTitle || '');
+  const [title, setTitle] = useState('');
   const [problemStatement, setProblemStatement] = useState('');
   const [language, setLanguage] = useState('cpp');
   const [code, setCode] = useState('');
   const [constraints, setConstraints] = useState(['']);
   const [examples, setExamples] = useState([{ input: '', output: '', explanation: '' }]);
-  const [requestedSections, setRequestedSections] = useState(DEFAULT_SECTIONS);
-  const [topics, setTopics] = useState(recommendation?.topic ? [recommendation.topic] : []);
-  const [patterns, setPatterns] = useState(recommendation?.pattern ? [recommendation.pattern] : []);
+  const [requestedSections, setRequestedSections] = useState(LEARNING_MODES.understand.requestedSections);
+  const [selectedMode, setSelectedMode] = useState('understand');
+  // analysisDepth is derived from selectedMode via LEARNING_MODES — never shown to the student
+  const [analysisDepth, setAnalysisDepth] = useState(LEARNING_MODES.understand.analysisDepth);
+  const [topics, setTopics] = useState([]);
+  const [patterns, setPatterns] = useState([]);
 
   // Metadata inputs
   const [source, setSource] = useState('custom');
@@ -106,39 +118,37 @@ const NewAnalysisPage = () => {
     }
   }, [user]);
 
-  const [learningMode, setLearningMode] = useState('understand');
-  const [customiseOpen, setCustomiseOpen] = useState(false);
-  const [optionalOpen, setOptionalOpen] = useState(false);
-
-  // Sync mode choices to requestedSections when customiseOpen is false
   useEffect(() => {
-    if (!customiseOpen) {
-      if (learningMode === 'understand') {
-        setRequestedSections([
-          'problemExplanation',
-          'inputOutput',
-          'exampleExplanation',
-          'constraints',
-          'edgeCases',
-          'pattern',
-        ]);
-      } else if (learningMode === 'hints') {
-        setRequestedSections([
-          'problemExplanation',
-          'pattern',
-          'hints',
-          'edgeCases',
-        ]);
-      } else if (learningMode === 'review') {
-        setRequestedSections([
-          'userCodeReview',
-          'missingEdgeCases',
-          'approachImprovement',
-          'complexities',
-        ]);
+    if (recommendedProblem && !initialized.current) {
+      initialized.current = true;
+      setTitle(recommendedProblem.title ?? "");
+      setSource(recommendedProblem.source ?? "custom");
+      setSourceUrl(recommendedProblem.sourceUrl ?? "");
+      setImportUrl(recommendedProblem.sourceUrl ?? "");
+      setExternalProblemId(recommendedProblem.externalId ?? "");
+      setDifficulty(recommendedProblem.difficulty ?? "unknown");
+      setTopics(recommendedProblem.topic ? [recommendedProblem.topic] : []);
+      setPatterns(recommendedProblem.pattern ? [recommendedProblem.pattern] : []);
+
+      if (recommendedProblem.problemStatement) {
+        setProblemStatement(recommendedProblem.problemStatement);
+        setInputMode('paste');
+      } else {
+        setProblemStatement("");
       }
+
+      // Map recommendation intent to the final mode IDs
+      let mode = 'understand';
+      if (recommendedProblem.guidedPractice || (recommendedProblem.status && recommendedProblem.status.toLowerCase() === 'attempted')) {
+        mode = 'start';
+      }
+      setSelectedMode(mode);
+      setRequestedSections(LEARNING_MODES[mode].requestedSections);
+      setAnalysisDepth(LEARNING_MODES[mode].analysisDepth);
     }
-  }, [learningMode, customiseOpen]);
+  }, [recommendedProblem]);
+
+  const [optionalOpen, setOptionalOpen] = useState(false);
 
   // Submission / Loading states
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -230,50 +240,19 @@ const NewAnalysisPage = () => {
     }
   };
 
-  // Checkbox handling
-  const handleSectionChange = (sectionValue) => {
-    if (requestedSections.includes(sectionValue)) {
-      setRequestedSections(requestedSections.filter((val) => val !== sectionValue));
-    } else {
-      setRequestedSections([...requestedSections, sectionValue]);
+  // Mode selection: all logic driven by central LEARNING_MODES config
+  const handleModeSelection = (mode) => {
+    if (!LEARNING_MODES[mode]) return;
+    setSelectedMode(mode);
+    // For 'complete', append userCodeReview only when code is non-empty
+    let sections = [...LEARNING_MODES[mode].requestedSections];
+    if (mode === 'complete' && code && code.trim().length > 0) {
+      sections = Array.from(new Set([...sections, 'userCodeReview']));
     }
-  };
-
-  // Preset shortcuts
-  const applyPreset = (presetType) => {
-    switch (presetType) {
-      case 'quickHelp':
-        setRequestedSections(['problemExplanation', 'pattern', 'hints']);
-        break;
-      case 'learnFully':
-        setRequestedSections([
-          'problemExplanation',
-          'exampleExplanation',
-          'constraints',
-          'edgeCases',
-          'missingEdgeCases',
-          'pattern',
-          'hints',
-          'approaches',
-          'approachExplanations',
-          'approachImprovement',
-          'complexities',
-          'dryRun',
-          'comparison',
-        ]);
-        break;
-      case 'improveSolution':
-        setRequestedSections(['userCodeReview', 'missingEdgeCases', 'approachImprovement', 'complexities']);
-        if (!code.trim()) {
-          alert('Code implementation is required for the "Improve my solution" preset.');
-        }
-        break;
-      case 'interviewPrep':
-        setRequestedSections(['pattern', 'approaches', 'complexities', 'comparison', 'interviewExplanation']);
-        break;
-      default:
-        break;
-    }
+    setRequestedSections(sections);
+    setAnalysisDepth(LEARNING_MODES[mode].analysisDepth);
+    // Clear stale mode-specific validation errors
+    setValidationErrors((prev) => ({ ...prev, code: undefined, sections: undefined }));
   };
 
   // Form Validation
@@ -299,10 +278,11 @@ const NewAnalysisPage = () => {
     if (requestedSections.length === 0) {
       errors.sections = 'At least one section must be selected';
     }
-    if (learningMode === 'review' && (!code || code.trim().length === 0)) {
-      errors.code = 'Add your code so AlgoMentor can review it.';
-    } else if (requestedSections.includes('userCodeReview') && (!code || code.trim().length === 0)) {
-      errors.code = 'Your code is required for the review module';
+
+    // Use requiresCode from config — do not infer from section key names
+    const requiresCode = LEARNING_MODES[selectedMode]?.requiresCode ?? false;
+    if (requiresCode && (!code || code.trim().length === 0)) {
+      errors.code = 'Add your code to use Review My Code.';
     }
 
     const hasIncompleteExamples = examples.some(
@@ -358,14 +338,20 @@ const NewAnalysisPage = () => {
         code: code.trim(),
         constraints: cleanConstraints,
         examples: cleanExamples,
-        requestedSections,
+        requestedSections: Array.from(new Set(
+          // For 'complete', ensure userCodeReview is included only when code is present
+          selectedMode === 'complete' && code && code.trim().length > 0
+            ? [...requestedSections, 'userCodeReview']
+            : requestedSections
+        )),
+        analysisDepth: analysisDepth,
         topics,
         patterns,
         source,
         sourceUrl,
         externalProblemId,
         difficulty,
-        recommendationKey: recommendation?.recommendationKey,
+        recommendationKey: recommendedProblem?.externalId || recommendedProblem?.recommendationKey,
       });
 
       problemId = problem._id;
@@ -395,60 +381,29 @@ const NewAnalysisPage = () => {
   };
 
   return (
-    <div className="new-analysis-container">
+    <div className="new-analysis-page">
       {/* Visual Submission Overlay Screen */}
       {isSubmitting && (
         <div className="loading-overlay">
           <div className="loading-overlay-card">
-            <Loader text="Building your analysis" />
-            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <span className="progress-step active" style={{ justifyContent: 'center' }}>
-                • Understanding the problem
-              </span>
-              <span className="progress-step active" style={{ justifyContent: 'center' }}>
-                • Identifying patterns
-              </span>
-              <span className="progress-step active" style={{ justifyContent: 'center' }}>
-                • Comparing approaches
-              </span>
-              <span className="progress-step active" style={{ justifyContent: 'center' }}>
-                • Preparing your explanation
-              </span>
-            </div>
+            <Loader text={LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing your analysis...'} />
           </div>
         </div>
       )}
 
       {/* Top Page Header */}
-      <header className="workspace-page-header" style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button
-              type="button"
-              onClick={() => navigate(-1)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '14px',
-                color: 'var(--text-secondary)',
-                padding: '6px 12px',
-                borderRadius: '6px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E3E8E6',
-                fontWeight: '600'
-              }}
-            >
-              ← Back
-            </button>
-            <h1 className="page-title" style={{ fontSize: '30px', fontWeight: '800', color: '#17212B', margin: 0 }}>
-              What are you working on?
-            </h1>
-          </div>
-          <p className="page-subtitle" style={{ color: '#667085', fontSize: '15px', margin: 0 }}>
-            Paste a DSA problem, add your code if you have one, and choose how you want to learn.
-          </p>
-        </div>
+      <header className="workspace-page-header">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="back-btn"
+        >
+          ← Back
+        </button>
+        <h1 className="page-title">Learn this problem</h1>
+        <p className="page-subtitle">
+          Add the question, include your code if you have one, and choose where you need help.
+        </p>
       </header>
 
       {partialFailure && (
@@ -468,41 +423,77 @@ const NewAnalysisPage = () => {
 
       {generalError && <FormError message={generalError} />}
 
-      <form onSubmit={handleSubmit} className="new-analysis-workspace">
+      <form onSubmit={handleSubmit} className="new-analysis-layout">
         {/* Left Column: Problem Editor Fields */}
-        <div className="workspace-left-col">
-          {recommendation && (
-            <div className="say-in-interview-callout" style={{ borderLeftColor: 'var(--ai-accent)', backgroundColor: 'var(--ai-soft)', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
-              <span className="callout-title" style={{ color: 'var(--ai-accent)', fontWeight: '700' }}>Recommended practice</span>
-              <p style={{ fontSize: '13px', margin: '4px 0 0 0' }}>
-                Prefilled details for: <strong>{recommendation.recommendedTitle || recommendation.pattern}</strong>. 
-                Please paste or write the full problem statement and examples below before generating your analysis.
-              </p>
+        <div className="main-learning-workspace">
+          {recommendedProblem && (
+            <div className="say-in-interview-callout" style={{ border: '1px solid #E3E8E6', backgroundColor: '#F5F7F6', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <span className="callout-title" style={{ color: '#168B62', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Recommended practice</span>
+                  <h4 style={{ margin: '4px 0', fontSize: '16px', fontWeight: '800', color: '#17212B' }}>{recommendedProblem.title}</h4>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <span className={`difficulty-indicator-${recommendedProblem.difficulty}`} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', textTransform: 'capitalize' }}>
+                      {recommendedProblem.difficulty}
+                    </span>
+                    {recommendedProblem.pattern && (
+                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EAF7F1', color: '#168B62', fontWeight: '600' }}>
+                        💡 {recommendedProblem.pattern}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {recommendedProblem.sourceUrl && (
+                    <a
+                      href={recommendedProblem.sourceUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary btn-sm"
+                      style={{ fontSize: '12.5px', padding: '6px 12px', textDecoration: 'none', height: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                    >
+                      Open original question
+                    </a>
+                  )}
+                  {recommendedProblem.sourceUrl && (
+                    <button
+                      type="button"
+                      onClick={handleImport}
+                      disabled={importLoading}
+                      className="btn btn-primary btn-sm"
+                      style={{ fontSize: '12.5px', padding: '6px 12px', height: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                    >
+                      {importLoading ? 'Importing...' : 'Import problem details'}
+                    </button>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Main workspace card */}
-          <div className="main-workspace-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid #E3E8E6', paddingBottom: '12px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#17212B', margin: 0 }}>Add your problem</h3>
-              
-              {/* Connected tabs input mode switch */}
-              <div className="input-mode-switch">
-                <button
-                  type="button"
-                  className={`mode-switch-btn ${inputMode === 'paste' ? 'active' : ''}`}
-                  onClick={() => setInputMode('paste')}
-                >
-                  Paste Problem
-                </button>
-                <button
-                  type="button"
-                  className={`mode-switch-btn ${inputMode === 'import' ? 'active' : ''}`}
-                  onClick={() => setInputMode('import')}
-                >
-                  Import Link
-                </button>
-              </div>
+          {/* Section 1: Problem */}
+          <div className="workspace-section">
+            <div className="workspace-section-header">
+              <h3 className="workspace-section-title">Problem</h3>
+            </div>
+            <hr className="workspace-section-divider" />
+
+            <div className="tab-switch-container">
+              <button
+                type="button"
+                className={`tab-switch-btn ${inputMode === 'paste' ? 'active' : ''}`}
+                onClick={() => setInputMode('paste')}
+              >
+                Paste Problem
+              </button>
+              <button
+                type="button"
+                className={`tab-switch-btn ${inputMode === 'import' ? 'active' : ''}`}
+                onClick={() => setInputMode('import')}
+              >
+                Import Link
+              </button>
             </div>
 
             {/* Banners */}
@@ -524,6 +515,18 @@ const NewAnalysisPage = () => {
               </div>
             )}
 
+            {recommendedProblem && !successMessage && !importWarning && !importError && (
+              recommendedProblem.problemStatement ? (
+                <div className="alert alert-success" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#EAF7F1', color: '#168B62', borderRadius: '8px', border: '1px solid #E3E8E6', fontSize: '13px' }}>
+                  <span>Recommended problem loaded. You can edit the details before starting.</span>
+                </div>
+              ) : (
+                <div className="alert alert-warning" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#FFF7E6', color: '#B7791F', borderRadius: '8px', border: '1px solid #E3E8E6', fontSize: '13px' }}>
+                  <span>Open the original question and paste the full statement below, or use Import Link.</span>
+                </div>
+              )
+            )}
+
             {/* Import Link Mode view */}
             {inputMode === 'import' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -534,7 +537,7 @@ const NewAnalysisPage = () => {
                     onChange={(e) => setImportUrl(e.target.value)}
                     placeholder="Paste LeetCode or GeeksforGeeks HTTPS problem URL here..."
                     disabled={importLoading || isSubmitting}
-                    style={{ flex: 1, padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#F5F7F6', fontSize: '14px' }}
+                    style={{ flex: 1, padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF', fontSize: '14px' }}
                   />
                   <button
                     type="button"
@@ -549,8 +552,8 @@ const NewAnalysisPage = () => {
 
                 <div className="import-platforms" style={{ fontSize: '12px', color: '#667085', display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <span>Supported platforms:</span>
-                  <span className="platform-badge" style={{ backgroundColor: '#F5F7F6', padding: '3px 10px', borderRadius: '12px', border: '1px solid #E3E8E6', fontWeight: '600' }}>LeetCode</span>
-                  <span className="platform-badge" style={{ backgroundColor: '#F5F7F6', padding: '3px 10px', borderRadius: '12px', border: '1px solid #E3E8E6', fontWeight: '600' }}>GeeksforGeeks</span>
+                  <span className="platform-badge" style={{ backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: '12px', border: '1px solid #E3E8E6', fontWeight: '600' }}>LeetCode</span>
+                  <span className="platform-badge" style={{ backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: '12px', border: '1px solid #E3E8E6', fontWeight: '600' }}>GeeksforGeeks</span>
                 </div>
               </div>
             )}
@@ -558,28 +561,16 @@ const NewAnalysisPage = () => {
             {/* Paste Problem Mode view */}
             {inputMode === 'paste' && (
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '8px' }}>
-                  <label htmlFor="problemStatement" style={{ fontSize: '14px', fontWeight: '600', color: '#17212B' }}>Problem statement</label>
-                  <span style={{ fontSize: '12px', color: '#667085' }}>Paste the complete statement, including examples and constraints if available.</span>
-                </div>
+                <p className="workspace-section-helper">
+                  Paste the complete problem statement. You can include examples and constraints directly.
+                </p>
                 <textarea
                   id="problemStatement"
+                  className="problem-textarea"
                   value={problemStatement}
                   onChange={(e) => setProblemStatement(e.target.value)}
                   placeholder={`Example:\nGiven an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].`}
                   disabled={isSubmitting}
-                  style={{
-                    width: '100%',
-                    minHeight: '300px',
-                    padding: '16px',
-                    fontSize: '14px',
-                    lineHeight: '1.6',
-                    borderRadius: '8px',
-                    border: '1px solid #E3E8E6',
-                    outline: 'none',
-                    backgroundColor: '#FFFFFF',
-                    resize: 'vertical',
-                  }}
                 />
                 {validationErrors.problemStatement && (
                   <span className="field-error" style={{ color: 'var(--danger)', fontSize: '12.5px', marginTop: '4px', display: 'block' }}>{validationErrors.problemStatement}</span>
@@ -588,53 +579,59 @@ const NewAnalysisPage = () => {
             )}
           </div>
 
-          {/* Code Workspace Card */}
-          <div className="main-workspace-card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <h3 style={{ fontSize: '16px', fontWeight: '700', color: '#17212B', margin: 0 }}>
-                Your solution <span style={{ fontSize: '13px', fontWeight: 'normal', color: '#667085' }}>(Optional)</span>
-              </h3>
-              
-              {/* Programming Language selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#667085' }}>Language:</span>
-                <select
-                  id="language"
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value)}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '6px 12px',
-                    borderRadius: '6px',
-                    border: '1px solid #E3E8E6',
-                    fontSize: '13px',
-                    outline: 'none',
-                    backgroundColor: '#FFFFFF',
-                    fontWeight: '600'
-                  }}
-                >
-                  <option value="cpp">C++</option>
-                  <option value="java">Java</option>
-                  <option value="python">Python</option>
-                  <option value="javascript">JavaScript</option>
-                  <option value="c">C</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
+          {/* Section 2: Code (Optional) */}
+          <div className="workspace-section">
+            <div className="workspace-section-header">
+              <h3 className="workspace-section-title">Your Code</h3>
+              <span className="workspace-section-badge">Optional</span>
             </div>
+            <hr className="workspace-section-divider" />
 
-            <p style={{ fontSize: '13px', color: '#667085', margin: '0 0 16px 0' }}>
-              Add your code for review, or leave it empty if you only want help understanding the problem.
+            <p className="workspace-section-helper">
+              Add code only when you want it reviewed. You can leave this empty for problem understanding or solution guidance.
             </p>
 
-            <div className="monaco-editor-frame">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+              <span style={{ fontSize: '12px', color: '#667085' }}>Language:</span>
+              <select
+                id="language"
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                disabled={isSubmitting}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  border: '1px solid #E3E8E6',
+                  fontSize: '13px',
+                  outline: 'none',
+                  backgroundColor: '#FFFFFF',
+                  fontWeight: '600'
+                }}
+              >
+                <option value="cpp">C++</option>
+                <option value="java">Java</option>
+                <option value="python">Python</option>
+                <option value="javascript">JavaScript</option>
+                <option value="c">C</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div className="monaco-editor-frame-open">
               <CodeEditor
                 value={code}
                 onChange={setCode}
                 language={language}
                 disabled={isSubmitting}
-                isCodeReviewSelected={requestedSections.includes('userCodeReview')}
+                height="320px"
+                isCodeReviewSelected={selectedMode === 'review'}
               />
+              {/* Live: if Review mode and code empty, show inline hint */}
+              {selectedMode === 'review' && (!code || code.trim().length === 0) && (
+                <p style={{ fontSize: '12.5px', color: 'var(--danger)', marginTop: '8px', marginLeft: '2px' }}>
+                  Add your code to use Review My Code.
+                </p>
+              )}
             </div>
             {validationErrors.code && (
               <span className="field-error" style={{ margin: '8px 4px 0 4px', display: 'block', color: 'var(--danger)', fontSize: '12.5px' }}>
@@ -643,46 +640,19 @@ const NewAnalysisPage = () => {
             )}
           </div>
 
-          {/* Optional details collapsed accordion */}
-          <div className="optional-details-accordion" style={{ marginTop: '16px' }}>
+          {/* Section 3: Optional problem details accordion */}
+          <div className="workspace-section" style={{ marginBottom: '16px' }}>
             <button
               type="button"
               onClick={() => setOptionalOpen(!optionalOpen)}
-              style={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '14px 20px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E3E8E6',
-                borderRadius: '14px',
-                fontWeight: '600',
-                fontSize: '14px',
-                color: '#17212B',
-                cursor: 'pointer',
-                outline: 'none',
-              }}
+              className="optional-details-trigger"
             >
-              <span>Optional problem details</span>
+              <span>Optional Problem Details</span>
               <span>{optionalOpen ? '▲' : '▼'}</span>
             </button>
 
             {optionalOpen && (
-              <div
-                style={{
-                  padding: '24px',
-                  border: '1px solid #E3E8E6',
-                  borderTop: 'none',
-                  borderBottomLeftRadius: '14px',
-                  borderBottomRightRadius: '14px',
-                  backgroundColor: '#FFFFFF',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '16px',
-                  marginTop: '-8px'
-                }}
-              >
+              <div className="optional-details-content">
                 <div className="form-group">
                   <label htmlFor="title" style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Title (Optional)</label>
                   <input
@@ -692,7 +662,7 @@ const NewAnalysisPage = () => {
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="e.g. Two Sum (Auto-generated if blank)"
                     disabled={isSubmitting}
-                    style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%' }}
+                    style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
                   />
                   {validationErrors.title && (
                     <span className="field-error" style={{ color: 'var(--danger)', fontSize: '12.5px' }}>{validationErrors.title}</span>
@@ -744,7 +714,7 @@ const NewAnalysisPage = () => {
                       onChange={(e) => setSourceUrl(e.target.value)}
                       placeholder="https://leetcode.com/problems/..."
                       disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%' }}
+                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
                     />
                   </div>
 
@@ -757,7 +727,7 @@ const NewAnalysisPage = () => {
                       onChange={(e) => setExternalProblemId(e.target.value)}
                       placeholder="e.g. two-sum"
                       disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%' }}
+                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
                     />
                   </div>
                 </div>
@@ -785,14 +755,14 @@ const NewAnalysisPage = () => {
                           onChange={(e) => handleConstraintChange(idx, e.target.value)}
                           placeholder="e.g. 1 <= nums.length <= 10^4"
                           disabled={isSubmitting}
-                          style={{ flex: 1, padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none' }}
+                          style={{ flex: 1, padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF' }}
                         />
                         <button
                           type="button"
                           onClick={() => removeConstraint(idx)}
                           disabled={isSubmitting}
                           className="row-action-btn"
-                          style={{ border: '1px solid #E3E8E6', background: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer' }}
+                          style={{ border: '1px solid #E3E8E6', background: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', backgroundColor: '#FFFFFF' }}
                         >
                           <Trash2 size={14} />
                         </button>
@@ -876,7 +846,7 @@ const NewAnalysisPage = () => {
                       onChange={(e) => setTopics(e.target.value.split(',').map((t) => t.trim()).filter(Boolean))}
                       placeholder="e.g. arrays, hashing"
                       disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%' }}
+                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
                     />
                   </div>
                   <div className="form-group" style={{ flex: 1 }}>
@@ -887,7 +857,7 @@ const NewAnalysisPage = () => {
                       onChange={(e) => setPatterns(e.target.value.split(',').map((p) => p.trim()).filter(Boolean))}
                       placeholder="e.g. slidingWindow"
                       disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%' }}
+                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
                     />
                   </div>
                 </div>
@@ -896,173 +866,72 @@ const NewAnalysisPage = () => {
           </div>
         </div>
 
-        {/* Right Column: Dynamic options and action button */}
-        <div className="workspace-right-col">
-          <div className="options-sticky-card">
-            <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#17212B', marginBottom: '4px', marginTop: 0 }}>
-              How should AlgoMentor help?
-            </h3>
-            <p style={{ fontSize: '14px', color: '#667085', marginBottom: '20px', marginTop: 0 }}>
-              Choose one learning mode. You can customise the details if needed.
-            </p>
+        {/* Right Learning Rail */}
+        <div className="learning-rail">
+          <div>
+            <h3 className="rail-heading">Where are you stuck?</h3>
+            <p className="rail-subtitle">Choose one option. You can change it before continuing.</p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
-              {/* Understand Option */}
-              <div
-                className={`learning-mode-card ${learningMode === 'understand' ? 'active' : ''}`}
-                onClick={() => setLearningMode('understand')}
-              >
-                <div className="mode-card-radio-dot">
-                  <div className="dot-inner"></div>
-                </div>
-                <div>
-                  <div className="mode-card-title">Understand</div>
-                  <div className="mode-card-description">
-                    Break down the statement, examples, constraints, edge cases and pattern.
-                  </div>
-                </div>
-              </div>
-
-              {/* Guide me Option */}
-              <div
-                className={`learning-mode-card ${learningMode === 'hints' ? 'active' : ''}`}
-                onClick={() => setLearningMode('hints')}
-              >
-                <div className="mode-card-radio-dot">
-                  <div className="dot-inner"></div>
-                </div>
-                <div>
-                  <div className="mode-card-title">Guide me</div>
-                  <div className="mode-card-description">
-                    Get progressive hints without immediately revealing the full solution.
-                  </div>
-                </div>
-              </div>
-
-              {/* Review my code Option */}
-              <div
-                className={`learning-mode-card ${learningMode === 'review' ? 'active' : ''} ${learningMode === 'review' && !code.trim() ? 'error' : ''}`}
-                onClick={() => setLearningMode('review')}
-              >
-                <div className="mode-card-radio-dot">
-                  <div className="dot-inner"></div>
-                </div>
-                <div>
-                  <div className="mode-card-title">Review my code</div>
-                  <div className="mode-card-description">
-                    Find issues, missed cases, complexity problems and ways to improve.
-                  </div>
-                  {learningMode === 'review' && !code.trim() && (
-                    <div style={{ fontSize: '13px', color: '#C73E4D', marginTop: '6px', fontWeight: '500' }}>
-                      Add your code so AlgoMentor can review it.
+            <div className="rail-options-container">
+              {MODE_ORDER.map((modeId) => {
+                const m = LEARNING_MODES[modeId];
+                const isSelected = selectedMode === modeId;
+                const accentClass = isSelected
+                  ? m.accentVariant === 'violet' ? 'selected-violet' : 'selected-green'
+                  : '';
+                return (
+                  <div
+                    key={modeId}
+                    onClick={() => handleModeSelection(modeId)}
+                    className={`rail-option-row ${accentClass}`}
+                    role="radio"
+                    aria-checked={isSelected}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleModeSelection(modeId); }}
+                  >
+                    <div className="rail-radio-circle">
+                      <div className="rail-radio-dot"></div>
                     </div>
-                  )}
-                </div>
-              </div>
+                    <div className="rail-option-content">
+                      <span className="rail-option-label">{m.label}</span>
+                      <span className="rail-option-description">{m.description}</span>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+          </div>
 
-            {customiseOpen && (
-              <div className="customise-checklist-section">
-                {/* Presets Row */}
-                <div className="presets-row" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
-                  <button type="button" onClick={() => applyPreset('quickHelp')} className="preset-chip-btn">
-                    Quick help
-                  </button>
-                  <button type="button" onClick={() => applyPreset('learnFully')} className="preset-chip-btn">
-                    Learn fully
-                  </button>
-                  <button type="button" onClick={() => applyPreset('improveSolution')} className="preset-chip-btn">
-                    Improve solution
-                  </button>
-                  <button type="button" onClick={() => applyPreset('interviewPrep')} className="preset-chip-btn">
-                    Interview prep
-                  </button>
-                </div>
+          <div>
+            {/* Review My Code inline validation */}
+            {selectedMode === 'review' && (!code || code.trim().length === 0) && (
+              <p style={{ fontSize: '12.5px', color: 'var(--danger)', marginBottom: '10px' }}>
+                Add your code to use Review My Code.
+              </p>
+            )}
 
-                {validationErrors.sections && (
-                  <div className="field-error" style={{ marginBottom: '12px', color: '#C73E4D', fontSize: '12.5px' }}>{validationErrors.sections}</div>
-                )}
-
-                <div className="options-group" style={{ marginBottom: '12px' }}>
-                  <h4 className="options-group-title">Understand</h4>
-                  <div className="options-checkbox-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {SECTIONS_CONFIG.understand.map((sec) => (
-                      <label key={sec.value} className="checkbox-chip-label">
-                        <input
-                          type="checkbox"
-                          checked={requestedSections.includes(sec.value)}
-                          onChange={() => handleSectionChange(sec.value)}
-                          disabled={isSubmitting}
-                        />
-                        <span>{sec.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="options-group" style={{ marginBottom: '12px' }}>
-                  <h4 className="options-group-title">Solve</h4>
-                  <div className="options-checkbox-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {SECTIONS_CONFIG.learn.map((sec) => {
-                      const isAI = sec.value === 'approachImprovement';
-                      return (
-                        <label key={sec.value} className="checkbox-chip-label">
-                          <input
-                            type="checkbox"
-                            checked={requestedSections.includes(sec.value)}
-                            onChange={() => handleSectionChange(sec.value)}
-                            disabled={isSubmitting}
-                          />
-                          <span style={isAI ? { color: '#6D5CE7', fontWeight: '600' } : {}}>
-                            {sec.label}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="options-group" style={{ marginBottom: 0 }}>
-                  <h4 className="options-group-title">Prepare</h4>
-                  <div className="options-checkbox-list" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {SECTIONS_CONFIG.prepare.map((sec) => (
-                      <label key={sec.value} className="checkbox-chip-label">
-                        <input
-                          type="checkbox"
-                          checked={requestedSections.includes(sec.value)}
-                          onChange={() => handleSectionChange(sec.value)}
-                          disabled={isSubmitting}
-                        />
-                        <span>{sec.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+            {validationErrors.sections && (
+              <div className="field-error" style={{ marginBottom: '12px', color: 'var(--danger)', fontSize: '12.5px' }}>
+                {validationErrors.sections}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isSubmitting || (learningMode === 'review' && !code.trim())}
-              className="btn btn-primary btn-block"
-              style={{ padding: '12px', fontSize: '15px', fontWeight: '700', borderRadius: '8px', width: '100%', height: '46px' }}
+              disabled={
+                isSubmitting ||
+                requestedSections.length === 0 ||
+                (LEARNING_MODES[selectedMode]?.requiresCode && (!code || code.trim().length === 0))
+              }
+              className="rail-submit-btn"
             >
-              {isSubmitting ? 'Starting...' : 'Start Learning'}
+              {isSubmitting
+                ? (LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing...')
+                : (LEARNING_MODES[selectedMode]?.buttonLabel ?? 'Get Help')}
             </button>
 
-            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-              <button
-                type="button"
-                onClick={() => setCustomiseOpen(!customiseOpen)}
-                className="clear-text-btn"
-                style={{ fontSize: '13px', fontWeight: '600', color: '#168B62', cursor: 'pointer', border: 'none', background: 'none' }}
-              >
-                {customiseOpen ? '✕ Use simple modes' : 'Customize what I get'}
-              </button>
-            </div>
-
             <p className="db-primary-helper" style={{ fontSize: '13px', color: '#667085', marginTop: '16px', textAlign: 'center' }}>
-              Your problem is saved, so you can revisit and improve it later.
+              Your problem is saved so you can revisit and improve it later.
             </p>
           </div>
         </div>

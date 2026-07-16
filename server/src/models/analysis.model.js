@@ -131,6 +131,11 @@ const analysisSchema = new mongoose.Schema(
         'At least one requested section is required',
       ],
     },
+    analysisDepth: {
+      type: String,
+      enum: ['quick', 'deep'],
+      default: 'quick',
+    },
     inputSnapshot: {
       type: inputSnapshotSchema,
       required: true,
