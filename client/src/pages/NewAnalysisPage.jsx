@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
 import { useAuth } from '../hooks/useAuth.js';
 import FormError from '../components/common/FormError.jsx';
 import Loader from '../components/common/Loader.jsx';
-import { Trash2 } from 'lucide-react';
+import { Trash2, FileText, Code2, Lightbulb, BookOpenCheck, Target, Sparkles, Brain, ScanSearch, Trophy, ArrowRight } from 'lucide-react';
 import CodeEditor from '../components/common/CodeEditor.jsx';
 
 // ============================================================
@@ -391,23 +391,76 @@ const NewAnalysisPage = () => {
         </div>
       )}
 
-      {/* Top Page Header */}
-      <header className="workspace-page-header">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="back-btn"
-        >
+      {/* Top Page Header / Hero */}
+      <div className="workspace-hero-container">
+        <button type="button" onClick={() => navigate(-1)} className="hero-back-btn">
           ← Back
         </button>
-        <div className="new-analysis-header-content">
-          <span className="new-analysis-eyebrow">Learning workspace</span>
-          <h1 className="page-title">Learn this problem</h1>
-          <p className="page-subtitle">
-            Add the question, include your code if you have one, and choose where you need help.
-          </p>
-        </div>
-      </header>
+        <header className="workspace-hero">
+          {/* Left Decorative Area */}
+          <div className="hero-left-decor">
+            <div className="decor-notebook">
+              <FileText className="icon-main" strokeWidth={1.5} />
+              <div className="decor-floating icon-code"><Code2 size={16} /></div>
+              <div className="decor-floating icon-lightbulb"><Lightbulb size={16} /></div>
+              <div className="decor-floating icon-book"><BookOpenCheck size={16} /></div>
+            </div>
+          </div>
+
+          {/* Center Content */}
+          <div className="hero-center-content">
+            <span className="hero-eyebrow">LEARNING WORKSPACE</span>
+            <h1 className="hero-title">Learn this problem</h1>
+            <p className="hero-subtitle">
+              Add the question, include your code if you have one,<br />and choose where you need help.
+            </p>
+            <div className="hero-indicators">
+              <span className="indicator-pill"><span className="dot dot-green"></span>Problem input</span>
+              <span className="indicator-pill"><span className="dot dot-violet"></span>Optional code</span>
+              <span className="indicator-pill"><span className="dot dot-amber"></span>Guided help</span>
+            </div>
+          </div>
+
+          {/* Right Content */}
+          <div className="hero-right-content">
+            <div className="how-it-works-timeline">
+              <div className="timeline-header">
+                <Sparkles size={14} className="timeline-sparkle" />
+                <span>How it works</span>
+              </div>
+              <div className="timeline-steps">
+                <div className="timeline-line"></div>
+                <div className="timeline-step">
+                  <div className="step-num step-green">01</div>
+                  <div className="step-text">
+                    <strong>Add the problem</strong>
+                    <span>Paste the full question or import it.</span>
+                  </div>
+                </div>
+                <div className="timeline-step">
+                  <div className="step-num step-violet">02</div>
+                  <div className="step-text">
+                    <strong>Add code if needed</strong>
+                    <span>Code is optional unless you select Review My Code.</span>
+                  </div>
+                </div>
+                <div className="timeline-step">
+                  <div className="step-num step-amber">03</div>
+                  <div className="step-text">
+                    <strong>Choose your help</strong>
+                    <span>Pick understanding, hints, building, review, or complete solution.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="hero-target-decor">
+              <div className="target-base">
+                <Target size={42} className="target-icon" strokeWidth={1.5} />
+              </div>
+            </div>
+          </div>
+        </header>
+      </div>
 
       {partialFailure && (
         <div className="partial-failure-alert" role="alert" style={{ marginBottom: '24px' }}>
@@ -477,11 +530,6 @@ const NewAnalysisPage = () => {
 
           {/* Section 1: Problem */}
           <div className="workspace-section">
-            <div className="workspace-section-header">
-              <h3 className="workspace-section-title">Problem</h3>
-            </div>
-            <hr className="workspace-section-divider" />
-
             <div className="tab-switch-container">
               <button
                 type="button"
@@ -584,19 +632,13 @@ const NewAnalysisPage = () => {
 
           {/* Section 2: Code (Optional) */}
           <div className="workspace-section">
-            <div className="workspace-section-header">
-              <h3 className="workspace-section-title">Your Code</h3>
-              <span className="workspace-section-badge">Optional</span>
-            </div>
-            <hr className="workspace-section-divider" />
-
-            <p className="workspace-section-helper">
-              Add code only when you want it reviewed. You can leave this empty for problem understanding or solution guidance.
-            </p>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-              <span style={{ fontSize: '12px', color: '#667085' }}>Language:</span>
-              <select
+            <div className="workspace-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <h3 className="workspace-section-title">Your Code <span className="workspace-section-badge">Optional</span></h3>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '12px', color: '#667085' }}>Choose Language</span>
+                <select
                 id="language"
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
@@ -619,6 +661,7 @@ const NewAnalysisPage = () => {
                 <option value="other">Other</option>
               </select>
             </div>
+          </div>
 
             <div className="monaco-editor-frame-open">
               <CodeEditor
@@ -629,12 +672,6 @@ const NewAnalysisPage = () => {
                 height="320px"
                 isCodeReviewSelected={selectedMode === 'review'}
               />
-              {/* Live: if Review mode and code empty, show inline hint */}
-              {selectedMode === 'review' && (!code || code.trim().length === 0) && (
-                <p style={{ fontSize: '12.5px', color: 'var(--danger)', marginTop: '8px', marginLeft: '2px' }}>
-                  Add your code to use Review My Code.
-                </p>
-              )}
             </div>
             {validationErrors.code && (
               <span className="field-error" style={{ margin: '8px 4px 0 4px', display: 'block', color: 'var(--danger)', fontSize: '12.5px' }}>
@@ -872,8 +909,12 @@ const NewAnalysisPage = () => {
         {/* Right Learning Rail */}
         <div className="learning-rail">
           <div>
-            <h3 className="rail-heading">Where are you stuck?</h3>
-            <p className="rail-subtitle">Choose one option. You can change it before continuing.</p>
+            <div className="rail-header">
+              <div>
+                <h3 className="rail-heading">Where are you stuck?</h3>
+                <p className="rail-subtitle">Choose one option. You can change it before continuing.</p>
+              </div>
+            </div>
 
             <div className="rail-options-container">
               {MODE_ORDER.map((modeId) => {
@@ -882,6 +923,12 @@ const NewAnalysisPage = () => {
                 const accentClass = isSelected
                   ? `selected-${m.accentVariant}`
                   : '';
+                let Icon = Brain;
+                if (modeId === 'start') Icon = Lightbulb;
+                if (modeId === 'build') Icon = Code2;
+                if (modeId === 'review') Icon = ScanSearch;
+                if (modeId === 'complete') Icon = Trophy;
+
                 return (
                   <div
                     key={modeId}
@@ -898,6 +945,9 @@ const NewAnalysisPage = () => {
                     <div className="rail-option-content">
                       <span className="rail-option-label">{m.label}</span>
                       <span className="rail-option-description">{m.description}</span>
+                    </div>
+                    <div className={`rail-option-icon icon-${m.accentVariant}`} aria-hidden="true">
+                      <Icon size={24} strokeWidth={1.5} />
                     </div>
                   </div>
                 );
@@ -928,9 +978,12 @@ const NewAnalysisPage = () => {
               }
               className={`rail-submit-btn btn-${LEARNING_MODES[selectedMode]?.accentVariant || 'blue'}`}
             >
-              {isSubmitting
-                ? (LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing...')
-                : (LEARNING_MODES[selectedMode]?.buttonLabel ?? 'Get Help')}
+              <span>
+                {isSubmitting
+                  ? (LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing...')
+                  : (LEARNING_MODES[selectedMode]?.buttonLabel ?? 'Get Help')}
+              </span>
+              {!isSubmitting && <ArrowRight size={16} />}
             </button>
 
             <p className="db-primary-helper" style={{ fontSize: '13px', color: '#667085', marginTop: '16px', textAlign: 'center' }}>
