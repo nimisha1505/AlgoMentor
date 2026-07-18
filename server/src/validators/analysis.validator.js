@@ -49,4 +49,20 @@ const analysisListQuerySchema = z
   })
   .strict();
 
-export { analysisIdParamSchema, analysisListQuerySchema };
+const approachParamsSchema = z
+  .object({
+    analysisId: z
+      .string({
+        error: () => 'Invalid analysis ID',
+      })
+      .regex(/^[0-9a-fA-F]{24}$/, 'Invalid analysis ID'),
+    approachIndex: z.coerce
+      .number({
+        error: () => 'Approach index must be a number',
+      })
+      .int('Approach index must be an integer')
+      .nonnegative('Approach index cannot be negative'),
+  })
+  .strict();
+
+export { analysisIdParamSchema, analysisListQuerySchema, approachParamsSchema };

@@ -289,7 +289,7 @@ describe('Analysis API Integration Tests', () => {
           problemExplanation: 'Mocked explanation content',
           pattern: { name: 'sliding-window', clues: ['clue 1'], reason: 'reason 1' },
           hints: [{ level: 1, hint: 'First hint' }],
-          approaches: [{ name: 'Brute Force', category: 'bruteForce', intuition: 'None', steps: ['step'], timeComplexity: 'O(N)', spaceComplexity: 'O(1)' }],
+          approaches: [{ name: 'Brute Force', category: 'bruteForce', intuition: 'None', steps: ['step'], timeComplexity: 'O(N)', spaceComplexity: 'O(1)', pseudocode: ['pseudocode line'] }],
           codes: [{ approach: 'Brute Force', language: 'cpp', code: 'class Solution {};' }],
           complexities: [{ approach: 'Brute Force', timeComplexity: 'O(N)', timeReason: 'nested loops', spaceComplexity: 'O(1)', spaceReason: 'no extra space' }],
         });
@@ -433,6 +433,7 @@ describe('Analysis API Integration Tests', () => {
             steps: ['Step 1'],
             timeComplexity: '',
             spaceComplexity: '',
+            pseudocode: ['pseudocode line'],
             code: 'class BruteForce {};'
           }
         ]
@@ -459,6 +460,7 @@ describe('Analysis API Integration Tests', () => {
             steps: ['Step 1'],
             timeComplexity: 'O(N^2)',
             spaceComplexity: 'O(1)',
+            pseudocode: ['pseudocode line'],
             code: 'class BruteForce {};',
             advantages: ['simple'],
             disadvantages: ['slow']

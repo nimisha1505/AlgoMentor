@@ -11,7 +11,21 @@ const approachSchema = z
     steps: z.array(nonEmptyString).min(1),
     timeComplexity: nonEmptyString,
     spaceComplexity: nonEmptyString,
-    code: z.string().default(''),
+    pseudocode: z.array(z.string()).min(1),
+    code: z.string().optional().default(''),
+    language: z.string().optional(),
+    dryRun: z
+      .object({
+        input: nonEmptyString,
+        steps: z.array(nonEmptyString).min(1),
+        output: nonEmptyString,
+      })
+      .strict()
+      .optional(),
+    codeGeneratedAt: z.union([z.date(), z.string()]).optional(),
+    dryRunGeneratedAt: z.union([z.date(), z.string()]).optional(),
+    codeGenerationStatus: z.string().optional(),
+    dryRunGenerationStatus: z.string().optional(),
     advantages: z.array(z.string()).optional(),
     disadvantages: z.array(z.string()).optional(),
     limitations: z.array(z.string()).optional(),
@@ -645,7 +659,7 @@ const analysisResultJsonSchema = {
           steps: { type: 'array', items: { type: 'string' } },
           timeComplexity: { type: 'string' },
           spaceComplexity: { type: 'string' },
-          code: { type: 'string' },
+          pseudocode: { type: 'array', items: { type: 'string' } },
         },
         required: [
           'name',
@@ -654,6 +668,7 @@ const analysisResultJsonSchema = {
           'steps',
           'timeComplexity',
           'spaceComplexity',
+          'pseudocode',
         ],
         additionalProperties: false,
       },

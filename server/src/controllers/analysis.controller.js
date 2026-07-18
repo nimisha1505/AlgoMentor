@@ -4,6 +4,11 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import { processAnalysis } from '../services/analysisProcessor.service.js';
+import { generateApproachCode, generateApproachDryRun } from '../services/geminiAnalysis.service.js';
+import { recordTokenUsage, getUtcDateKey } from '../services/aiUsage.service.js';
+import { DAILY_TOKEN_LIMIT } from '../config/aiLimits.js';
+import { AiUsage } from '../models/aiUsage.model.js';
+
 
 /**
  * Request AI analysis for a saved DSA problem.
@@ -290,10 +295,186 @@ const compareAnalyses = asyncHandler(async (req, res) => {
   );
 });
 
+
+
+/**
+ * Generate code for a single approach of an analysis.
+ */
+const generateApproachCodeController = asyncHandler(async (req, res) => {
+  const { analysisId, approachIndex } = req.validatedParams;
+
+  // Usage limits check
+  const dateKey = getUtcDateKey();
+  const usage = await AiUsage.findOne({ owner: req.user._id, dateKey });
+  if (usage && usage.totalTokens >= DAILY_TOKEN_LIMIT) {
+    throw new ApiError(429, 'Daily token limit reached. Please try again tomorrow.');
+  }
+
+  const analysis = await Analysis.findById(analysisId);
+  if (!analysis) {
+    throw new ApiError(404, 'Analysis not found');
+  }
+
+  if (analysis.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, 'Unauthorized access');
+  }
+
+  if (analysis.status !== 'completed') {
+    throw new ApiError(400, 'Analysis is not completed');
+  }
+
+  const approaches = analysis.result?.approaches;
+  if (!approaches || !Array.isArray(approaches) || approachIndex < 0 || approachIndex >= approaches.length) {
+    throw new ApiError(400, 'Invalid approach index');
+  }
+
+  const approach = approaches[approachIndex];
+
+  // Return saved code immediately if already generated
+  if (approach.code && approach.code.trim().length > 0) {
+    return res.status(200).json(
+      new ApiResponse(200, { approach }, 'Code retrieved from cache')
+    );
+  }
+
+  // Prevent duplicate generation from repeated clicks
+  if (approach.codeGenerationStatus === 'generating') {
+    throw new ApiError(409, 'Code is already being generated for this approach');
+  }
+
+  // Set processing flag
+  approach.codeGenerationStatus = 'generating';
+  analysis.markModified('result');
+  await analysis.save();
+
+  try {
+    const language = analysis.inputSnapshot.language || 'cpp';
+    const genResult = await generateApproachCode({
+      title: analysis.inputSnapshot.title,
+      problemStatement: analysis.inputSnapshot.problemStatement,
+      constraints: analysis.inputSnapshot.constraints,
+      approach,
+      language
+    });
+
+    // Record token usage
+    await recordTokenUsage(req.user._id, genResult.usage);
+
+    // Update approach details
+    approach.code = genResult.code;
+    approach.language = language;
+    approach.codeGeneratedAt = new Date();
+    approach.codeGenerationStatus = 'completed';
+
+    analysis.markModified('result');
+    await analysis.save();
+
+    return res.status(200).json(
+      new ApiResponse(200, { approach }, 'Code generated successfully')
+    );
+  } catch (error) {
+    console.error('On-demand code generation failed:', error);
+    // Clear processing flag on failure
+    approach.codeGenerationStatus = 'failed';
+    analysis.markModified('result');
+    await analysis.save();
+    throw error;
+  }
+});
+
+/**
+ * Generate dry run for a single approach of an analysis.
+ */
+const generateApproachDryRunController = asyncHandler(async (req, res) => {
+  const { analysisId, approachIndex } = req.validatedParams;
+
+  // Usage limits check
+  const dateKey = getUtcDateKey();
+  const usage = await AiUsage.findOne({ owner: req.user._id, dateKey });
+  if (usage && usage.totalTokens >= DAILY_TOKEN_LIMIT) {
+    throw new ApiError(429, 'Daily token limit reached. Please try again tomorrow.');
+  }
+
+  const analysis = await Analysis.findById(analysisId);
+  if (!analysis) {
+    throw new ApiError(404, 'Analysis not found');
+  }
+
+  if (analysis.owner.toString() !== req.user._id.toString()) {
+    throw new ApiError(403, 'Unauthorized access');
+  }
+
+  if (analysis.status !== 'completed') {
+    throw new ApiError(400, 'Analysis is not completed');
+  }
+
+  const approaches = analysis.result?.approaches;
+  if (!approaches || !Array.isArray(approaches) || approachIndex < 0 || approachIndex >= approaches.length) {
+    throw new ApiError(400, 'Invalid approach index');
+  }
+
+  const approach = approaches[approachIndex];
+
+  // Return saved dry run if already generated
+  if (approach.dryRun && approach.dryRun.steps && approach.dryRun.steps.length > 0) {
+    return res.status(200).json(
+      new ApiResponse(200, { approach }, 'Dry run retrieved from cache')
+    );
+  }
+
+  // Prevent duplicate generation from repeated clicks
+  if (approach.dryRunGenerationStatus === 'generating') {
+    throw new ApiError(409, 'Dry run is already being generated for this approach');
+  }
+
+  // Set processing flag
+  approach.dryRunGenerationStatus = 'generating';
+  analysis.markModified('result');
+  await analysis.save();
+
+  try {
+    let example = null;
+    if (analysis.inputSnapshot && analysis.inputSnapshot.examples && analysis.inputSnapshot.examples.length > 0) {
+      example = analysis.inputSnapshot.examples[0];
+    } else {
+      example = { input: 'Illustrative Example Input', output: 'Illustrative Example Output', explanation: '' };
+    }
+
+    const genResult = await generateApproachDryRun({
+      example,
+      approach
+    });
+
+    // Record token usage
+    await recordTokenUsage(req.user._id, genResult.usage);
+
+    // Update approach details
+    approach.dryRun = genResult.dryRun;
+    approach.dryRunGeneratedAt = new Date();
+    approach.dryRunGenerationStatus = 'completed';
+
+    analysis.markModified('result');
+    await analysis.save();
+
+    return res.status(200).json(
+      new ApiResponse(200, { approach }, 'Dry run generated successfully')
+    );
+  } catch (error) {
+    console.error('On-demand dry run generation failed:', error);
+    // Clear processing flag on failure
+    approach.dryRunGenerationStatus = 'failed';
+    analysis.markModified('result');
+    await analysis.save();
+    throw error;
+  }
+});
+
 export {
   startProblemAnalysis,
   getAnalysisById,
   getProblemAnalyses,
   getLatestProblemAnalysis,
   compareAnalyses,
+  generateApproachCodeController,
+  generateApproachDryRunController,
 };

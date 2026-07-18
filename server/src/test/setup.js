@@ -70,6 +70,7 @@ vi.mock('../services/geminiAnalysis.service.js', () => ({
           steps: ['nested loop'], 
           timeComplexity: 'O(N^2)', 
           spaceComplexity: 'O(1)', 
+          pseudocode: ['loop i', 'loop j'],
           code: 'class BruteForce {};' 
         },
         { 
@@ -79,6 +80,7 @@ vi.mock('../services/geminiAnalysis.service.js', () => ({
           steps: ['two pointers step'], 
           timeComplexity: 'O(N)', 
           spaceComplexity: 'O(1)', 
+          pseudocode: ['initialize pointers', 'move pointers'],
           code: 'class Optimal {};' 
         }
       ],

@@ -9,7 +9,7 @@ const ANALYSIS_SECTION_INSTRUCTIONS = {
   hints: 'Return progressive hints from least revealing to most revealing. Level 1: Focus on the key observation. Level 2: Mention the useful data structure or pattern. Level 3: Explain the main transition or algorithm step. Level 4: Give near-complete pseudocode. Keep each hint to 1–3 short bullets.',
   pseudocode: 'Provide language-independent pseudocode for the recommended approach as a step-by-step list.',
   userCodeReview: 'Review only the supplied user code. Include correctness, bugs, missed cases, complexity, strengths, and improvements. Never claim code was supplied when it was empty. Group findings under Bugs, Edge Cases, Complexity, and Improvements.',
-  approaches: 'List all major realistic approaches starting from brute force, better approach (when applicable), to the optimal approach. For every approach, include: name, category, intuition/idea, step-by-step algorithm steps, why it works, timeComplexity, spaceComplexity, limitations, and when to use it.',
+  approaches: "List all major realistic approaches (maximum 3: brute force, better only when genuinely different, and optimal). For every approach, include: name, category (one of 'bruteForce', 'better', 'optimal', 'alternative'), intuition (concise explanation), steps (maximum 5-7 algorithm steps), pseudocode (compact step-by-step pseudocode), timeComplexity, and spaceComplexity. Do not include full implementation code or dry runs in this section.",
   approachImprovement: "Evaluate the student's current reasoning or code and explain how to improve it step by step. Identify strengths, bottlenecks, unnecessary work, the next better approach, the relevant DSA pattern, and reflective questions the student should ask. Limit to maximum 5 actionable suggestions.",
   approachExplanations: 'Explain the intuition and steps of every listed approach.',
   codes: "Provide complete, clean code for each generated approach using the student's selected programming language. Each code entry must clearly identify which approach it corresponds to.",
@@ -120,3 +120,53 @@ Instructions for your response:
 };
 
 export { buildAnalysisPrompt, ANALYSIS_SECTION_INSTRUCTIONS };
+
+/**
+ * Builds a small dedicated prompt for approach-specific code generation.
+ */
+export const buildApproachCodePrompt = ({ problem, approach, language }) => {
+  return `You are a professional software engineer. Generate a complete, compilable implementation in the specified programming language for the following DSA problem and approach.
+
+Problem:
+Title: ${problem.title}
+Problem Statement: ${problem.problemStatement}
+Constraints: ${problem.constraints && problem.constraints.length > 0 ? JSON.stringify(problem.constraints) : 'None'}
+
+Selected Approach:
+Name: ${approach.name}
+Category: ${approach.category}
+Intuition/Explanation: ${approach.intuition}
+Steps: ${approach.steps ? JSON.stringify(approach.steps) : ''}
+Pseudocode: ${approach.pseudocode ? JSON.stringify(approach.pseudocode) : ''}
+
+Target Programming Language: ${language}
+
+Requirements:
+1. Generate complete, clean, compilable implementation code matching the target language.
+2. The code must preserve the exact logic of the approach and pseudocode.
+3. Handle constraints and edge cases correctly.
+4. Output must be raw code wrapped inside the requested JSON schema. Do not write markdown code blocks inside the JSON string value.`;
+};
+
+/**
+ * Builds a small dedicated prompt for approach-specific dry-run generation.
+ */
+export const buildApproachDryRunPrompt = ({ example, approach }) => {
+  return `You are an expert tutor. Perform a step-by-step dry run tracing of the following algorithm approach using the provided example.
+
+Problem Example:
+Input: ${example.input}
+Expected Output: ${example.output}
+Explanation: ${example.explanation || ''}
+
+Selected Approach:
+Name: ${approach.name}
+Intuition/Explanation: ${approach.intuition}
+Steps: ${approach.steps ? JSON.stringify(approach.steps) : ''}
+Pseudocode: ${approach.pseudocode ? JSON.stringify(approach.pseudocode) : ''}
+
+Requirements:
+1. Walk through the algorithm's execution step-by-step using the example input.
+2. Provide compact, step-by-step variable/state changes showing execution order.
+3. Output the trace steps, the input, and the output matching the requested schema.`;
+};

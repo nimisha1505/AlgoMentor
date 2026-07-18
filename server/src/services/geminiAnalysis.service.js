@@ -1,5 +1,5 @@
 import { getGeminiClient, getGeminiModelName, getGeminiFastModelName, getGeminiDeepModelName } from '../config/gemini.js';
-import { buildAnalysisPrompt } from './analysisPrompt.service.js';
+import { buildAnalysisPrompt, buildApproachCodePrompt, buildApproachDryRunPrompt } from './analysisPrompt.service.js';
 import {
   buildRequestedAnalysisJsonSchema,
   parseAnalysisResult,
@@ -147,4 +147,117 @@ const generateProblemAnalysis = async ({ inputSnapshot, requestedSections, analy
   };
 };
 
-export { generateProblemAnalysis };
+export { generateProblemAnalysis, generateApproachCode, generateApproachDryRun };
+
+/**
+ * Generate code for a single approach in a specific language using Gemini.
+ */
+async function generateApproachCode({ title, problemStatement, constraints, approach, language }) {
+  const prompt = buildApproachCodePrompt({
+    problem: { title, problemStatement, constraints },
+    approach,
+    language,
+  });
+
+  const client = getGeminiClient();
+  const modelName = getGeminiDeepModelName();
+
+  const codeGenResponseSchema = {
+    type: 'OBJECT',
+    properties: {
+      code: { type: 'STRING' },
+    },
+    required: ['code'],
+    additionalProperties: false,
+  };
+
+  const response = await client.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: codeGenResponseSchema,
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+    },
+  });
+
+  const rawText = response.text;
+  if (!rawText || rawText.trim() === '') {
+    throw new Error('Gemini returned an empty response');
+  }
+
+  const parsed = JSON.parse(rawText);
+  if (!parsed || typeof parsed.code !== 'string') {
+    throw new Error('Invalid AI response: missing code field');
+  }
+
+  const usageMetadata = response.usageMetadata || {};
+  return {
+    code: parsed.code,
+    usage: {
+      inputTokens: usageMetadata.promptTokenCount || 0,
+      outputTokens: usageMetadata.candidatesTokenCount || 0,
+      totalTokens: usageMetadata.totalTokenCount || 0,
+    },
+  };
+}
+
+/**
+ * Generate a dry-run tracing for a single approach using Gemini.
+ */
+async function generateApproachDryRun({ example, approach }) {
+  const prompt = buildApproachDryRunPrompt({ example, approach });
+
+  const client = getGeminiClient();
+  const modelName = getGeminiDeepModelName();
+
+  const dryRunResponseSchema = {
+    type: 'OBJECT',
+    properties: {
+      input: { type: 'STRING' },
+      steps: {
+        type: 'ARRAY',
+        items: { type: 'STRING' },
+      },
+      output: { type: 'STRING' },
+    },
+    required: ['input', 'steps', 'output'],
+    additionalProperties: false,
+  };
+
+  const response = await client.models.generateContent({
+    model: modelName,
+    contents: prompt,
+    config: {
+      responseMimeType: 'application/json',
+      responseSchema: dryRunResponseSchema,
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+    },
+  });
+
+  const rawText = response.text;
+  if (!rawText || rawText.trim() === '') {
+    throw new Error('Gemini returned an empty response');
+  }
+
+  const parsed = JSON.parse(rawText);
+  if (!parsed || typeof parsed.input !== 'string' || !Array.isArray(parsed.steps) || typeof parsed.output !== 'string') {
+    throw new Error('Invalid AI response: missing input, steps, or output fields');
+  }
+
+  const usageMetadata = response.usageMetadata || {};
+  return {
+    dryRun: {
+      input: parsed.input,
+      steps: parsed.steps,
+      output: parsed.output,
+    },
+    usage: {
+      inputTokens: usageMetadata.promptTokenCount || 0,
+      outputTokens: usageMetadata.candidatesTokenCount || 0,
+      totalTokens: usageMetadata.totalTokenCount || 0,
+    },
+  };
+}
