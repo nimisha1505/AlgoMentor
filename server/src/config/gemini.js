@@ -23,22 +23,34 @@ const getGeminiClient = () => {
 };
 
 /**
- * Returns configured Gemini model name from environment or defaults to 'gemini-3.5-flash'.
+ * Returns configured Gemini model name from environment or defaults to 'gemini-2.5-flash'.
  * Used for generic fallback.
  */
-const getGeminiModelName = () =>
-  process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash';
+const getGeminiModelName = () => {
+  const model = process.env.GEMINI_MODEL;
+  if (!model || model.trim() === '') {
+    return 'gemini-2.5-flash';
+  }
+  return model.trim();
+};
 
 /**
  * Returns fast model for simple operations (e.g. Understand, Help Me Start).
  */
-const getGeminiFastModelName = () =>
-  process.env.GEMINI_FAST_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash';
+const getGeminiFastModelName = () => {
+  const model = process.env.GEMINI_FAST_MODEL;
+  if (model && model.trim() !== '') {
+    return model.trim();
+  }
+  return getGeminiModelName();
+};
 
-/**
- * Returns deeper reasoning model for complex operations (e.g. Build, Review, Complete).
- */
-const getGeminiDeepModelName = () =>
-  process.env.GEMINI_DEEP_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash';
+const getGeminiDeepModelName = () => {
+  const model = process.env.GEMINI_DEEP_MODEL;
+  if (model && model.trim() !== '') {
+    return model.trim();
+  }
+  return getGeminiModelName();
+};
 
 export { getGeminiClient, getGeminiModelName, getGeminiFastModelName, getGeminiDeepModelName };

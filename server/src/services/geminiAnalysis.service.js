@@ -26,10 +26,18 @@ const generateProblemAnalysis = async ({ inputSnapshot, requestedSections, analy
   const mode = inferMode(requestedSections);
   
   // 1. Build mentor prompt
-  const prompt = buildAnalysisPrompt({ inputSnapshot, requestedSections, analysisDepth, mode });
+  let prompt = buildAnalysisPrompt({ inputSnapshot, requestedSections, analysisDepth, mode });
+
+  if (analysisDepth === 'quick') {
+    prompt += `\nStrict length limits for QUICK analysis:
+1. Explain elements concisely in very few sentences.
+2. Provide a maximum of 3-5 hints.
+3. Keep pattern clues concise and brief.
+4. Do not include any unrequested approaches, code, complexity, comparison, or interview sections under any circumstances.`;
+  }
 
   // 2. Build JSON Schema specific to requested sections
-  const responseJsonSchema = buildRequestedAnalysisJsonSchema(requestedSections);
+  const responseJsonSchema = buildRequestedAnalysisJsonSchema(requestedSections, mode === 'complete');
 
   // 3. Acquire API client and target model details
   const client = getGeminiClient();
@@ -39,14 +47,36 @@ const generateProblemAnalysis = async ({ inputSnapshot, requestedSections, analy
 
   if (mode === 'understand' || mode === 'start') {
     modelName = getGeminiFastModelName();
-    maxTokens = 1024; // Small token limit for concise answers
+    maxTokens = analysisDepth === 'deep' ? 4096 : 2048;
   } else if (mode === 'build' || mode === 'review') {
     modelName = getGeminiDeepModelName();
-    maxTokens = 3072; // Medium token limit
+    maxTokens = analysisDepth === 'deep' ? 8192 : 4096;
   } else {
     modelName = getGeminiDeepModelName();
-    maxTokens = 8192; // Large token limit for full lesson
+    maxTokens = analysisDepth === 'deep' ? 8192 : 6144;
   }
+
+  const toUpperTypeSchema = (schema) => {
+    if (!schema || typeof schema !== 'object') {
+      return schema;
+    }
+    if (Array.isArray(schema)) {
+      return schema.map(toUpperTypeSchema);
+    }
+    const result = {};
+    for (const [key, value] of Object.entries(schema)) {
+      if (key === 'type' && typeof value === 'string') {
+        result[key] = value.toUpperCase();
+      } else if (typeof value === 'object' && value !== null) {
+        result[key] = toUpperTypeSchema(value);
+      } else {
+        result[key] = value;
+      }
+    }
+    return result;
+  };
+
+  const responseSchema = toUpperTypeSchema(responseJsonSchema);
 
   // 4. Generate structured content
   const response = await client.models.generateContent({
@@ -54,13 +84,41 @@ const generateProblemAnalysis = async ({ inputSnapshot, requestedSections, analy
     contents: prompt,
     config: {
       responseMimeType: 'application/json',
-      responseJsonSchema,
+      responseSchema,
       temperature: 0.2,
       maxOutputTokens: maxTokens,
     },
   });
 
-  const rawText = response.text;
+  const candidate = response.candidates?.[0] || {};
+  const finishReason = candidate.finishReason;
+  const finishMessage = candidate.finishMessage;
+  const usageMetadata = response.usageMetadata || {};
+  const promptTokenCount = usageMetadata.promptTokenCount || 0;
+  const candidatesTokenCount = usageMetadata.candidatesTokenCount || 0;
+  const totalTokenCount = usageMetadata.totalTokenCount || 0;
+
+  // Safely read response.text
+  let rawText;
+  try {
+    rawText = response.text;
+  } catch (err) {
+    console.error('Failed to read text from Gemini response:', err.message);
+  }
+
+  const textLength = rawText ? rawText.length : 0;
+
+  console.log(`Gemini response diagnostics:
+- finishReason: ${finishReason || 'N/A'}
+- finishMessage: ${finishMessage || 'N/A'}
+- prompt token count: ${promptTokenCount}
+- candidates token count: ${candidatesTokenCount}
+- total token count: ${totalTokenCount}
+- response text length: ${textLength}`);
+
+  if (finishReason === 'MAX_TOKENS' || (typeof finishReason === 'string' && finishReason.toUpperCase() === 'MAX_TOKENS')) {
+    throw new Error('Gemini response was truncated before completion');
+  }
 
   // 5. Ensure non-empty response
   if (!rawText || rawText.trim() === '') {
@@ -74,7 +132,6 @@ const generateProblemAnalysis = async ({ inputSnapshot, requestedSections, analy
   });
 
   // 7. Defensively extract usage metadata (defaulting missing fields to zero)
-  const usageMetadata = response.usageMetadata || {};
   const inputTokens = usageMetadata.promptTokenCount || 0;
   const outputTokens = usageMetadata.candidatesTokenCount || 0;
   const totalTokens = usageMetadata.totalTokenCount || 0;

@@ -187,22 +187,199 @@ const analysisResultSchema = z
     }
   );
 
-/**
- * Parses and validates raw results from Gemini.
- * Ensures the response matches the list of requested sections exactly.
- */
 const parseAnalysisResult = ({ rawResult, requestedSections }) => {
   if (!Array.isArray(requestedSections) || requestedSections.length === 0) {
     throw new Error('requestedSections must be a non-empty array');
   }
 
   let parsedObj;
+  let nestedCandidateDetected = false;
 
   if (typeof rawResult === 'string') {
+    let cleaned = rawResult.trim();
+
+    // 1. Distinguish empty model response
+    if (cleaned === '') {
+      throw new Error('Gemini returned an empty response');
+    }
+
+    // Tolerate accidental markdown JSON fences as a fallback
+    if (cleaned.startsWith('```')) {
+      cleaned = cleaned.replace(/^```(?:json)?\s*/i, '');
+      cleaned = cleaned.replace(/\s*```$/g, '');
+      cleaned = cleaned.trim();
+    }
+
+    // Check again after stripping fences
+    if (cleaned === '') {
+      throw new Error('Gemini returned an empty response');
+    }
+
+    const startsLikeObject = cleaned.startsWith('{') && cleaned.endsWith('}');
+    if (startsLikeObject) {
+      if (/"problemExplanation"\s*:\s*"\s*\\*\{/.test(cleaned)) {
+        nestedCandidateDetected = true;
+      }
+    }
+
     try {
-      parsedObj = JSON.parse(rawResult);
+      parsedObj = JSON.parse(cleaned);
+
+      // Handle whole result incorrectly stringified once
+      if (typeof parsedObj === 'string') {
+        try {
+          const secondParse = JSON.parse(parsedObj);
+          if (secondParse && typeof secondParse === 'object') {
+            parsedObj = secondParse;
+          }
+        } catch (innerErr) {
+          // Keep as string
+        }
+      }
+
+      // Handle whole result nested inside problemExplanation
+      if (parsedObj && typeof parsedObj === 'object' && typeof parsedObj.problemExplanation === 'string') {
+        const nestedStr = parsedObj.problemExplanation.trim();
+        if (nestedStr.startsWith('{')) {
+          nestedCandidateDetected = true;
+          let recovered = null;
+          try {
+            recovered = JSON.parse(nestedStr);
+          } catch (innerErr) {
+            let braceCount = 0;
+            let endBraceIdx = -1;
+            for (let i = 0; i < nestedStr.length; i++) {
+              if (nestedStr[i] === '{') {
+                braceCount++;
+              } else if (nestedStr[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  endBraceIdx = i;
+                  break;
+                }
+              }
+            }
+            if (endBraceIdx !== -1) {
+              try {
+                recovered = JSON.parse(nestedStr.slice(0, endBraceIdx + 1));
+              } catch (e2) {
+                // Ignore
+              }
+            }
+          }
+
+          if (recovered && typeof recovered === 'object') {
+            const filteredRecovered = {};
+            for (const section of requestedSections) {
+              if (recovered[section] !== undefined) {
+                filteredRecovered[section] = recovered[section];
+              }
+            }
+            for (const section of requestedSections) {
+              if (filteredRecovered[section] === undefined) {
+                throw new Error(`Gemini response is missing requested section: ${section}`);
+              }
+            }
+            const validation = analysisResultSchema.safeParse(filteredRecovered);
+            if (validation.success) {
+              parsedObj = recovered;
+            } else {
+              const errorDetails = validation.error.issues
+                .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+                .join(', ');
+              throw new Error(`Gemini response validation failed: ${errorDetails}`);
+            }
+          } else {
+            const first300 = cleaned.slice(0, 300).replace(/[\r\n]+/g, ' ');
+            console.error(
+              `Failed to parse JSON. Response length: ${cleaned.length}. Preview (first 300 chars): "${first300}". Nested JSON candidate detected: ${nestedCandidateDetected}`
+            );
+            throw new Error('Gemini returned invalid JSON');
+          }
+        }
+      }
     } catch (e) {
-      throw new Error('Gemini returned invalid JSON');
+      // Propagate missing section, validation, or explicit parse errors
+      if (
+        e.message.includes('missing requested section') ||
+        e.message.includes('validation failed') ||
+        e.message === 'Gemini returned invalid JSON'
+      ) {
+        throw e;
+      }
+
+      // If parsing fails, try manual recovery if it begins like an object
+      let recoveredObj = null;
+      if (startsLikeObject) {
+        const idx = cleaned.indexOf('"problemExplanation"');
+        if (idx !== -1) {
+          const searchArea = cleaned.slice(idx);
+          let firstBrace = searchArea.indexOf('{');
+          if (firstBrace !== -1) {
+            let braceCount = 0;
+            let endBraceIdx = -1;
+            for (let i = firstBrace; i < searchArea.length; i++) {
+              if (searchArea[i] === '{') {
+                braceCount++;
+              } else if (searchArea[i] === '}') {
+                braceCount--;
+                if (braceCount === 0) {
+                  endBraceIdx = i;
+                  break;
+                }
+              }
+            }
+            if (endBraceIdx !== -1) {
+              let innerCandidate = searchArea.slice(firstBrace, endBraceIdx + 1);
+              try {
+                recoveredObj = JSON.parse(innerCandidate);
+              } catch (err) {
+                try {
+                  const unescaped = innerCandidate
+                    .replace(/\\"/g, '"')
+                    .replace(/\\\\/g, '\\')
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\t/g, '\t');
+                  recoveredObj = JSON.parse(unescaped);
+                } catch (err2) {
+                  // Ignore
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (recoveredObj) {
+        const filteredRecovered = {};
+        for (const section of requestedSections) {
+          if (recoveredObj[section] !== undefined) {
+            filteredRecovered[section] = recoveredObj[section];
+          }
+        }
+        for (const section of requestedSections) {
+          if (filteredRecovered[section] === undefined) {
+            throw new Error(`Gemini response is missing requested section: ${section}`);
+          }
+        }
+        const validation = analysisResultSchema.safeParse(filteredRecovered);
+        if (validation.success) {
+          parsedObj = recoveredObj;
+        } else {
+          const errorDetails = validation.error.issues
+            .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+            .join(', ');
+          throw new Error(`Gemini response validation failed: ${errorDetails}`);
+        }
+      }
+
+      if (!parsedObj) {
+        const first300 = cleaned.slice(0, 300).replace(/[\r\n]+/g, ' ');
+        console.error(
+          `Failed to parse JSON. Response length: ${cleaned.length}. Preview (first 300 chars): "${first300}". Nested JSON candidate detected: ${nestedCandidateDetected}`
+        );
+        throw new Error('Gemini returned invalid JSON');
+      }
     }
   } else if (rawResult && typeof rawResult === 'object') {
     parsedObj = rawResult;
@@ -616,7 +793,11 @@ const SUPPORTED_SECTIONS = [
  * Builds a dynamic JSON schema restricting Gemini output to only the requested sections.
  * Deep-clones base property schemas to prevent unintended mutation.
  */
-const buildRequestedAnalysisJsonSchema = (requestedSections) => {
+const buildRequestedAnalysisJsonSchema = (requestedSections, isCompleteMode = false) => {
+  if (isCompleteMode) {
+    return analysisResultJsonSchema;
+  }
+
   if (!Array.isArray(requestedSections) || requestedSections.length === 0) {
     throw new Error('requestedSections must be a non-empty array');
   }

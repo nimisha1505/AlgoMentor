@@ -128,6 +128,15 @@ const getPracticeRecommendations = asyncHandler(async (req, res) => {
  * Retrieve the AI Usage summary for the current UTC day.
  */
 const getAiUsage = asyncHandler(async (req, res) => {
+  if (process.env.NODE_ENV === 'development' && req.query.reset === 'true') {
+    const { AiUsage } = await import('../models/aiUsage.model.js');
+    const { getUtcDateKey } = await import('../services/aiUsage.service.js');
+    const dateKey = getUtcDateKey();
+    await AiUsage.updateOne(
+      { owner: req.user._id, dateKey },
+      { $set: { analysisRequests: 0 } }
+    );
+  }
   const summary = await getUserUsageSummary(req.user._id);
   return res.status(200).json(
     new ApiResponse(200, summary, 'Usage statistics fetched successfully')

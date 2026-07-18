@@ -516,4 +516,398 @@ describe('Analysis API Integration Tests', () => {
       ).toThrow(/validation failed/);
     });
   });
+
+  describe('Gemini Parser Parsing Safety and Fallbacks', () => {
+    it('should successfully parse valid structured Gemini JSON', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        problemExplanation: 'Correct Explanation',
+      });
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['problemExplanation'],
+      });
+      expect(result.problemExplanation).toBe('Correct Explanation');
+    });
+
+    it('should successfully parse markdown-fenced JSON fallback', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = '```json\n{\n  "problemExplanation": "Fenced Explanation"\n}\n```';
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['problemExplanation'],
+      });
+      expect(result.problemExplanation).toBe('Fenced Explanation');
+    });
+
+    it('should throw "Gemini returned an empty response" on empty model response', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      expect(() =>
+        parseAnalysisResult({
+          rawResult: '   ',
+          requestedSections: ['problemExplanation'],
+        })
+      ).toThrow('Gemini returned an empty response');
+    });
+
+    it('should throw "Gemini returned invalid JSON" on invalid JSON failure', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      expect(() =>
+        parseAnalysisResult({
+          rawResult: '{ malformed json }',
+          requestedSections: ['problemExplanation'],
+        })
+      ).toThrow('Gemini returned invalid JSON');
+    });
+
+    it('should throw validation error on schema-invalid JSON failure', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        problemExplanation: '', // fails nonEmptyString check
+      });
+      expect(() =>
+        parseAnalysisResult({
+          rawResult,
+          requestedSections: ['problemExplanation'],
+        })
+      ).toThrow(/Gemini response validation failed/);
+    });
+
+    it('should successfully parse whole result incorrectly stringified once', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify(JSON.stringify({
+        problemExplanation: 'Incorrectly stringified once explanation',
+      }));
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['problemExplanation'],
+      });
+      expect(result.problemExplanation).toBe('Incorrectly stringified once explanation');
+    });
+
+    it('should successfully parse whole result nested inside problemExplanation', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const inner = JSON.stringify({
+        problemExplanation: 'This is the actual explanation',
+        hints: [{ level: 1, hint: 'First hint' }]
+      });
+      const rawResult = JSON.stringify({
+        problemExplanation: inner
+      });
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['problemExplanation', 'hints'],
+      });
+      expect(result.problemExplanation).toBe('This is the actual explanation');
+      expect(result.hints).toEqual([{ level: 1, hint: 'First hint' }]);
+    });
+
+    it('should successfully parse nested JSON even if outer JSON fails parsing', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = '{"problemExplanation": "{\\"problemExplanation\\": \\"Nested recovered explanation\\", \\"hints\\": [{\\"level\\": 1, \\"hint\\": \\"Hint 1\\"}]}" invalid_outer_part}';
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['problemExplanation', 'hints'],
+      });
+      expect(result.problemExplanation).toBe('Nested recovered explanation');
+      expect(result.hints).toEqual([{ level: 1, hint: 'Hint 1' }]);
+    });
+
+    it('should throw error when malformed nested JSON is rejected', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        problemExplanation: '{"problemExplanation": "missing closing brace'
+      });
+      expect(() =>
+        parseAnalysisResult({
+          rawResult,
+          requestedSections: ['problemExplanation'],
+        })
+      ).toThrow('Gemini returned invalid JSON');
+    });
+
+    it('should throw error when nested recovered object still failing schema is rejected', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const inner = JSON.stringify({
+        problemExplanation: 'Explanation without hints',
+      });
+      const rawResult = JSON.stringify({
+        problemExplanation: inner
+      });
+      expect(() =>
+        parseAnalysisResult({
+          rawResult,
+          requestedSections: ['problemExplanation', 'hints'],
+        })
+      ).toThrow(/missing requested section: hints/);
+    });
+
+    it('should leave plain problemExplanation text unchanged', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        problemExplanation: 'Just standard plain explanation text. Not a JSON object.',
+      });
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['problemExplanation'],
+      });
+      expect(result.problemExplanation).toBe('Just standard plain explanation text. Not a JSON object.');
+    });
+  });
+
+  describe('Quota Accounting and Rollback Services', () => {
+    it('should consume one usage on successful analysis and not rollback', async () => {
+      const { processAnalysis } = await import('../services/analysisProcessor.service.js');
+      const { AiUsage } = await import('../models/aiUsage.model.js');
+      const { getUtcDateKey } = await import('../services/aiUsage.service.js');
+
+      const alice = await User.create({
+        fullName: 'Quota Alice',
+        username: 'quota_alice',
+        email: 'quota_alice@example.com',
+        password: 'Password123!',
+      });
+      const prob = await createMockProblem(alice._id);
+
+      const analysis = await Analysis.create({
+        problem: prob._id,
+        owner: alice._id,
+        status: 'queued',
+        requestedSections: ['problemExplanation'],
+        inputSnapshot: { title: 'Test', problemStatement: 'Test statement', language: 'cpp' },
+      });
+
+      // successful request (mocked in setup.js to succeed)
+      await processAnalysis(analysis._id);
+
+      const dateKey = getUtcDateKey();
+      const usage = await AiUsage.findOne({ owner: alice._id, dateKey });
+      expect(usage).toBeDefined();
+      expect(usage.analysisRequests).toBe(1);
+    });
+
+    it('should release reserved usage on failed analysis', async () => {
+      const { processAnalysis } = await import('../services/analysisProcessor.service.js');
+      const { AiUsage } = await import('../models/aiUsage.model.js');
+      const { getUtcDateKey } = await import('../services/aiUsage.service.js');
+
+      // Stub the globally mocked generator call to reject
+      vi.mocked(generateProblemAnalysis).mockRejectedValueOnce(new Error('Gemini pipeline failed'));
+
+      const alice = await User.create({
+        fullName: 'Fail Quota Alice',
+        username: 'fail_quota_alice',
+        email: 'fail_quota_alice@example.com',
+        password: 'Password123!',
+      });
+      const prob = await createMockProblem(alice._id);
+
+      const analysis = await Analysis.create({
+        problem: prob._id,
+        owner: alice._id,
+        status: 'queued',
+        requestedSections: ['problemExplanation'],
+        inputSnapshot: { title: 'Test', problemStatement: 'Test statement', language: 'cpp' },
+      });
+
+      await expect(processAnalysis(analysis._id)).rejects.toThrow('Gemini pipeline failed');
+
+      const dateKey = getUtcDateKey();
+      const usage = await AiUsage.findOne({ owner: alice._id, dateKey });
+      // Since it rolled back, it should be 0
+      expect(usage.analysisRequests).toBe(0);
+    });
+
+    it('should release reserved usage when timeout occurs', async () => {
+      const { processAnalysis } = await import('../services/analysisProcessor.service.js');
+      const { AiUsage } = await import('../models/aiUsage.model.js');
+      const { getUtcDateKey } = await import('../services/aiUsage.service.js');
+
+      // Mock a timeout error specifically
+      vi.mocked(generateProblemAnalysis).mockRejectedValueOnce(new Error('Gemini API request timed out after 3 minutes'));
+
+      const alice = await User.create({
+        fullName: 'Timeout Alice',
+        username: 'timeout_alice',
+        email: 'timeout_alice@example.com',
+        password: 'Password123!',
+      });
+      const prob = await createMockProblem(alice._id);
+
+      const analysis = await Analysis.create({
+        problem: prob._id,
+        owner: alice._id,
+        status: 'queued',
+        requestedSections: ['problemExplanation'],
+        inputSnapshot: { title: 'Test', problemStatement: 'Test statement', language: 'cpp' },
+      });
+
+      await expect(processAnalysis(analysis._id)).rejects.toThrow('timed out');
+
+      const dateKey = getUtcDateKey();
+      const usage = await AiUsage.findOne({ owner: alice._id, dateKey });
+      expect(usage.analysisRequests).toBe(0);
+    });
+
+    it('should prevent daily usage counter from becoming negative', async () => {
+      const { releaseReservedAnalysisUsage, getUtcDateKey } = await import('../services/aiUsage.service.js');
+      const { AiUsage } = await import('../models/aiUsage.model.js');
+
+      const alice = await User.create({
+        fullName: 'Neg Alice',
+        username: 'neg_alice',
+        email: 'neg_alice@example.com',
+        password: 'Password123!',
+      });
+
+      const dateKey = getUtcDateKey();
+      // Ensure we have a document with 0 count
+      await AiUsage.create({ owner: alice._id, dateKey, analysisRequests: 0 });
+
+      // Call release which decrements
+      await releaseReservedAnalysisUsage(alice._id);
+
+      const usage = await AiUsage.findOne({ owner: alice._id, dateKey });
+      expect(usage.analysisRequests).toBe(0); // must remain 0 and not become -1
+    });
+  });
+
+  describe('Gemini Truncation and Custom Schema Tests', () => {
+    it('partial Pattern + Hints schema excludes unrequested sections', async () => {
+      const { buildRequestedAnalysisJsonSchema } = await import('../validators/analysisResult.validator.js');
+      const schema = buildRequestedAnalysisJsonSchema(['pattern', 'hints'], false);
+      expect(schema.type).toBe('object');
+      expect(schema.properties.pattern).toBeDefined();
+      expect(schema.properties.hints).toBeDefined();
+      expect(schema.properties.problemExplanation).toBeUndefined();
+      expect(schema.properties.approaches).toBeUndefined();
+      expect(schema.required).toContain('pattern');
+      expect(schema.required).toContain('hints');
+      expect(schema.required.length).toBe(2);
+    });
+
+    it('quick mode uses an adequate token limit and full mode uses a larger token limit', async () => {
+      const geminiConfig = await import('../config/gemini.js');
+      const { generateProblemAnalysis } = await vi.importActual('../services/geminiAnalysis.service.js');
+
+      const mockGenerateContent = vi.fn().mockResolvedValue({
+        candidates: [{ finishReason: 'STOP', finishMessage: '' }],
+        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 20, totalTokenCount: 30 },
+        text: JSON.stringify({
+          pattern: { name: 'Sliding Window', clues: ['clue'], reason: 'reason' },
+          hints: [{ level: 1, hint: 'hint' }]
+        })
+      });
+
+      const spyGetClient = vi.spyOn(geminiConfig, 'getGeminiClient').mockReturnValue({
+        models: {
+          generateContent: mockGenerateContent
+        }
+      });
+
+      const inputSnapshot = {
+        title: 'Two Sum',
+        problemStatement: 'Sum two numbers',
+        constraints: [],
+        examples: [],
+        language: 'cpp',
+        code: ''
+      };
+
+      // Test Quick Mode (mode 'start')
+      await generateProblemAnalysis({
+        inputSnapshot,
+        requestedSections: ['pattern', 'hints'],
+        analysisDepth: 'quick'
+      });
+
+      expect(mockGenerateContent).toHaveBeenCalled();
+      const quickCallArgs = mockGenerateContent.mock.calls[0][0];
+      expect(quickCallArgs.config.maxOutputTokens).toBe(2048);
+
+      // Test Deep Mode (mode 'start')
+      mockGenerateContent.mockClear();
+      await generateProblemAnalysis({
+        inputSnapshot,
+        requestedSections: ['pattern', 'hints'],
+        analysisDepth: 'deep'
+      });
+
+      expect(mockGenerateContent).toHaveBeenCalled();
+      const deepCallArgs = mockGenerateContent.mock.calls[0][0];
+      expect(deepCallArgs.config.maxOutputTokens).toBe(4096);
+
+      spyGetClient.mockRestore();
+    });
+
+    it('MAX_TOKENS finish reason produces the specific truncation error', async () => {
+      const geminiConfig = await import('../config/gemini.js');
+      const { generateProblemAnalysis } = await vi.importActual('../services/geminiAnalysis.service.js');
+
+      const mockGenerateContent = vi.fn().mockResolvedValue({
+        candidates: [{ finishReason: 'MAX_TOKENS', finishMessage: 'Reached output limit' }],
+        usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 20, totalTokenCount: 30 },
+        text: JSON.stringify({
+          pattern: { name: 'Sliding Window', clues: ['clue'], reason: 'reason' }
+        })
+      });
+
+      const spyGetClient = vi.spyOn(geminiConfig, 'getGeminiClient').mockReturnValue({
+        models: {
+          generateContent: mockGenerateContent
+        }
+      });
+
+      const inputSnapshot = {
+        title: 'Two Sum',
+        problemStatement: 'Sum two numbers',
+        constraints: [],
+        examples: [],
+        language: 'cpp',
+        code: ''
+      };
+
+      await expect(
+        generateProblemAnalysis({
+          inputSnapshot,
+          requestedSections: ['pattern'],
+          analysisDepth: 'quick'
+        })
+      ).rejects.toThrow('Gemini response was truncated before completion');
+
+      spyGetClient.mockRestore();
+    });
+
+    it('completed JSON still passes validation', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        pattern: { name: 'Sliding Window', clues: ['clue'], reason: 'reason' },
+        hints: [{ level: 1, hint: 'hint' }]
+      });
+
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['pattern', 'hints']
+      });
+
+      expect(result.pattern).toBeDefined();
+      expect(result.pattern.name).toBe('Sliding Window');
+      expect(result.hints).toBeDefined();
+      expect(result.hints[0].hint).toBe('hint');
+    });
+
+    it('requested-section validation still rejects missing requested fields', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        pattern: { name: 'Sliding Window', clues: ['clue'], reason: 'reason' }
+      });
+
+      expect(() =>
+        parseAnalysisResult({
+          rawResult,
+          requestedSections: ['pattern', 'hints']
+        })
+      ).toThrow(/missing requested section: hints/);
+    });
+  });
 });

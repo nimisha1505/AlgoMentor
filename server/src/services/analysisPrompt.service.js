@@ -1,5 +1,5 @@
 const ANALYSIS_SECTION_INSTRUCTIONS = {
-  problemExplanation: 'Explain the problem in simple language without giving the final solution immediately. Use short bullet points.',
+  problemExplanation: 'Explain the problem in simple language without giving the final solution immediately. Use short bullet points only. Do not stringify any object and do not put any JSON in this field.',
   inputOutput: 'Explain the expected input and output format. Use short bullet points.',
   exampleExplanation: 'Walk through every provided example step-by-step.',
   constraints: 'Explain what each constraint implies for algorithm selection.',
@@ -13,10 +13,10 @@ const ANALYSIS_SECTION_INSTRUCTIONS = {
   approachImprovement: "Evaluate the student's current reasoning or code and explain how to improve it step by step. Identify strengths, bottlenecks, unnecessary work, the next better approach, the relevant DSA pattern, and reflective questions the student should ask. Limit to maximum 5 actionable suggestions.",
   approachExplanations: 'Explain the intuition and steps of every listed approach.',
   codes: "Provide complete, clean code for each generated approach using the student's selected programming language. Each code entry must clearly identify which approach it corresponds to.",
-  complexities: 'Return structured time and space complexity information for every approach. Each entry must define: approachName, timeComplexity, spaceComplexity, and explanation.',
+  complexities: 'Return structured time and space complexity information for every approach. Each entry must define: approach, timeComplexity, timeReason, spaceComplexity, and spaceReason.',
   dryRun: 'Provide a step-by-step dry run tracing of the optimal approach using a provided example. If no example exists, create a small, clearly labelled illustrative example.',
-  comparison: 'Return comparison table data comparing all approaches. For each approach, define: approach, mainIdea, timeComplexity, spaceComplexity, advantages, limitations, and recommendedUse.',
-  interviewExplanation: 'Provide concise speaking points explaining: key observation, selected pattern, approach progression, optimal approach, complexity, and important edge case. Do not produce long essays; use bullet points and structured objects.',
+  comparison: 'Return comparison table data comparing all approaches. For each approach, define: approach, timeComplexity, spaceComplexity, advantages, disadvantages, and interviewSuitability.',
+  interviewExplanation: 'Provide concise speaking points explaining: key observation, selected pattern, approach progression, optimal approach, complexity, and important edge case. Do not produce long essays; use bullet points only.',
 };
 
 /**
@@ -101,18 +101,19 @@ Here are the specific instructions for each of the requested sections:
 ${sectionPromptParts.join('\n')}
 
 Instructions for your response:
-1. Return content only for the requested sections. Do not generate, infer, summarize, or populate any unrequested section. Generate only the requested sections. Do not include any unrequested sections.
-2. Return only valid JSON. Do not wrap the JSON output in Markdown code fences (e.g. \`\`\`json).
-3. Use the exact requested-section names as top-level keys in the response JSON object.
-4. Follow the structured response schema provided in the request options.
-5. Return concise educational content.
-6. Use bullet points wherever possible.
-7. Respect the selected analysis depth: ${analysisDepth}.
-8. Omit unrequested sections and avoid repetition.
-9. Use simple language suitable for a student.
-10. Prioritise clarity over length.
-11. Provide actionable points rather than broad theory.
-12. Strict Mode Guidelines: ${modeInstruction}
+1. Return exactly one valid JSON object. Do not wrap the JSON output in Markdown code fences (e.g. \`\`\`json). Do not return markdown fences. Return raw JSON directly.
+2. Follow the supplied response schema strictly. Use the exact requested-section names as top-level keys in the response JSON object.
+3. Do not stringify any nested object or array. Do not put JSON inside string fields.
+4. The field 'problemExplanation' must contain plain explanatory text only (no stringified JSON, no schemas, no nested objects). Do not place the entire result inside problemExplanation.
+5. Return content only for the requested sections. Do not generate, infer, summarize, or populate any unrequested section. Generate only the requested sections. Do not include any unrequested sections.
+6. Return concise educational content.
+7. Use bullet points wherever possible.
+8. Respect the selected analysis depth: ${analysisDepth}.
+9. Omit unrequested sections and avoid repetition.
+10. Use simple language suitable for a student.
+11. Prioritise clarity over length.
+12. Provide actionable points rather than broad theory.
+13. Strict Mode Guidelines: ${modeInstruction}
 `;
 
   return prompt;
