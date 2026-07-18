@@ -1,18 +1,65 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getAnalysisById, createAnalysisFollowUp, getAnalysisFollowUps } from '../api/analysis.api.js';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { getAnalysisById, createAnalysisFollowUp, getAnalysisFollowUps, startProblemAnalysis } from '../api/analysis.api.js';
 import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
 import StatusBadge from '../components/common/StatusBadge.jsx';
 import CodeBlock from '../components/common/CodeBlock.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { ArrowLeft, BookOpen, Clock, Cpu, Activity, Award, MessageSquare, Send, Sparkles } from 'lucide-react';
+import { ArrowLeft, BookOpen, Clock, Cpu, Activity, Award, MessageSquare, Send, Sparkles, AlertCircle } from 'lucide-react';
+
+const getFriendlyErrorMessage = (errMsg) => {
+  if (!errMsg) {
+    return 'Something went wrong while generating this analysis.';
+  }
+
+  let codeFound = false;
+
+  // Try to parse as JSON first in case it's a raw JSON error structure
+  try {
+    if (typeof errMsg === 'string' && errMsg.trim().startsWith('{')) {
+      const parsed = JSON.parse(errMsg);
+      const status = parsed.status || parsed.code || (parsed.error && (parsed.error.status || parsed.error.code));
+      if ([429, 500, 502, 503, 504].includes(Number(status))) {
+        codeFound = true;
+      }
+    }
+  } catch (e) {
+    // Ignore and fallback to regex search
+  }
+
+  // If not found in JSON, search the raw text for status code numbers as standalone words
+  if (!codeFound) {
+    const match = errMsg.match(/\b(429|500|502|503|504)\b/);
+    if (match) {
+      codeFound = true;
+    }
+  }
+
+  if (codeFound) {
+    return 'The AI service is temporarily busy. Your problem and code are still saved.';
+  }
+
+  return 'Something went wrong while generating this analysis.';
+};
+
+const inferModeLabel = (requestedSections = []) => {
+  if (!requestedSections || requestedSections.length === 0) return 'Complete Solution';
+  if (requestedSections.includes('hints') && !requestedSections.includes('problemExplanation')) return 'Help Me Start';
+  if (requestedSections.includes('problemExplanation') && requestedSections.length <= 5) return 'Understand the Problem';
+  if (requestedSections.includes('comparison') && !requestedSections.includes('userCodeReview')) return 'Build the Solution';
+  if (requestedSections.includes('userCodeReview') && !requestedSections.includes('hints')) return 'Review My Code';
+  return 'Complete Solution';
+};
 
 const AnalysisDetailPage = () => {
   const { analysisId } = useParams();
+  const navigate = useNavigate();
   const [analysis, setAnalysis] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isRetrying, setIsRetrying] = useState(false);
+  const [retryError, setRetryError] = useState('');
 
   // Reveal state persisted key
   const storageKey = `algomentor-analysis-reveal-${analysisId}`;
@@ -116,6 +163,20 @@ const AnalysisDetailPage = () => {
   const handleChipClick = (questionText, targetMode) => {
     setNewQuestion(questionText);
     setFollowUpMode(targetMode);
+  };
+
+  const handleRetryAnalysis = async () => {
+    if (!analysis?.problem) return;
+    setIsRetrying(true);
+    setRetryError('');
+    try {
+      const newAnalysis = await startProblemAnalysis(analysis.problem);
+      navigate(`/analyses/${newAnalysis._id}`);
+    } catch (err) {
+      setRetryError(getApiErrorMessage(err));
+    } finally {
+      setIsRetrying(false);
+    }
   };
 
   if (isLoading) {
@@ -267,64 +328,160 @@ const AnalysisDetailPage = () => {
           alignItems: 'center',
           borderBottom: '1px solid var(--border)',
           paddingBottom: '16px',
-          marginBottom: '24px',
+          marginBottom: '24px'
         }}
       >
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <Link to="/problems" className="back-link" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
+        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+          <Link
+            to="/problems"
+            className="back-link"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '13px',
+              fontWeight: '600',
+              color: 'var(--text-secondary)',
+              transition: 'color 0.15s ease'
+            }}
+          >
             <ArrowLeft size={14} /> My Problems
           </Link>
           {analysis.problem && (
-            <Link to={`/problems/${analysis.problem}`} className="back-link" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: '600' }}>
+            <Link
+              to={typeof analysis.problem === 'object' ? `/problems/${analysis.problem._id}` : `/problems/${analysis.problem}`}
+              className="back-link"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '13px',
+                fontWeight: '600',
+                color: 'var(--text-secondary)',
+                transition: 'color 0.15s ease'
+              }}
+            >
               <BookOpen size={14} /> View Details
             </Link>
           )}
         </div>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link to="/problems/new" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '600' }}>
+          <Link
+            to="/problems/new"
+            className="btn btn-secondary"
+            style={{
+              padding: '8px 16px',
+              fontSize: '12.5px',
+              fontWeight: '600',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
             Analyse Again
           </Link>
-          <Link to="/problems" className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '12.5px', fontWeight: '600' }}>
+          <Link
+            to="/problems"
+            className="btn btn-secondary"
+            style={{
+              padding: '8px 16px',
+              fontSize: '12.5px',
+              fontWeight: '600',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
             History
           </Link>
         </div>
       </div>
 
       {/* Header metadata block */}
-      <header className="analysis-header-banner" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+      <header className="analysis-header-banner" style={{ padding: '16px 24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
         <div className="analysis-banner-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div className="analysis-banner-title-block">
-            <span className="analysis-banner-label" style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.5px' }}>
-              Personalised DSA Lesson
+            <span className="analysis-banner-label" style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', display: 'block' }}>
+              PERSONALISED DSA LESSON
             </span>
             <h1 className="analysis-banner-title" style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', margin: '4px 0 0 0', letterSpacing: '-0.5px' }}>
               {analysis.inputSnapshot?.title || 'Untitled DSA Problem'}
             </h1>
           </div>
-          <StatusBadge status={analysis.status} />
+          {(() => {
+            const norm = (analysis.status || '').toLowerCase();
+            let label = 'Unknown';
+            let bg = 'var(--bg-soft)';
+            let color = 'var(--text-secondary)';
+            if (norm === 'completed') {
+              label = 'Completed';
+              bg = 'var(--primary-soft)';
+              color = 'var(--primary)';
+            } else if (norm === 'queued' || norm === 'processing') {
+              label = norm === 'queued' ? 'Queued' : 'Processing';
+              bg = 'var(--warning-soft)';
+              color = 'var(--warning)';
+            } else if (norm === 'failed') {
+              label = 'Failed';
+              bg = 'var(--danger-soft)';
+              color = 'var(--danger)';
+            }
+            return (
+              <span
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: '9999px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  textTransform: 'capitalize',
+                  backgroundColor: bg,
+                  color: color,
+                  border: `1px solid ${color}33`,
+                  display: 'inline-flex',
+                  alignItems: 'center'
+                }}
+              >
+                {label}
+              </span>
+            );
+          })()}
         </div>
 
-        <div className="analysis-meta-strip" style={{ display: 'flex', gap: '16px', marginTop: '16px', flexWrap: 'wrap', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+        <div className="analysis-meta-strip" style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--text-secondary)' }}>
           {analysis.inputSnapshot?.language && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>Language: <strong>{getLanguageLabel(analysis.inputSnapshot.language)}</strong></span>
+            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Language:</span>
+              <strong style={{ color: 'var(--text-primary)' }}>{getLanguageLabel(analysis.inputSnapshot.language)}</strong>
             </div>
           )}
-          {analysis.inputSnapshot?.difficulty && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>Difficulty: <strong style={{ textTransform: 'capitalize' }}>{analysis.inputSnapshot.difficulty}</strong></span>
+
+          {(analysis.inputSnapshot?.difficulty || (analysis.problem && typeof analysis.problem === 'object' && analysis.problem.difficulty)) && (
+            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Difficulty:</span>
+              <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>
+                {analysis.inputSnapshot?.difficulty || analysis.problem.difficulty}
+              </strong>
             </div>
           )}
-          {analysis.modelName && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Cpu size={12} />
-              <span>Model: <strong>{analysis.modelName}</strong></span>
+
+          {analysis.requestedSections && analysis.requestedSections.length > 0 && (
+            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Mode:</span>
+              <strong style={{ color: 'var(--text-primary)' }}>{inferModeLabel(analysis.requestedSections)}</strong>
             </div>
           )}
-          <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Clock size={12} />
-            <span>Updated: {new Date(analysis.updatedAt).toLocaleDateString()}</span>
+
+          {analysis.result?.pattern?.name && (
+            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Pattern:</span>
+              <strong style={{ color: 'var(--text-primary)' }}>{analysis.result.pattern.name}</strong>
+            </div>
+          )}
+
+          <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Clock size={13} style={{ color: 'var(--text-muted)' }} />
+            <span>Updated: <strong style={{ color: 'var(--text-primary)' }}>{new Date(analysis.updatedAt).toLocaleDateString()}</strong></span>
           </div>
         </div>
       </header>
@@ -352,7 +509,115 @@ const AnalysisDetailPage = () => {
       )}
 
       {/* Main Workspace structure */}
-      <div className="analysis-detail-workspace-layout" style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: '200px 1fr', gap: '32px', alignItems: 'start' }}>
+      {status === 'failed' ? (
+        <div className="analysis-failed-state-wrapper" style={{ marginTop: '24px', width: '100%' }}>
+          <div
+            className="analysis-failed-state-card"
+            style={{
+              padding: '24px 32px',
+              backgroundColor: 'var(--bg-surface)',
+              borderRadius: 'var(--radius-lg)',
+              border: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              textAlign: 'center',
+              gap: '12px',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '48px',
+                height: '48px',
+                borderRadius: '50%',
+                backgroundColor: 'var(--danger-soft)',
+                color: 'var(--danger)',
+              }}
+            >
+              <AlertCircle size={24} />
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <h2
+                style={{
+                  fontSize: '20px',
+                  fontWeight: '800',
+                  color: 'var(--text-primary)',
+                  margin: 0
+                }}
+              >
+                Analysis could not be completed
+              </h2>
+
+              <p
+                style={{
+                  fontSize: '14px',
+                  color: 'var(--text-secondary)',
+                  maxWidth: '600px',
+                  margin: '0 auto',
+                  lineHeight: '1.6'
+                }}
+              >
+                {getFriendlyErrorMessage(analysis.errorMessage)}
+              </p>
+            </div>
+
+            {retryError && (
+              <div style={{ width: '100%', maxWidth: '600px', margin: '0 auto' }}>
+                <FormError message={retryError} />
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px', marginTop: '4px', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={handleRetryAnalysis}
+                disabled={isRetrying}
+                className="btn btn-primary"
+                style={{
+                  padding: '10px 24px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  minWidth: '120px',
+                  justifyContent: 'center'
+                }}
+              >
+                {isRetrying ? (
+                  <>
+                    <div className="spinner" style={{ width: '14px', height: '14px', margin: 0 }}></div>
+                    <span>Retrying...</span>
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </button>
+
+              <Link
+                to="/problems"
+                className="btn btn-secondary"
+                style={{
+                  padding: '10px 24px',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                Back to My Problems
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="analysis-detail-workspace-layout" style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: '200px 1fr', gap: '32px', alignItems: 'start' }}>
         {/* Left Sticky navigation column */}
         {status === 'completed' && sidenavItems.length > 0 && (
           <aside className="analysis-left-sidenav" style={{ position: 'sticky', top: '72px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -387,27 +652,45 @@ const AnalysisDetailPage = () => {
 
         {/* Central Lesson column */}
         <div className="analysis-right-content" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-          {status === 'failed' && (
-            <div className="analysis-failure-box" role="alert" style={{ padding: '24px', backgroundColor: 'var(--danger-soft)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
-              <h3 className="fail-title" style={{ color: 'var(--danger)', margin: '0 0 8px 0', fontSize: '16px', fontWeight: '800' }}>Analysis Failed</h3>
-              <p className="fail-message" style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)' }}>{analysis.errorMessage || 'Report generation was interrupted.'}</p>
-            </div>
-          )}
+
 
           {(status === 'queued' || status === 'processing') && (
-            <div className="analysis-status-card" style={{ padding: '32px', textAlign: 'center', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', backgroundColor: 'var(--bg-surface)' }}>
-              <div className="spinner" style={{ margin: '0 auto 16px auto' }}></div>
-              <h3 className="status-card-title" style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: '800' }}>Building your analysis</h3>
-              <p className="status-card-desc" style={{ margin: 0, fontSize: '13.5px', color: 'var(--text-secondary)' }}>
-                {(() => {
-                  const reqSec = analysis.requestedSections || [];
-                  if (reqSec.includes('hints') && !reqSec.includes('problemExplanation')) return 'Finding the key observation...';
-                  if (reqSec.includes('problemExplanation') && reqSec.length <= 5) return 'Simplifying the problem...';
-                  if (reqSec.includes('comparison') && !reqSec.includes('userCodeReview')) return 'Comparing possible approaches...';
-                  if (reqSec.includes('userCodeReview') && !reqSec.includes('hints')) return 'Reviewing your code and edge cases...';
-                  return 'Preparing the complete lesson...';
-                })()}
-              </p>
+            <div
+              className="analysis-status-card"
+              style={{
+                padding: '48px 32px',
+                textAlign: 'center',
+                border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-lg)',
+                backgroundColor: 'var(--bg-surface)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '16px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)'
+              }}
+            >
+              <div
+                className="spinner"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderWidth: '3px',
+                  margin: 0
+                }}
+              ></div>
+              <h3
+                className="status-card-title"
+                style={{
+                  margin: 0,
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                Building your personalised lesson…
+              </h3>
             </div>
           )}
 
@@ -1134,6 +1417,7 @@ const AnalysisDetailPage = () => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
