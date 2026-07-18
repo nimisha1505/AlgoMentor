@@ -6,7 +6,13 @@ import StatusBadge from '../components/common/StatusBadge.jsx';
 import CodeBlock from '../components/common/CodeBlock.jsx';
 import Loader from '../components/common/Loader.jsx';
 import FormError from '../components/common/FormError.jsx';
-import { ArrowLeft, BookOpen, Clock, Cpu, Activity, Award, MessageSquare, Send, Sparkles, AlertCircle } from 'lucide-react';
+import {
+  ArrowLeft, BookOpen, Clock, Award, Send, Sparkles, AlertCircle,
+  Target, Lightbulb, BarChart2, GitBranch, FileCode, Layers,
+  AlertTriangle, CheckCircle2, TrendingUp, Brain, Star, Bookmark,
+  Zap, Code2, ChevronDown, ChevronUp, Hash, AlignLeft,
+  Activity, Cpu, MessageSquare
+} from 'lucide-react';
 
 const getFriendlyErrorMessage = (errMsg) => {
   if (!errMsg) {
@@ -15,7 +21,6 @@ const getFriendlyErrorMessage = (errMsg) => {
 
   let codeFound = false;
 
-  // Try to parse as JSON first in case it's a raw JSON error structure
   try {
     if (typeof errMsg === 'string' && errMsg.trim().startsWith('{')) {
       const parsed = JSON.parse(errMsg);
@@ -24,11 +29,8 @@ const getFriendlyErrorMessage = (errMsg) => {
         codeFound = true;
       }
     }
-  } catch (e) {
-    // Ignore and fallback to regex search
-  }
+  } catch (e) {}
 
-  // If not found in JSON, search the raw text for status code numbers as standalone words
   if (!codeFound) {
     const match = errMsg.match(/\b(429|500|502|503|504)\b/);
     if (match) {
@@ -52,6 +54,66 @@ const inferModeLabel = (requestedSections = []) => {
   return 'Complete Solution';
 };
 
+const inferModeDescription = (modeLabel) => {
+  const descs = {
+    'Help Me Start': 'Get unstuck and understand the core idea',
+    'Understand the Problem': 'Break down the problem clearly',
+    'Build the Solution': 'Walk through multiple approaches',
+    'Review My Code': 'Analyse and improve your solution',
+    'Complete Solution': 'Full end-to-end explanation',
+    'Pattern + Hints': 'Guided pattern recognition',
+    'Quick Analysis': 'High-level explanation with key insights',
+  };
+  return descs[modeLabel] || null;
+};
+
+const inferDepthLabel = (requestedSections = []) => {
+  if (!requestedSections || requestedSections.length === 0) return 'Complete';
+  if (requestedSections.length <= 3) return 'Quick Analysis';
+  if (requestedSections.length <= 6) return 'Focused';
+  return 'Deep Dive';
+};
+
+const inferDepthDescription = (depth) => {
+  const descs = {
+    'Quick Analysis': 'High-level explanation with key insights',
+    'Focused': 'Targeted sections based on your request',
+    'Deep Dive': 'Comprehensive multi-section walkthrough',
+    'Complete': 'Full analysis covering all sections',
+  };
+  return descs[depth] || null;
+};
+
+// Small pale-green icon tile for section headings
+const SectionIcon = ({ icon: Icon, color = 'var(--primary)', bg = 'var(--primary-soft)' }) => (
+  <div style={{
+    width: '32px',
+    height: '32px',
+    borderRadius: '8px',
+    backgroundColor: bg,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  }}>
+    <Icon size={16} style={{ color }} />
+  </div>
+);
+
+// Open document-style section wrapper
+const LessonSection = ({ id, icon, iconColor, iconBg, title, children, divider = true }) => (
+  <section id={id} className="adp-lesson-section">
+    <div className="adp-section-head">
+      <SectionIcon icon={icon} color={iconColor} bg={iconBg} />
+      <h2 className="adp-section-title">{title}</h2>
+    </div>
+    <div className="adp-section-body">
+      {children}
+    </div>
+    {divider && <div className="adp-section-divider" />}
+  </section>
+);
+
 const AnalysisDetailPage = () => {
   const { analysisId } = useParams();
   const navigate = useNavigate();
@@ -61,10 +123,8 @@ const AnalysisDetailPage = () => {
   const [isRetrying, setIsRetrying] = useState(false);
   const [retryError, setRetryError] = useState('');
 
-  // Reveal state persisted key
   const storageKey = `algomentor-analysis-reveal-${analysisId}`;
 
-  // Reveal state values (hint progress & solution toggle)
   const [solutionRevealed, setSolutionRevealed] = useState(() => {
     try {
       const cached = localStorage.getItem(storageKey);
@@ -91,7 +151,6 @@ const AnalysisDetailPage = () => {
     } catch (e) {}
   };
 
-  // Follow-up QA workspace states
   const [followUps, setFollowUps] = useState([]);
   const [newQuestion, setNewQuestion] = useState('');
   const [followUpMode, setFollowUpMode] = useState('explain');
@@ -102,7 +161,6 @@ const AnalysisDetailPage = () => {
     let pollingInterval = null;
 
     const fetchAnalysisAndFollowUps = async () => {
-      // Only set initial loading if we don't have analysis data yet
       if (!analysis) {
         setIsLoading(true);
       }
@@ -128,7 +186,6 @@ const AnalysisDetailPage = () => {
 
     fetchAnalysisAndFollowUps();
 
-    // Start polling if analysis is not complete or failed yet
     if (!analysis || (analysis.status === 'queued' || analysis.status === 'processing')) {
       pollingInterval = setInterval(() => {
         fetchAnalysisAndFollowUps();
@@ -228,73 +285,6 @@ const AnalysisDetailPage = () => {
 
   const complexityRows = getComplexityRows();
 
-  // Sidenav items filtered dynamically based on available sections
-  const getSidenavItems = () => {
-    const items = [];
-    if (result.problemExplanation) {
-      items.push({ id: 'problemExplanation', label: '1. Simple Words' });
-    }
-    if (result.inputOutput) {
-      items.push({ id: 'inputOutput', label: '2. Input & Output' });
-    }
-    if (result.exampleExplanation && result.exampleExplanation.length > 0) {
-      items.push({ id: 'examples', label: '3. Examples' });
-    }
-    if (result.constraints && result.constraints.length > 0) {
-      items.push({ id: 'constraints', label: '4. Constraints' });
-    }
-    if (result.edgeCases && result.edgeCases.length > 0) {
-      items.push({ id: 'edgeCases', label: '5. Edge Cases' });
-    }
-    if (result.missingEdgeCases && result.missingEdgeCases.length > 0) {
-      items.push({ id: 'missingedgecases', label: '6. Missed Cases' });
-    }
-    if (result.pattern) {
-      items.push({ id: 'pattern', label: '7. DSA Pattern' });
-    }
-    if (result.hints && result.hints.length > 0) {
-      items.push({ id: 'hints', label: '8. Progressive Hints' });
-    }
-    if (result.approaches && result.approaches.length > 0) {
-      items.push({ id: 'approaches', label: '9. Approaches' });
-    }
-    if (result.pseudocode && result.pseudocode.length > 0) {
-      items.push({ id: 'pseudocode', label: '10. Pseudocode' });
-    }
-    if (result.codes && result.codes.length > 0) {
-      items.push({ id: 'code', label: '11. Solutions' });
-    }
-    if (complexityRows.length > 0) {
-      items.push({ id: 'complexity', label: '12. Complexity' });
-    }
-    if (result.dryRun) {
-      items.push({ id: 'dryrun', label: '13. Dry Run' });
-    }
-    if (result.comparison && result.comparison.length > 0) {
-      items.push({ id: 'comparison', label: '14. Comparison Table' });
-    }
-    if (result.interviewExplanation) {
-      items.push({ id: 'interviewExplanation', label: '15. Interview Guide' });
-    }
-    if (result.userCodeReview || result.approachImprovement) {
-      items.push({ id: 'approachImprovement', label: '16. Improve Logic' });
-    }
-
-    // Always append follow-up navigation
-    items.push({ id: 'mentor-qa', label: 'Ask AlgoMentor' });
-
-    return items;
-  };
-
-  const sidenavItems = getSidenavItems();
-
-  const handleScroll = (id) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
   const getLanguageLabel = (lang) => {
     const labels = {
       cpp: 'C++',
@@ -318,94 +308,78 @@ const AnalysisDetailPage = () => {
     return labels[modeVal] || modeVal;
   };
 
+  // Rail data derived from real analysis data
+  const modeLabel = inferModeLabel(analysis.requestedSections);
+  const modeDesc = inferModeDescription(modeLabel);
+  const depthLabel = inferDepthLabel(analysis.requestedSections);
+  const depthDesc = inferDepthDescription(depthLabel);
+  const patternName = result.pattern?.name;
+  const patternReason = result.pattern?.reason;
+  const confidence = result.confidence || result.pattern?.confidence || null;
+  const revisionStatus = analysis.revisionStatus || null;
+  const savedStatus = analysis.saved || analysis.isSaved || null;
+  const nextAction = result.nextRecommendedAction || null;
+
+  // Confidence levels
+  const confidenceLevels = ['very-low', 'low', 'medium', 'high', 'very-high'];
+  const confidenceLabels = { 'very-low': 'Very Low', low: 'Low', medium: 'Medium', high: 'High', 'very-high': 'Very High' };
+  const confidenceColors = { 'very-low': 'var(--danger)', low: 'var(--warning)', medium: '#B7791F', high: 'var(--primary)', 'very-high': 'var(--primary)' };
+
+  const getConfidenceLevel = (conf) => {
+    if (!conf) return null;
+    const lower = String(conf).toLowerCase().trim();
+    if (lower === 'high' || lower === 'very high' || lower === 'very-high') return 'high';
+    if (lower === 'medium') return 'medium';
+    if (lower === 'low') return 'low';
+    if (lower === 'very low' || lower === 'very-low') return 'very-low';
+    return null;
+  };
+
+  const confidenceKey = getConfidenceLevel(confidence);
+
+  const getApproachAccent = (category) => {
+    const lower = (category || '').toLowerCase();
+    if (lower.includes('optimal')) return { border: 'var(--primary)', bg: 'var(--primary-soft)', label: 'var(--primary)', tag: 'Optimal' };
+    if (lower.includes('better') || lower.includes('improved')) return { border: '#6D5CE7', bg: '#F0EEFF', label: '#6D5CE7', tag: 'Better' };
+    return { border: 'var(--border)', bg: '#FAFAFA', label: 'var(--text-secondary)', tag: category || 'Brute Force' };
+  };
+
   return (
-    <div className="analysis-detail-container container" style={{ paddingBottom: '80px' }}>
-      {/* Top Bar navigation */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderBottom: '1px solid var(--border)',
-          paddingBottom: '16px',
-          marginBottom: '24px'
-        }}
-      >
-        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-          <Link
-            to="/problems"
-            className="back-link"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '13px',
-              fontWeight: '600',
-              color: 'var(--text-secondary)',
-              transition: 'color 0.15s ease'
-            }}
-          >
+    <div className="adp-page container" style={{ paddingBottom: '80px' }}>
+      {/* ── Top action bar ── */}
+      <div className="adp-topbar">
+        <div className="adp-topbar-left">
+          <Link to="/problems" className="adp-back-link">
             <ArrowLeft size={14} /> My Problems
           </Link>
           {analysis.problem && (
             <Link
               to={typeof analysis.problem === 'object' ? `/problems/${analysis.problem._id}` : `/problems/${analysis.problem}`}
-              className="back-link"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '13px',
-                fontWeight: '600',
-                color: 'var(--text-secondary)',
-                transition: 'color 0.15s ease'
-              }}
+              className="adp-back-link"
             >
               <BookOpen size={14} /> View Details
             </Link>
           )}
         </div>
-
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-          <Link
-            to="/problems/new"
-            className="btn btn-secondary"
-            style={{
-              padding: '8px 16px',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
+        <div className="adp-topbar-right">
+          <Link to="/problems/new" className="btn btn-secondary adp-action-btn">
             Analyse Again
           </Link>
-          <Link
-            to="/problems"
-            className="btn btn-secondary"
-            style={{
-              padding: '8px 16px',
-              fontSize: '12.5px',
-              fontWeight: '600',
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
+          <Link to="/problems" className="btn btn-secondary adp-action-btn">
             History
           </Link>
         </div>
       </div>
 
-      {/* Header metadata block */}
-      <header className="analysis-header-banner" style={{ padding: '16px 24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
-        <div className="analysis-banner-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div className="analysis-banner-title-block">
-            <span className="analysis-banner-label" style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', letterSpacing: '0.05em', display: 'block' }}>
+      {/* ── Header banner ── */}
+      <header className="adp-header">
+        <div className="adp-header-top">
+          <div className="adp-header-title-block">
+            <span className="adp-eyebrow">
+              <Sparkles size={11} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />
               PERSONALISED DSA LESSON
             </span>
-            <h1 className="analysis-banner-title" style={{ fontSize: '26px', fontWeight: '800', color: 'var(--text-primary)', margin: '4px 0 0 0', letterSpacing: '-0.5px' }}>
+            <h1 className="adp-problem-title">
               {analysis.inputSnapshot?.title || 'Untitled DSA Problem'}
             </h1>
           </div>
@@ -414,10 +388,12 @@ const AnalysisDetailPage = () => {
             let label = 'Unknown';
             let bg = 'var(--bg-soft)';
             let color = 'var(--text-secondary)';
+            let dot = null;
             if (norm === 'completed') {
               label = 'Completed';
               bg = 'var(--primary-soft)';
               color = 'var(--primary)';
+              dot = <CheckCircle2 size={13} style={{ display: 'inline', marginRight: '4px', verticalAlign: 'middle' }} />;
             } else if (norm === 'queued' || norm === 'processing') {
               label = norm === 'queued' ? 'Queued' : 'Processing';
               bg = 'var(--warning-soft)';
@@ -428,87 +404,42 @@ const AnalysisDetailPage = () => {
               color = 'var(--danger)';
             }
             return (
-              <span
-                style={{
-                  padding: '4px 10px',
-                  borderRadius: '9999px',
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  textTransform: 'capitalize',
-                  backgroundColor: bg,
-                  color: color,
-                  border: `1px solid ${color}33`,
-                  display: 'inline-flex',
-                  alignItems: 'center'
-                }}
-              >
-                {label}
+              <span className="adp-status-badge" style={{ backgroundColor: bg, color, border: `1px solid ${color}33` }}>
+                {dot}{label}
               </span>
             );
           })()}
         </div>
 
-        <div className="analysis-meta-strip" style={{ display: 'flex', gap: '20px', marginTop: '16px', flexWrap: 'wrap', fontSize: '13px', color: 'var(--text-secondary)' }}>
+        <div className="adp-meta-strip">
           {analysis.inputSnapshot?.language && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Language:</span>
-              <strong style={{ color: 'var(--text-primary)' }}>{getLanguageLabel(analysis.inputSnapshot.language)}</strong>
-            </div>
+            <span className="adp-meta-item">
+              <Code2 size={13} style={{ color: 'var(--text-muted)' }} />
+              {getLanguageLabel(analysis.inputSnapshot.language)}
+            </span>
           )}
-
-          {(analysis.inputSnapshot?.difficulty || (analysis.problem && typeof analysis.problem === 'object' && analysis.problem.difficulty)) && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Difficulty:</span>
-              <strong style={{ color: 'var(--text-primary)', textTransform: 'capitalize' }}>
-                {analysis.inputSnapshot?.difficulty || analysis.problem.difficulty}
-              </strong>
-            </div>
+          {(analysis.requestedSections && analysis.requestedSections.length > 0) && (
+            <span className="adp-meta-item">
+              <Target size={13} style={{ color: 'var(--text-muted)' }} />
+              {modeLabel}
+            </span>
           )}
-
-          {analysis.requestedSections && analysis.requestedSections.length > 0 && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Mode:</span>
-              <strong style={{ color: 'var(--text-primary)' }}>{inferModeLabel(analysis.requestedSections)}</strong>
-            </div>
+          {result.pattern?.name && (
+            <span className="adp-meta-item">
+              <GitBranch size={13} style={{ color: 'var(--text-muted)' }} />
+              {result.pattern.name}
+            </span>
           )}
-
-          {analysis.result?.pattern?.name && (
-            <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Pattern:</span>
-              <strong style={{ color: 'var(--text-primary)' }}>{analysis.result.pattern.name}</strong>
-            </div>
-          )}
-
-          <div className="analysis-meta-block" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span className="adp-meta-item">
             <Clock size={13} style={{ color: 'var(--text-muted)' }} />
-            <span>Updated: <strong style={{ color: 'var(--text-primary)' }}>{new Date(analysis.updatedAt).toLocaleDateString()}</strong></span>
-          </div>
+            {new Date(analysis.updatedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {' · '}
+            {new Date(analysis.updatedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+          </span>
         </div>
       </header>
 
-      {/* Guided steps progression timeline */}
-      {status === 'completed' && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', padding: '16px 20px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', margin: '20px 0', overflowX: 'auto' }}>
-          {[
-            { key: 'overview', label: '1. Start Here' },
-            { key: 'pattern', label: '2. Pattern' },
-            { key: 'missingedgecases', label: '3. Edge Cases' },
-            { key: 'hints', label: '4. Hints' },
-            { key: 'codereview', label: '5. Review' },
-            { key: 'locked-solution', label: '6. Solution' }
-          ].map((step, idx) => {
-            const isAvailable = sidenavItems.some(i => i.id === step.key || (step.key === 'locked-solution' && (i.id === 'locked-solution' || i.id === 'code' || i.id === 'pseudocode' || i.id === 'complexity')));
-            return (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', opacity: isAvailable ? 1 : 0.4, color: isAvailable ? 'var(--primary)' : 'var(--text-muted)', fontSize: '13px', fontWeight: '700', whiteSpace: 'nowrap' }}>
-                <span style={{ color: isAvailable ? 'var(--primary)' : 'inherit' }}>{step.label}</span>
-                {idx < 5 && <span style={{ color: 'var(--border)', marginLeft: '8px' }}>→</span>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Main Workspace structure */}
+      {/* ── Failed state ── */}
       {status === 'failed' ? (
         <div className="analysis-failed-state-wrapper" style={{ marginTop: '24px', width: '100%' }}>
           <div
@@ -617,43 +548,10 @@ const AnalysisDetailPage = () => {
           </div>
         </div>
       ) : (
-        <div className="analysis-detail-workspace-layout" style={{ marginTop: '24px', display: 'grid', gridTemplateColumns: '200px 1fr', gap: '32px', alignItems: 'start' }}>
-        {/* Left Sticky navigation column */}
-        {status === 'completed' && sidenavItems.length > 0 && (
-          <aside className="analysis-left-sidenav" style={{ position: 'sticky', top: '72px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span className="sidenav-title" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px', display: 'block', letterSpacing: '0.5px' }}>
-              Lesson Modules
-            </span>
-            {sidenavItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleScroll(item.id)}
-                className="sidenav-link"
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                  width: '100%',
-                  padding: '8px 12px',
-                  borderRadius: 'var(--radius-sm)',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: 'var(--text-primary)',
-                  display: 'block',
-                  transition: 'background 0.15s ease'
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </aside>
-        )}
+        /* ── Main workspace (queued / processing / completed) ── */
+        <div className="adp-workspace">
 
-        {/* Central Lesson column */}
-        <div className="analysis-right-content" style={{ display: 'flex', flexDirection: 'column', gap: '40px' }}>
-
-
+          {/* ── Processing / queued spinner ── */}
           {(status === 'queued' || status === 'processing') && (
             <div
               className="analysis-status-card"
@@ -668,7 +566,6 @@ const AnalysisDetailPage = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '16px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.02)'
               }}
             >
               <div
@@ -694,729 +591,872 @@ const AnalysisDetailPage = () => {
             </div>
           )}
 
+          {/* ── Completed two-column layout ── */}
           {status === 'completed' && (
-            <>
-              {/* 1. Problem in Simple Words */}
-              {result.problemExplanation && (
-                <section id="problemExplanation" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    1. Problem in Simple Words
-                  </h3>
-                  <p className="learning-body-text" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{result.problemExplanation}</p>
-                </section>
-              )}
+            <div className="adp-completed-layout">
 
-              {/* 2. Input and Output */}
-              {result.inputOutput && (
-                <section id="inputOutput" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    2. Input and Output
-                  </h3>
-                  <p className="learning-body-text" style={{ fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{result.inputOutput}</p>
-                </section>
-              )}
+              {/* ──── Main lesson column (70%) ──── */}
+              <main className="adp-lesson-col">
 
-              {/* 3. Example Walkthrough */}
-              {result.exampleExplanation && result.exampleExplanation.length > 0 && (
-                <section id="examples" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    3. Example Walkthrough
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {result.exampleExplanation.map((ex, idx) => (
-                      <div key={idx} className="preview-card-item" style={{ padding: '16px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                        <strong style={{ fontSize: '13px', display: 'block', color: 'var(--primary)', marginBottom: '6px' }}>
-                          Example {ex.exampleNumber} Walkthrough
-                        </strong>
-                        <p className="learning-body-text" style={{ fontSize: '13.5px', lineHeight: '1.5', margin: 0 }}>{ex.explanation}</p>
+                {/* 1. Problem Understanding */}
+                {result.problemExplanation && (
+                  <LessonSection
+                    id="problemExplanation"
+                    icon={Target}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Problem Understanding"
+                  >
+                    <p className="adp-body-text">{result.problemExplanation}</p>
+                  </LessonSection>
+                )}
+
+                {/* 2. Input and Output */}
+                {result.inputOutput && (
+                  <LessonSection
+                    id="inputOutput"
+                    icon={AlignLeft}
+                    iconColor="#157A75"
+                    iconBg="var(--color-teal-soft)"
+                    title="Input and Output"
+                  >
+                    {typeof result.inputOutput === 'object' && (result.inputOutput.input || result.inputOutput.output) ? (
+                      <div className="adp-io-grid">
+                        {result.inputOutput.input && (
+                          <div className="adp-io-box">
+                            <span className="adp-io-label adp-io-label-in">Input</span>
+                            <p className="adp-body-text" style={{ marginTop: '6px' }}>{result.inputOutput.input}</p>
+                          </div>
+                        )}
+                        {result.inputOutput.output && (
+                          <div className="adp-io-box">
+                            <span className="adp-io-label adp-io-label-out">Output</span>
+                            <p className="adp-body-text" style={{ marginTop: '6px' }}>{result.inputOutput.output}</p>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                    ) : (
+                      <p className="adp-body-text">{String(result.inputOutput)}</p>
+                    )}
+                  </LessonSection>
+                )}
 
-              {/* 4. Constraints */}
-              {result.constraints && result.constraints.length > 0 && (
-                <section id="constraints" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    4. Constraints
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {result.constraints.map((c, idx) => (
-                      <div key={idx} style={{ padding: '12px 16px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                        <code style={{ fontSize: '13.5px', fontWeight: '700', color: 'var(--primary)' }}>{c.constraint}</code>
-                        <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>
-                          <strong>Implication:</strong> {c.implication}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                {/* 3. Constraints */}
+                {result.constraints && result.constraints.length > 0 && (
+                  <LessonSection
+                    id="constraints"
+                    icon={Hash}
+                    iconColor="#157A75"
+                    iconBg="var(--color-teal-soft)"
+                    title="Constraints"
+                  >
+                    <ul className="adp-bullet-list">
+                      {result.constraints.map((c, idx) => (
+                        <li key={idx}>
+                          <code className="adp-inline-code">{c.constraint || c}</code>
+                          {c.implication && (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}> — {c.implication}</span>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </LessonSection>
+                )}
 
-              {/* 5. Important Edge Cases */}
-              {result.edgeCases && result.edgeCases.length > 0 && (
-                <section id="edgeCases" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    5. Important Edge Cases
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {result.edgeCases.map((ec, idx) => (
-                      <div key={idx} style={{ padding: '12px 16px', backgroundColor: 'var(--bg-page)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid var(--primary)' }}>
-                        <strong style={{ fontSize: '13.5px', color: 'var(--text-primary)' }}>{ec.case}</strong>
-                        <p style={{ fontSize: '13px', margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>
-                          <strong>Reason:</strong> {ec.reason}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* 6. Missing Edge Cases */}
-              {result.missingEdgeCases && result.missingEdgeCases.length > 0 && (
-                <section id="missingedgecases" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    6. Missing Edge Cases
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {result.missingEdgeCases.map((ec, idx) => (
-                      <div key={idx} className="hint-progress-step-card" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid var(--warning)', backgroundColor: 'var(--bg-page)' }}>
-                        <div className="hint-step-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                          <span style={{ fontWeight: '700', fontSize: '13.5px' }}>Case {idx + 1}: {ec.case}</span>
-                          {ec.testInput && (
-                            <code style={{ fontSize: '11px', backgroundColor: 'var(--bg-soft)', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                              Input: {ec.testInput}
-                            </code>
+                {/* 4. Examples */}
+                {result.exampleExplanation && result.exampleExplanation.length > 0 && (
+                  <LessonSection
+                    id="examples"
+                    icon={FileCode}
+                    iconColor="#6D5CE7"
+                    iconBg="#F0EEFF"
+                    title="Examples"
+                  >
+                    <div className="adp-examples-grid">
+                      {result.exampleExplanation.map((ex, idx) => (
+                        <div key={idx} className="adp-example-card">
+                          {ex.input !== undefined && (
+                            <div className="adp-example-row">
+                              <span className="adp-example-field">Input</span>
+                              <span className="adp-example-value">{String(ex.input)}</span>
+                            </div>
+                          )}
+                          {ex.output !== undefined && (
+                            <div className="adp-example-row">
+                              <span className="adp-example-field">Output</span>
+                              <span className="adp-example-value">{String(ex.output)}</span>
+                            </div>
+                          )}
+                          {ex.explanation && (
+                            <div className="adp-example-row">
+                              <span className="adp-example-field">Explanation</span>
+                              <span className="adp-example-value" style={{ color: 'var(--text-secondary)' }}>{ex.explanation}</span>
+                            </div>
+                          )}
+                          {!ex.input && !ex.output && ex.explanation && (
+                            <p className="adp-body-text" style={{ margin: 0 }}>{ex.explanation}</p>
+                          )}
+                          {ex.exampleNumber && !ex.input && !ex.output && !ex.explanation && (
+                            <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Example {ex.exampleNumber}</span>
                           )}
                         </div>
-                        <div className="hint-step-body" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <p className="learning-body-text" style={{ fontSize: '13px', margin: 0 }}>
-                            <strong>Why it matters:</strong> {ec.whyItMatters}
-                          </p>
-                          <p className="learning-body-text" style={{ color: 'var(--danger)', fontSize: '13px', margin: 0 }}>
-                            <strong>How it breaks current approach:</strong> {ec.howItBreaksCurrentApproach}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
+                      ))}
+                    </div>
+                  </LessonSection>
+                )}
 
-              {/* 7. DSA Pattern */}
-              {result.pattern && (
-                <section id="pattern" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    7. DSA Pattern
-                  </h3>
-                  <div className="say-in-interview-callout" style={{ backgroundColor: 'var(--ai-soft)', borderLeft: '4px solid var(--ai-accent)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
-                    <span className="callout-title" style={{ color: 'var(--ai-accent)', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase' }}>Identified Strategy Pattern</span>
-                    <strong style={{ fontSize: '15px', color: 'var(--text-primary)', display: 'block', marginTop: '4px' }}>
-                      {result.pattern.name}
-                    </strong>
-                    <p className="learning-body-text" style={{ fontSize: '13.5px', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
-                      {result.pattern.reason}
-                    </p>
-                    {result.pattern.clues && result.pattern.clues.length > 0 && (
-                      <div style={{ marginTop: '12px', borderTop: '1px solid #ddd6fe', paddingTop: '8px' }}>
-                        <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--ai-accent)' }}>
-                          Key clues in problem description
-                        </span>
-                        <ul style={{ paddingLeft: '20px', marginTop: '4px', fontSize: '12.5px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                          {result.pattern.clues.map((clue, idx) => (
-                            <li key={idx}>{clue}</li>
-                          ))}
-                        </ul>
+                {/* 5. Edge Cases */}
+                {result.edgeCases && result.edgeCases.length > 0 && (
+                  <LessonSection
+                    id="edgeCases"
+                    icon={AlertTriangle}
+                    iconColor="var(--warning)"
+                    iconBg="var(--warning-soft)"
+                    title="Edge Cases"
+                  >
+                    <ul className="adp-bullet-list">
+                      {result.edgeCases.map((ec, idx) => (
+                        <li key={idx}>
+                          <strong>{ec.case || ec}</strong>
+                          {ec.reason && <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}> — {ec.reason}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  </LessonSection>
+                )}
+
+                {/* 6. Missing Edge Cases */}
+                {result.missingEdgeCases && result.missingEdgeCases.length > 0 && (
+                  <LessonSection
+                    id="missingedgecases"
+                    icon={AlertTriangle}
+                    iconColor="var(--danger)"
+                    iconBg="var(--danger-soft)"
+                    title="Missed Edge Cases"
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {result.missingEdgeCases.map((ec, idx) => (
+                        <div key={idx} className="adp-missing-ec-row">
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
+                            <strong style={{ fontSize: '14px' }}>Case {idx + 1}: {ec.case}</strong>
+                            {ec.testInput && (
+                              <code className="adp-inline-code" style={{ fontSize: '11px' }}>Input: {ec.testInput}</code>
+                            )}
+                          </div>
+                          {ec.whyItMatters && (
+                            <p className="adp-body-text" style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
+                              <strong>Why it matters:</strong> {ec.whyItMatters}
+                            </p>
+                          )}
+                          {ec.howItBreaksCurrentApproach && (
+                            <p className="adp-body-text" style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--danger)' }}>
+                              <strong>How it breaks:</strong> {ec.howItBreaksCurrentApproach}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </LessonSection>
+                )}
+
+                {/* 7. Pattern */}
+                {result.pattern && (
+                  <LessonSection
+                    id="pattern"
+                    icon={GitBranch}
+                    iconColor="#6D5CE7"
+                    iconBg="#F0EEFF"
+                    title="Pattern"
+                  >
+                    {result.pattern.name && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                        <span className="adp-pattern-chip">{result.pattern.name}</span>
                       </div>
                     )}
-                  </div>
-                </section>
-              )}
+                    {result.pattern.reason && (
+                      <p className="adp-body-text" style={{ marginBottom: '16px' }}>{result.pattern.reason}</p>
+                    )}
+                    {(result.pattern.clues?.length > 0 || result.pattern.whyItFits) && (
+                      <div className="adp-pattern-grid">
+                        {result.pattern.clues?.length > 0 && (
+                          <div className="adp-pattern-col">
+                            <span className="adp-pattern-col-label" style={{ color: 'var(--primary)' }}>Clues</span>
+                            <ul className="adp-bullet-list" style={{ marginTop: '6px' }}>
+                              {result.pattern.clues.map((clue, idx) => (
+                                <li key={idx}>{clue}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {result.pattern.whyItFits && (
+                          <div className="adp-pattern-col">
+                            <span className="adp-pattern-col-label" style={{ color: '#6D5CE7' }}>Why It Fits</span>
+                            <p className="adp-body-text" style={{ marginTop: '6px' }}>{result.pattern.whyItFits}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </LessonSection>
+                )}
 
-              {/* 8. Progressive Hints */}
-              {result.hints && result.hints.length > 0 && (
-                <section id="hints" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    8. Progressive Hints
-                  </h3>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <p className="card-subtitle-text" style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
-                      Explore hints progressively to build intuition without spoiling solutions.
-                    </p>
-                    <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary)' }}>
-                      {Math.min(revealedLevel, totalHints)} of {totalHints} hints revealed
-                    </span>
-                  </div>
-                  
-                  <div className="hint-progression-panel" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    {[...result.hints]
-                      .sort((a, b) => a.level - b.level)
-                      .map((h) => {
-                        const level = h.level;
-                        const isRevealed = level <= revealedLevel;
-                        
-                        let label = 'Gentle nudge';
-                        if (level === 2) label = 'Stronger direction';
-                        if (level === 3) label = 'Almost there';
-
-                        return (
-                          <div key={level} className="hint-progress-step-card" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: isRevealed ? 'var(--bg-page)' : 'var(--bg-soft)' }}>
-                            <div className="hint-step-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                              <span style={{ fontWeight: '700', fontSize: '13px' }}>Hint {level}</span>
-                              <StatusBadge status={isRevealed ? 'COMPLETED' : 'QUEUED'} />
+                {/* 8. Hints */}
+                {result.hints && result.hints.length > 0 && (
+                  <LessonSection
+                    id="hints"
+                    icon={Lightbulb}
+                    iconColor="var(--warning)"
+                    iconBg="var(--warning-soft)"
+                    title="Hints"
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                      <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0 }}>
+                        Reveal progressively to build intuition.
+                      </p>
+                      <span style={{ fontSize: '12px', fontWeight: '600', color: 'var(--warning)' }}>
+                        {Math.min(revealedLevel, totalHints)} / {totalHints} revealed
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      {[...result.hints]
+                        .sort((a, b) => a.level - b.level)
+                        .map((h) => {
+                          const level = h.level;
+                          const isRevealed = level <= revealedLevel;
+                          let label = 'Gentle nudge';
+                          if (level === 2) label = 'Stronger direction';
+                          if (level === 3) label = 'Almost there';
+                          return (
+                            <div key={level} className="adp-hint-row" style={{ borderLeftColor: isRevealed ? 'var(--warning)' : 'var(--border)' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--warning)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                  Hint {level}
+                                </span>
+                                {!isRevealed && (
+                                  <button
+                                    type="button"
+                                    onClick={() => { setRevealedLevel(level); saveState(level, solutionRevealed); }}
+                                    className="adp-reveal-btn"
+                                  >
+                                    Reveal {label}
+                                  </button>
+                                )}
+                              </div>
+                              {isRevealed ? (
+                                <p className="adp-body-text" style={{ margin: '6px 0 0 0' }}>{h.hint}</p>
+                              ) : (
+                                <p style={{ margin: '6px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                                  Hidden — reveal when ready.
+                                </p>
+                              )}
                             </div>
-                            
-                            {isRevealed ? (
-                              <div className="hint-step-body" style={{ fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: '1.4' }}>{h.hint}</div>
-                            ) : (
-                              <div className="hint-lock-overlay" style={{ display: 'flex', justifyContent: 'center', padding: '12px' }}>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setRevealedLevel(level);
-                                    saveState(level, solutionRevealed);
-                                  }}
-                                  className="btn btn-secondary btn-sm"
-                                >
-                                  Reveal {label}
-                                </button>
+                          );
+                        })}
+                    </div>
+                  </LessonSection>
+                )}
+
+                {/* 9. Approaches */}
+                {result.approaches && result.approaches.length > 0 && (
+                  <LessonSection
+                    id="approaches"
+                    icon={Layers}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Approaches"
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {result.approaches.map((ap, idx) => {
+                        const acc = getApproachAccent(ap.category);
+                        return (
+                          <div key={idx} className="adp-approach-card" style={{ borderColor: acc.border, backgroundColor: acc.bg }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span className="adp-approach-tag" style={{ backgroundColor: `${acc.border}18`, color: acc.label }}>{acc.tag}</span>
+                                <strong style={{ fontSize: '15px' }}>{ap.name}</strong>
+                              </div>
+                              {(ap.timeComplexity || ap.spaceComplexity) && (
+                                <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                  {ap.timeComplexity && <span>Time: <code style={{ fontWeight: '700', color: acc.label }}>{ap.timeComplexity}</code></span>}
+                                  {ap.spaceComplexity && <span>Space: <code style={{ fontWeight: '700', color: acc.label }}>{ap.spaceComplexity}</code></span>}
+                                </div>
+                              )}
+                            </div>
+                            {ap.intuition && (
+                              <p className="adp-body-text" style={{ marginBottom: ap.steps ? '10px' : 0 }}>
+                                <strong>Intuition:</strong> {ap.intuition}
+                              </p>
+                            )}
+                            {ap.explanation && !ap.intuition && (
+                              <p className="adp-body-text" style={{ marginBottom: ap.steps ? '10px' : 0 }}>{ap.explanation}</p>
+                            )}
+                            {ap.steps && ap.steps.length > 0 && (
+                              <div style={{ marginTop: '10px' }}>
+                                <strong style={{ fontSize: '13px' }}>Steps:</strong>
+                                <ol className="adp-ordered-list" style={{ marginTop: '6px' }}>
+                                  {ap.steps.map((step, sIdx) => (
+                                    <li key={sIdx}>{step}</li>
+                                  ))}
+                                </ol>
+                              </div>
+                            )}
+                            {ap.tradeoffs && (
+                              <p className="adp-body-text" style={{ marginTop: '10px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                                <strong>Trade-offs:</strong> {ap.tradeoffs}
+                              </p>
+                            )}
+                            {ap.code && (
+                              <div style={{ marginTop: '14px' }}>
+                                <CodeBlock code={ap.code} language={analysis.inputSnapshot?.language} />
                               </div>
                             )}
                           </div>
                         );
                       })}
-                  </div>
-                </section>
-              )}
+                    </div>
+                  </LessonSection>
+                )}
 
-              {/* 9. Approaches */}
-              {result.approaches && result.approaches.length > 0 && (
-                <section id="approaches" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    9. Approaches
-                  </h3>
-                  <div className="progression-stack" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {result.approaches.map((ap, idx) => {
-                      const isOptimal = (ap.category || '').toLowerCase().includes('optimal');
-                      return (
-                        <div key={idx} className={`progression-card ${isOptimal ? 'optimal' : ''}`} style={{ padding: '20px', border: `1px solid ${isOptimal ? 'var(--primary)' : 'var(--border)'}`, borderRadius: 'var(--radius-sm)', backgroundColor: isOptimal ? 'var(--primary-soft)' : 'var(--bg-page)' }}>
-                          <div className="progression-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span className="progression-label" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: isOptimal ? 'var(--primary)' : 'var(--text-secondary)' }}>
-                              {isOptimal ? 'Optimal Strategy' : (ap.category || 'Approach')}
-                            </span>
-                            <span className="progression-name" style={{ fontSize: '15px', fontWeight: '700' }}>
-                              {ap.name}
-                            </span>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '16px', fontSize: '12px', margin: '8px 0', color: 'var(--text-secondary)' }}>
-                            <span>Time: <code style={{ fontWeight: '600' }}>{ap.timeComplexity}</code></span>
-                            <span>Space: <code style={{ fontWeight: '600' }}>{ap.spaceComplexity}</code></span>
-                          </div>
-
-                          <p style={{ fontSize: '13.5px', marginTop: '6px', margin: 0, lineHeight: '1.4' }}>
-                            <strong>Intuition:</strong> {ap.intuition}
-                          </p>
-
-                          {ap.steps && ap.steps.length > 0 && (
-                            <div style={{ fontSize: '13px', marginTop: '12px' }}>
-                              <strong>Steps:</strong>
-                              <ol style={{ paddingLeft: '20px', marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                {ap.steps.map((step, sIdx) => (
-                                  <li key={sIdx}>{step}</li>
-                                ))}
-                              </ol>
-                            </div>
-                          )}
-
-                          {ap.code && (
-                            <div style={{ marginTop: '16px' }}>
-                              <CodeBlock code={ap.code} language={analysis.inputSnapshot?.language} />
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-              )}
-
-              {/* 10. Pseudocode */}
-              {result.pseudocode && result.pseudocode.length > 0 && (
-                <section id="pseudocode" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    10. Pseudocode
-                  </h3>
-                  <div className="monospace-block" style={{ backgroundColor: 'var(--bg-page)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                    {result.pseudocode.map((line, idx) => (
-                      <div key={idx} className="pseudocode-line" style={{ display: 'flex', gap: '12px', fontSize: '12.5px', fontFamily: 'monospace', lineHeight: '1.6' }}>
-                        <span className="line-num" style={{ color: 'var(--text-muted)', width: '20px', textAlign: 'right' }}>{idx + 1}</span>
-                        <span className="line-text" style={{ color: 'var(--text-primary)' }}>{line}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* 11. Solutions */}
-              {result.codes && result.codes.length > 0 && (
-                <section id="code" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    11. Solutions
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    {result.codes.map((sol, idx) => (
-                      <div key={idx}>
-                        <h5 style={{ fontSize: '13px', fontWeight: '700', marginBottom: '8px', color: 'var(--primary)' }}>
-                          {sol.approach}
-                        </h5>
-                        <CodeBlock code={sol.code} language={sol.language} />
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* 12. Time and Space Complexity */}
-              {complexityRows.length > 0 && (
-                <section id="complexity" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    12. Time and Space Complexity
-                  </h3>
-                  <div className="comparison-table-wrapper" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                    <table className="comparison-table-view" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: 'var(--bg-page)', borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Approach</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Time Complexity</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Space Complexity</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Why</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {complexityRows.map((row, idx) => (
-                          <tr key={idx} style={{ borderBottom: idx < complexityRows.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                            <td style={{ padding: '12px', fontWeight: '600' }}>{row.approach}</td>
-                            <td style={{ padding: '12px' }}><code style={{ color: 'var(--primary)', fontWeight: '700' }}>{row.timeComplexity}</code></td>
-                            <td style={{ padding: '12px' }}><code style={{ color: 'var(--ai-accent)', fontWeight: '700' }}>{row.spaceComplexity}</code></td>
-                            <td style={{ padding: '12px' }}>
-                              <div style={{ fontSize: '12px', lineHeight: '1.4' }}>
-                                <strong>Time:</strong> {row.timeReason}
-                                <br />
-                                <strong>Space:</strong> {row.spaceReason}
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              )}
-
-              {/* 13. Dry Run */}
-              {result.dryRun && (
-                <section id="dryrun" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    13. Dry Run Tracing
-                  </h3>
-                  <div className="nested-card" style={{ padding: '16px', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', backgroundColor: 'var(--bg-page)' }}>
-                    <p style={{ fontSize: '13px', marginBottom: '12px', color: 'var(--text-secondary)' }}>
-                      Trace Strategy: <strong>{result.dryRun.approach}</strong> | Input: <code>{result.dryRun.input}</code>
-                    </p>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-                      {result.dryRun.steps?.map((step, idx) => (
-                        <div key={idx} className="dry-run-step-block" style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px' }}>
-                          <span className="dry-run-num-badge" style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700' }}>{idx + 1}</span>
-                          <span className="dry-run-text" style={{ color: 'var(--text-primary)' }}>{step}</span>
+                {/* 10. Pseudocode */}
+                {result.pseudocode && result.pseudocode.length > 0 && (
+                  <LessonSection
+                    id="pseudocode"
+                    icon={Code2}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Pseudocode"
+                  >
+                    <div className="adp-pseudocode-block">
+                      {result.pseudocode.map((line, idx) => (
+                        <div key={idx} style={{ display: 'flex', gap: '16px', lineHeight: '1.7' }}>
+                          <span style={{ color: 'var(--text-muted)', width: '22px', textAlign: 'right', flexShrink: 0, userSelect: 'none' }}>{idx + 1}</span>
+                          <span style={{ color: 'var(--text-primary)' }}>{line}</span>
                         </div>
                       ))}
                     </div>
-                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '12px', fontSize: '13px', fontWeight: '600' }}>
-                      Output values computed: <code>{result.dryRun.output}</code>
-                    </div>
-                  </div>
-                </section>
-              )}
+                  </LessonSection>
+                )}
 
-              {/* 14. Approaches Comparison */}
-              {result.comparison && result.comparison.length > 0 && (
-                <section id="comparison" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    14. Approaches Comparison
-                  </h3>
-                  <div className="comparison-table-wrapper" style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                    <table className="comparison-table-view" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: 'var(--bg-page)', borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Approach</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Main Idea</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Time</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Space</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Advantages</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Limitations</th>
-                          <th style={{ padding: '12px', textAlign: 'left' }}>Best Used When</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {result.comparison.map((row, idx) => {
-                          const isOptimal = row.approach?.toLowerCase().includes('optimal') || row.interviewSuitability?.toLowerCase().includes('recommended') || row.recommendedUse?.toLowerCase().includes('recommended') || row.recommendedUse?.toLowerCase().includes('optimal');
-                          return (
-                            <tr key={idx} style={{ 
-                              borderBottom: idx < result.comparison.length - 1 ? '1px solid var(--border)' : 'none',
-                              backgroundColor: isOptimal ? 'var(--bg-soft)' : 'transparent',
-                              fontWeight: isOptimal ? '600' : 'normal'
-                            }}>
-                              <td style={{ padding: '12px', fontWeight: '700', color: isOptimal ? 'var(--primary)' : 'var(--text-primary)' }}>{row.approach}</td>
-                              <td style={{ padding: '12px' }}>{row.mainIdea || row.approach}</td>
-                              <td style={{ padding: '12px' }}><code>{row.timeComplexity}</code></td>
-                              <td style={{ padding: '12px' }}><code>{row.spaceComplexity}</code></td>
-                              <td style={{ padding: '12px' }}>
-                                <ul className="bullet-td-list" style={{ margin: 0, paddingLeft: '16px' }}>
-                                  {row.advantages?.map((adv, aIdx) => <li key={aIdx}>{adv}</li>)}
-                                </ul>
+                {/* 11. Code Solutions */}
+                {result.codes && result.codes.length > 0 && (
+                  <LessonSection
+                    id="code"
+                    icon={FileCode}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Solutions"
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      {result.codes.map((sol, idx) => (
+                        <div key={idx}>
+                          {sol.approach && (
+                            <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary)', marginBottom: '8px' }}>
+                              {sol.approach}
+                            </h4>
+                          )}
+                          <CodeBlock code={sol.code} language={sol.language} />
+                        </div>
+                      ))}
+                    </div>
+                  </LessonSection>
+                )}
+
+                {/* 12. Complexity */}
+                {complexityRows.length > 0 && (
+                  <LessonSection
+                    id="complexity"
+                    icon={BarChart2}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Complexity"
+                  >
+                    <div className="adp-table-wrap">
+                      <table className="adp-table">
+                        <thead>
+                          <tr>
+                            <th>Approach</th>
+                            <th>Time</th>
+                            <th>Space</th>
+                            <th>Why</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {complexityRows.map((row, idx) => (
+                            <tr key={idx}>
+                              <td style={{ fontWeight: '600' }}>{row.approach}</td>
+                              <td><code className="adp-inline-code" style={{ color: 'var(--primary)' }}>{row.timeComplexity}</code></td>
+                              <td><code className="adp-inline-code" style={{ color: '#6D5CE7' }}>{row.spaceComplexity}</code></td>
+                              <td style={{ fontSize: '12px', lineHeight: '1.4' }}>
+                                <strong>Time:</strong> {row.timeReason}<br />
+                                <strong>Space:</strong> {row.spaceReason}
                               </td>
-                              <td style={{ padding: '12px' }}>
-                                <ul className="bullet-td-list" style={{ margin: 0, paddingLeft: '16px' }}>
-                                  {(row.limitations || row.disadvantages)?.map((lim, lIdx) => <li key={lIdx}>{lim}</li>)}
-                                </ul>
-                              </td>
-                              <td style={{ padding: '12px' }}>{row.recommendedUse || row.interviewSuitability}</td>
                             </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
-              )}
-
-              {/* 15. Interview Explanation */}
-              {result.interviewExplanation && (
-                <section id="interviewExplanation" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    15. Interview Explanation
-                  </h3>
-                  <div className="say-in-interview-callout" style={{ backgroundColor: 'var(--primary-soft)', borderLeft: '4px solid var(--primary)', padding: '16px', borderRadius: 'var(--radius-sm)' }}>
-                    <span className="callout-title" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '800', color: 'var(--primary)', textTransform: 'uppercase' }}>
-                      <Award size={14} />
-                      How to explain this in an interview
-                    </span>
-                    <div className="callout-body text-pre-wrap" style={{ fontSize: '13.5px', marginTop: '8px', lineHeight: '1.6' }}>{result.interviewExplanation}</div>
-                  </div>
-                </section>
-              )}
-
-              {/* 16. How to Improve the Approach */}
-              {(result.userCodeReview || result.approachImprovement) && (
-                <section id="approachImprovement" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                  <h3 className="learning-section-title" style={{ margin: '0 0 16px 0', fontSize: '17px', fontWeight: '800', borderBottom: '1px solid var(--border)', paddingBottom: '10px' }}>
-                    16. How to Improve the Approach
-                  </h3>
-
-                  {result.userCodeReview && (
-                    <div className="code-review-redesign" style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginBottom: result.approachImprovement ? '24px' : '0' }}>
-                      <div className="review-correctness-strip" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-page)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }}>
-                        <span style={{ fontWeight: '600' }}>Submitted logic status</span>
-                        <span className={result.userCodeReview.isCorrect ? 'correct-true' : 'correct-false'} style={{ fontWeight: '700', color: result.userCodeReview.isCorrect ? 'var(--primary)' : 'var(--danger)' }}>
-                          {result.userCodeReview.isCorrect ? 'Logic Correct' : 'Inefficient / Has Bugs'}
-                        </span>
-                      </div>
-
-                      <div className="review-section-block">
-                        <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>What you did well</span>
-                        <p className="learning-body-text" style={{ fontSize: '13.5px', margin: 0 }}>{result.userCodeReview.summary}</p>
-                      </div>
-
-                      {result.userCodeReview.strengths && result.userCodeReview.strengths.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Key Strengths</span>
-                          <ul className="review-list-bullets" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px' }}>
-                            {result.userCodeReview.strengths.map((str, idx) => <li key={idx}>{str}</li>)}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.userCodeReview.bugs && result.userCodeReview.bugs.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '6px' }}>Problems found</span>
-                          <ul className="review-list-bullets warning" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px', color: 'var(--danger)' }}>
-                            {result.userCodeReview.bugs.map((bug, idx) => <li key={idx}>{bug}</li>)}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.userCodeReview.missedEdgeCases && result.userCodeReview.missedEdgeCases.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '6px' }}>Missed edge cases</span>
-                          <ul className="review-list-bullets warning" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px', color: 'var(--danger)' }}>
-                            {result.userCodeReview.missedEdgeCases.map((ec, idx) => <li key={idx}>{ec}</li>)}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.userCodeReview.improvements && result.userCodeReview.improvements.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Improvements</span>
-                          <ul className="review-list-bullets" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px' }}>
-                            {result.userCodeReview.improvements.map((imp, idx) => <li key={idx}>{imp}</li>)}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.userCodeReview.correctedCode && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Corrected code version</span>
-                          <CodeBlock
-                            code={result.userCodeReview.correctedCode}
-                            language={analysis.inputSnapshot?.language}
-                          />
-                        </div>
-                      )}
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                  </LessonSection>
+                )}
 
-                  {result.approachImprovement && (
-                    <div className="code-review-redesign" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                      {result.approachImprovement.currentStrengths && result.approachImprovement.currentStrengths.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', display: 'block', marginBottom: '6px' }}>Strengths</span>
-                          <ul className="review-list-bullets" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px' }}>
-                            {result.approachImprovement.currentStrengths.map((str, idx) => (
-                              <li key={idx}>{str}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.approachImprovement.bottlenecks && result.approachImprovement.bottlenecks.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '6px' }}>Bottlenecks identified</span>
-                          <ul className="review-list-bullets warning" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px', color: 'var(--danger)' }}>
-                            {result.approachImprovement.bottlenecks.map((bn, idx) => (
-                              <li key={idx}>{bn}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.approachImprovement.unnecessaryWork && result.approachImprovement.unnecessaryWork.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--warning)', display: 'block', marginBottom: '6px' }}>Unnecessary work</span>
-                          <ul className="review-list-bullets warning" style={{ margin: 0, paddingLeft: '20px', fontSize: '13.5px', color: 'var(--warning)' }}>
-                            {result.approachImprovement.unnecessaryWork.map((uw, idx) => (
-                              <li key={idx}>{uw}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {result.approachImprovement.nextImprovement && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Next improvement step</span>
-                          <p className="learning-body-text" style={{ fontSize: '13.5px', margin: 0 }}>{result.approachImprovement.nextImprovement}</p>
-                        </div>
-                      )}
-
-                      {result.approachImprovement.improvedApproach && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Recommended target approach</span>
-                          <p className="learning-body-text" style={{ fontSize: '13.5px', margin: 0 }}>{result.approachImprovement.improvedApproach}</p>
-                        </div>
-                      )}
-
-                      {result.approachImprovement.patternToLearn && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--ai-accent)', display: 'block', marginBottom: '6px' }}>Pattern or concept to study</span>
-                          <div style={{ backgroundColor: 'var(--ai-soft)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid var(--ai-accent)', fontSize: '13px' }}>
-                            {result.approachImprovement.patternToLearn}
-                          </div>
-                        </div>
-                      )}
-
-                      {result.approachImprovement.questionsToAsk && result.approachImprovement.questionsToAsk.length > 0 && (
-                        <div className="review-section-block">
-                          <span className="review-section-block-title" style={{ fontSize: '13px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Reflective questions to ask yourself</span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
-                            {result.approachImprovement.questionsToAsk.map((q, idx) => (
-                              <label key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
-                                <input type="checkbox" style={{ marginTop: '3px' }} />
-                                <span>{q}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </section>
-              )}
-
-
-
-              {/* Ask AlgoMentor Notebook Section */}
-              <section id="mentor-qa" className="learning-section" style={{ padding: '24px', backgroundColor: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid var(--border)', paddingBottom: '10px', marginBottom: '16px' }}>
-                  <Sparkles size={20} style={{ color: 'var(--ai-accent)' }} />
-                  <h3 className="learning-section-title" style={{ border: 'none', padding: '0', margin: '0', fontSize: '17px', fontWeight: '800' }}>
-                    Ask AlgoMentor
-                  </h3>
-                </div>
-                
-                {/* Lined Notebook Paper styled discussion log */}
-                <div style={{
-                  backgroundColor: '#FAF9F6',
-                  border: '1px solid #EAE6DF',
-                  borderRadius: 'var(--radius-md)',
-                  padding: '24px',
-                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.01)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '24px'
-                }}>
-                  {followUps.length === 0 ? (
-                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
-                      No follow-up questions asked yet. Use the presets or write below to ask.
+                {/* 13. Dry Run */}
+                {result.dryRun && (
+                  <LessonSection
+                    id="dryrun"
+                    icon={Activity}
+                    iconColor="#157A75"
+                    iconBg="var(--color-teal-soft)"
+                    title="Dry Run"
+                  >
+                    <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                      Strategy: <strong>{result.dryRun.approach}</strong> &nbsp;·&nbsp; Input: <code className="adp-inline-code">{result.dryRun.input}</code>
                     </p>
-                  ) : (
-                    followUps.map((item, idx) => (
-                      <div key={item._id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: idx < followUps.length - 1 ? '1px dashed #EAE6DF' : 'none', paddingBottom: idx < followUps.length - 1 ? '20px' : '0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
-                          <span style={{ fontWeight: '700', color: '#855E42' }}>STUDENT QUESTION:</span>
-                          <span style={{ color: '#A09080' }}>
-                            {getModeLabel(item.mode)} • {new Date(item.createdAt).toLocaleTimeString()}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
+                      {result.dryRun.steps?.map((step, idx) => (
+                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px' }}>
+                          <span style={{ backgroundColor: 'var(--primary-soft)', color: 'var(--primary)', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: '700', flexShrink: 0 }}>{idx + 1}</span>
+                          <span>{step}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '10px', fontSize: '13px', fontWeight: '600' }}>
+                      Output: <code className="adp-inline-code">{result.dryRun.output}</code>
+                    </div>
+                  </LessonSection>
+                )}
+
+                {/* 14. Comparison */}
+                {result.comparison && result.comparison.length > 0 && (
+                  <LessonSection
+                    id="comparison"
+                    icon={TrendingUp}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Comparison"
+                  >
+                    <div className="adp-table-wrap">
+                      <table className="adp-table">
+                        <thead>
+                          <tr>
+                            <th>Approach</th>
+                            <th>Main Idea</th>
+                            <th>Time</th>
+                            <th>Space</th>
+                            <th>Advantages</th>
+                            <th>Limitations</th>
+                            <th>Best Used When</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {result.comparison.map((row, idx) => {
+                            const isOptimal = row.approach?.toLowerCase().includes('optimal') || row.interviewSuitability?.toLowerCase().includes('recommended') || row.recommendedUse?.toLowerCase().includes('recommended');
+                            return (
+                              <tr key={idx} style={{ backgroundColor: isOptimal ? 'var(--primary-soft)' : 'transparent' }}>
+                                <td style={{ fontWeight: '700', color: isOptimal ? 'var(--primary)' : 'var(--text-primary)' }}>{row.approach}</td>
+                                <td>{row.mainIdea || row.approach}</td>
+                                <td><code className="adp-inline-code">{row.timeComplexity}</code></td>
+                                <td><code className="adp-inline-code">{row.spaceComplexity}</code></td>
+                                <td>
+                                  <ul style={{ margin: 0, paddingLeft: '14px' }}>
+                                    {row.advantages?.map((adv, aIdx) => <li key={aIdx}>{adv}</li>)}
+                                  </ul>
+                                </td>
+                                <td>
+                                  <ul style={{ margin: 0, paddingLeft: '14px' }}>
+                                    {(row.limitations || row.disadvantages)?.map((lim, lIdx) => <li key={lIdx}>{lim}</li>)}
+                                  </ul>
+                                </td>
+                                <td>{row.recommendedUse || row.interviewSuitability}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </LessonSection>
+                )}
+
+                {/* 15. Interview Explanation */}
+                {result.interviewExplanation && (
+                  <LessonSection
+                    id="interviewExplanation"
+                    icon={Award}
+                    iconColor="var(--primary)"
+                    iconBg="var(--primary-soft)"
+                    title="Interview Explanation"
+                  >
+                    <div className="adp-interview-callout">
+                      <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Award size={12} /> How to explain in an interview
+                      </span>
+                      <div className="adp-body-text" style={{ marginTop: '8px', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>{result.interviewExplanation}</div>
+                    </div>
+                  </LessonSection>
+                )}
+
+                {/* 16. Code Review / Approach Improvement */}
+                {(result.userCodeReview || result.approachImprovement) && (
+                  <LessonSection
+                    id="approachImprovement"
+                    icon={Brain}
+                    iconColor="#6D5CE7"
+                    iconBg="#F0EEFF"
+                    title="Code Review"
+                  >
+                    {result.userCodeReview && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px', marginBottom: result.approachImprovement ? '24px' : 0 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: 'var(--bg-page)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', fontSize: '13px' }}>
+                          <span style={{ fontWeight: '600' }}>Submitted logic status</span>
+                          <span style={{ fontWeight: '700', color: result.userCodeReview.isCorrect ? 'var(--primary)' : 'var(--danger)' }}>
+                            {result.userCodeReview.isCorrect ? 'Logic Correct' : 'Inefficient / Has Bugs'}
                           </span>
                         </div>
-                        <p style={{ fontSize: '13.5px', fontStyle: 'italic', color: 'var(--text-primary)', margin: '0 0 6px 0', paddingLeft: '8px', borderLeft: '2px solid #855E42' }}>
-                          "{item.question}"
-                        </p>
-                        
-                        <div style={{ display: 'flex', gap: '12px', marginTop: '6px', alignItems: 'flex-start' }}>
-                          <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: 'var(--ai-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
-                            AI
-                          </div>
+                        {result.userCodeReview.summary && (
                           <div>
-                            <span style={{ fontWeight: '700', fontSize: '12px', display: 'block', color: 'var(--ai-accent)', textTransform: 'uppercase', marginBottom: '4px' }}>Mentor Insights</span>
-                            <div className="learning-body-text text-pre-wrap" style={{ fontSize: '13.5px', color: 'var(--text-primary)', lineHeight: '1.6', margin: 0 }}>
-                              {item.answer}
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>What you did well</span>
+                            <p className="adp-body-text">{result.userCodeReview.summary}</p>
+                          </div>
+                        )}
+                        {result.userCodeReview.strengths?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Key Strengths</span>
+                            <ul className="adp-bullet-list">
+                              {result.userCodeReview.strengths.map((str, idx) => <li key={idx}>{str}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.userCodeReview.bugs?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '5px' }}>Problems found</span>
+                            <ul className="adp-bullet-list" style={{ color: 'var(--danger)' }}>
+                              {result.userCodeReview.bugs.map((bug, idx) => <li key={idx}>{bug}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.userCodeReview.missedEdgeCases?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '5px' }}>Missed edge cases</span>
+                            <ul className="adp-bullet-list" style={{ color: 'var(--danger)' }}>
+                              {result.userCodeReview.missedEdgeCases.map((ec, idx) => <li key={idx}>{ec}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.userCodeReview.improvements?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Improvements</span>
+                            <ul className="adp-bullet-list">
+                              {result.userCodeReview.improvements.map((imp, idx) => <li key={idx}>{imp}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.userCodeReview.correctedCode && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Corrected code</span>
+                            <CodeBlock code={result.userCodeReview.correctedCode} language={analysis.inputSnapshot?.language} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {result.approachImprovement && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+                        {result.approachImprovement.currentStrengths?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--primary)', display: 'block', marginBottom: '5px' }}>Strengths</span>
+                            <ul className="adp-bullet-list">
+                              {result.approachImprovement.currentStrengths.map((str, idx) => <li key={idx}>{str}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.approachImprovement.bottlenecks?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '5px' }}>Bottlenecks</span>
+                            <ul className="adp-bullet-list" style={{ color: 'var(--danger)' }}>
+                              {result.approachImprovement.bottlenecks.map((bn, idx) => <li key={idx}>{bn}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.approachImprovement.unnecessaryWork?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--warning)', display: 'block', marginBottom: '5px' }}>Unnecessary work</span>
+                            <ul className="adp-bullet-list" style={{ color: 'var(--warning)' }}>
+                              {result.approachImprovement.unnecessaryWork.map((uw, idx) => <li key={idx}>{uw}</li>)}
+                            </ul>
+                          </div>
+                        )}
+                        {result.approachImprovement.nextImprovement && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Next improvement step</span>
+                            <p className="adp-body-text">{result.approachImprovement.nextImprovement}</p>
+                          </div>
+                        )}
+                        {result.approachImprovement.improvedApproach && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Recommended approach</span>
+                            <p className="adp-body-text">{result.approachImprovement.improvedApproach}</p>
+                          </div>
+                        )}
+                        {result.approachImprovement.patternToLearn && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: '#6D5CE7', display: 'block', marginBottom: '5px' }}>Pattern to study</span>
+                            <div style={{ backgroundColor: '#F0EEFF', padding: '12px 14px', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #6D5CE7', fontSize: '13px' }}>
+                              {result.approachImprovement.patternToLearn}
                             </div>
                           </div>
-                        </div>
+                        )}
+                        {result.approachImprovement.questionsToAsk?.length > 0 && (
+                          <div>
+                            <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>Reflective questions</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {result.approachImprovement.questionsToAsk.map((q, idx) => (
+                                <label key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
+                                  <input type="checkbox" style={{ marginTop: '3px' }} />
+                                  <span>{q}</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))
-                  )}
-                </div>
+                    )}
+                  </LessonSection>
+                )}
 
-                {/* Suggested question chips */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '16px' }}>
-                  <button
-                    onClick={() => handleChipClick('Why is this approach optimal?', 'explain')}
-                    className="preset-chip-btn"
-                    style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: 'var(--bg-page)', cursor: 'pointer' }}
-                    type="button"
-                  >
-                    Why is this approach optimal?
-                  </button>
-                  <button
-                    onClick={() => handleChipClick('Which edge case am I missing?', 'edgeCase')}
-                    className="preset-chip-btn"
-                    style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: 'var(--bg-page)', cursor: 'pointer' }}
-                    type="button"
-                  >
-                    Which edge case am I missing?
-                  </button>
-                  {revealedLevel < totalHints && (
-                    <button
-                      onClick={() => handleChipClick('Give me one more hint', 'hint')}
-                      className="preset-chip-btn"
-                      style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: 'var(--bg-page)', cursor: 'pointer' }}
-                      type="button"
-                    >
-                      Give me one more hint
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleChipClick('How can I explain this in an interview?', 'interview')}
-                    className="preset-chip-btn"
-                    style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: 'var(--bg-page)', cursor: 'pointer' }}
-                    type="button"
-                  >
-                    How can I explain this in an interview?
-                  </button>
-                  <button
-                    onClick={() => handleChipClick('How can I improve my code?', 'improve')}
-                    className="preset-chip-btn"
-                    style={{ fontSize: '12px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '12px', backgroundColor: 'var(--bg-page)', cursor: 'pointer' }}
-                    type="button"
-                  >
-                    How can I improve my code?
-                  </button>
-                </div>
-
-                {/* Form fields */}
-                <form onSubmit={handleAskMentor} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
-                  <FormError message={followUpError} />
-                  
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    {['explain', 'hint', 'improve', 'edgeCase', 'interview'].map((m) => (
-                      <label key={m} className="checkbox-chip-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', padding: '6px 12px', border: '1px solid var(--border)', borderRadius: '12px', cursor: 'pointer', backgroundColor: 'var(--bg-page)' }}>
-                        <input
-                          type="radio"
-                          name="followUpMode"
-                          checked={followUpMode === m}
-                          onChange={() => setFollowUpMode(m)}
-                          disabled={isSubmittingFollowUp}
-                        />
-                        <span style={followUpMode === m ? { color: 'var(--ai-accent)', fontWeight: '700' } : {}}>
-                          {getModeLabel(m)}
-                        </span>
-                      </label>
-                    ))}
+                {/* Ask AlgoMentor */}
+                <section id="mentor-qa" className="adp-lesson-section" style={{ paddingBottom: 0 }}>
+                  <div className="adp-section-head">
+                    <SectionIcon icon={Sparkles} color="#6D5CE7" bg="#F0EEFF" />
+                    <h2 className="adp-section-title">Ask AlgoMentor</h2>
                   </div>
-
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <textarea
-                      value={newQuestion}
-                      onChange={(e) => setNewQuestion(e.target.value)}
-                      placeholder="Ask the AI mentor to elaborate on a concept, provide code suggestions, or test inputs..."
-                      maxLength={2000}
-                      required
-                      rows={3}
-                      disabled={isSubmittingFollowUp}
-                      style={{ padding: '12px', minHeight: '80px', fontSize: '13px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', width: '100%', outline: 'none' }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                      {newQuestion.length}/2000 characters
-                    </span>
-                    <button
-                      type="submit"
-                      disabled={isSubmittingFollowUp || !newQuestion.trim()}
-                      className="btn btn-primary btn-sm icon-btn"
-                      style={{ padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                    >
-                      {isSubmittingFollowUp ? (
-                        <>
-                          <div className="spinner" style={{ width: '12px', height: '12px', borderThickness: '1.5px', margin: 0 }}></div>
-                          <span>Thinking...</span>
-                        </>
+                  <div className="adp-section-body">
+                    <div className="adp-mentor-log">
+                      {followUps.length === 0 ? (
+                        <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>
+                          No follow-up questions yet. Use the presets or write below to ask.
+                        </p>
                       ) : (
-                        <>
-                          <Send size={12} />
-                          <span>Ask AlgoMentor</span>
-                        </>
+                        followUps.map((item, idx) => (
+                          <div key={item._id || idx} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: idx < followUps.length - 1 ? '1px dashed var(--border)' : 'none', paddingBottom: idx < followUps.length - 1 ? '20px' : '0' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '12px' }}>
+                              <span style={{ fontWeight: '700', color: '#855E42' }}>STUDENT QUESTION:</span>
+                              <span style={{ color: '#A09080' }}>
+                                {getModeLabel(item.mode)} · {new Date(item.createdAt).toLocaleTimeString()}
+                              </span>
+                            </div>
+                            <p style={{ fontSize: '13.5px', fontStyle: 'italic', color: 'var(--text-primary)', margin: '0 0 6px 0', paddingLeft: '8px', borderLeft: '2px solid #855E42' }}>
+                              "{item.question}"
+                            </p>
+                            <div style={{ display: 'flex', gap: '12px', marginTop: '6px', alignItems: 'flex-start' }}>
+                              <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#6D5CE7', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
+                                AI
+                              </div>
+                              <div>
+                                <span style={{ fontWeight: '700', fontSize: '12px', display: 'block', color: '#6D5CE7', textTransform: 'uppercase', marginBottom: '4px' }}>Mentor Insights</span>
+                                <div className="adp-body-text" style={{ whiteSpace: 'pre-wrap' }}>{item.answer}</div>
+                              </div>
+                            </div>
+                          </div>
+                        ))
                       )}
-                    </button>
+                    </div>
+
+                    {/* Chip suggestions */}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '16px' }}>
+                      <button onClick={() => handleChipClick('Why is this approach optimal?', 'explain')} className="adp-chip-btn" type="button">Why is this approach optimal?</button>
+                      <button onClick={() => handleChipClick('Which edge case am I missing?', 'edgeCase')} className="adp-chip-btn" type="button">Which edge case am I missing?</button>
+                      {revealedLevel < totalHints && (
+                        <button onClick={() => handleChipClick('Give me one more hint', 'hint')} className="adp-chip-btn" type="button">Give me one more hint</button>
+                      )}
+                      <button onClick={() => handleChipClick('How can I explain this in an interview?', 'interview')} className="adp-chip-btn" type="button">How can I explain this in an interview?</button>
+                      <button onClick={() => handleChipClick('How can I improve my code?', 'improve')} className="adp-chip-btn" type="button">How can I improve my code?</button>
+                    </div>
+
+                    {/* Form */}
+                    <form onSubmit={handleAskMentor} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
+                      <FormError message={followUpError} />
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {['explain', 'hint', 'improve', 'edgeCase', 'interview'].map((m) => (
+                          <label key={m} className="adp-mode-chip" style={{ backgroundColor: followUpMode === m ? 'var(--primary-soft)' : 'var(--bg-page)', borderColor: followUpMode === m ? 'var(--primary)' : 'var(--border)', color: followUpMode === m ? 'var(--primary)' : 'inherit' }}>
+                            <input type="radio" name="followUpMode" checked={followUpMode === m} onChange={() => setFollowUpMode(m)} disabled={isSubmittingFollowUp} style={{ display: 'none' }} />
+                            {getModeLabel(m)}
+                          </label>
+                        ))}
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 0 }}>
+                        <textarea
+                          value={newQuestion}
+                          onChange={(e) => setNewQuestion(e.target.value)}
+                          placeholder="Ask the AI mentor to elaborate on a concept, provide code suggestions, or test inputs..."
+                          maxLength={2000}
+                          required
+                          rows={3}
+                          disabled={isSubmittingFollowUp}
+                          style={{ padding: '12px', minHeight: '80px', fontSize: '13px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)', width: '100%', outline: 'none', resize: 'vertical' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{newQuestion.length}/2000 characters</span>
+                        <button
+                          type="submit"
+                          disabled={isSubmittingFollowUp || !newQuestion.trim()}
+                          className="btn btn-primary btn-sm icon-btn"
+                          style={{ padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          {isSubmittingFollowUp ? (
+                            <>
+                              <div className="spinner" style={{ width: '12px', height: '12px', margin: 0 }}></div>
+                              <span>Thinking...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Send size={12} />
+                              <span>Ask AlgoMentor</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
                   </div>
-                </form>
-              </section>
-            </>
+                </section>
+              </main>
+
+              {/* ──── Right learning summary rail (30%) ──── */}
+              <aside className="adp-rail">
+                <div className="adp-rail-inner">
+                  <h3 className="adp-rail-title">Your Learning Summary</h3>
+
+                  {/* Learning Mode */}
+                  {modeLabel && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <Brain size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Learning Mode</span>
+                        <strong className="adp-rail-value">{modeLabel}</strong>
+                        {modeDesc && <span className="adp-rail-sub">{modeDesc}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detected Pattern */}
+                  {patternName && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <GitBranch size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Detected Pattern</span>
+                        <strong className="adp-rail-value" style={{ color: 'var(--primary)' }}>{patternName}</strong>
+                        {patternReason && <span className="adp-rail-sub">{patternReason}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Analysis Depth */}
+                  {depthLabel && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <Layers size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Analysis Depth</span>
+                        <strong className="adp-rail-value">{depthLabel}</strong>
+                        {depthDesc && <span className="adp-rail-sub">{depthDesc}</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Confidence — only when real data exists */}
+                  {confidenceKey && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <Star size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Confidence</span>
+                        <strong className="adp-rail-value" style={{ color: confidenceColors[confidenceKey] }}>
+                          {confidenceLabels[confidenceKey]}
+                        </strong>
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '5px' }}>
+                          {['very-low', 'low', 'medium', 'high', 'very-high'].map((lvl, i) => {
+                            const filled = ['very-low', 'low', 'medium', 'high', 'very-high'].indexOf(confidenceKey) >= i;
+                            return (
+                              <span key={lvl} style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: filled ? confidenceColors[confidenceKey] : 'var(--border)', display: 'inline-block' }} />
+                            );
+                          })}
+                        </div>
+                        {result.confidenceReason && (
+                          <span className="adp-rail-sub">{result.confidenceReason}</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Revision Status */}
+                  {revisionStatus && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <Clock size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Revision Status</span>
+                        <strong className="adp-rail-value" style={{ color: revisionStatus === 'new' ? 'var(--warning)' : 'var(--primary)', textTransform: 'capitalize' }}>{revisionStatus}</strong>
+                        <span className="adp-rail-sub">
+                          {revisionStatus === 'new' ? 'Keep practising to reinforce this pattern' : 'Review this problem again soon'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Saved Status */}
+                  {savedStatus !== null && savedStatus !== undefined && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <Bookmark size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Saved Status</span>
+                        <strong className="adp-rail-value" style={{ color: savedStatus ? 'var(--primary)' : 'var(--text-secondary)' }}>
+                          {savedStatus ? 'Saved to your library' : 'Not saved'}
+                        </strong>
+                        {savedStatus && <span className="adp-rail-sub">You can review it anytime</span>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Next Recommended Action */}
+                  {nextAction && (
+                    <div className="adp-rail-item">
+                      <div className="adp-rail-icon-wrap">
+                        <Zap size={14} style={{ color: 'var(--primary)' }} />
+                      </div>
+                      <div>
+                        <span className="adp-rail-label">Next Recommended Action</span>
+                        <strong className="adp-rail-value">{nextAction}</strong>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Requested Sections */}
+                  {analysis.requestedSections && analysis.requestedSections.length > 0 && (
+                    <div className="adp-rail-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div className="adp-rail-icon-wrap">
+                          <Hash size={14} style={{ color: 'var(--primary)' }} />
+                        </div>
+                        <span className="adp-rail-label" style={{ margin: 0 }}>Requested Sections</span>
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', paddingLeft: '32px' }}>
+                        {analysis.requestedSections.map((sec, idx) => (
+                          <span key={idx} className="adp-section-tag">{sec}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </aside>
+            </div>
           )}
         </div>
-      </div>
       )}
     </div>
   );
