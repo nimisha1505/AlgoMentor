@@ -121,6 +121,35 @@ describe('Analysis API Integration Tests', () => {
       expect(res.status).toBe(404);
     });
 
+    it('should filter out codes and dryRun from analysis requestedSections while preserving other requested sections', async () => {
+      const aliceToken = await getAuthToken(mockUser1);
+      const alice = await User.findOne({ email: mockUser1.email });
+      const prob = await createMockProblem(alice._id, {
+        requestedSections: ['problemExplanation', 'codes', 'dryRun', 'hints', 'approaches']
+      });
+
+      const res = await request(app)
+        .post(`/api/v1/problems/${prob._id}/analyses`)
+        .set('Cookie', [`accessToken=${aliceToken}`])
+        .send({});
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const analysisId = res.body.data.analysis._id;
+      const dbAnalysis = await Analysis.findById(analysisId);
+
+      // Verify that 'codes' and 'dryRun' were filtered out
+      expect(dbAnalysis.requestedSections).not.toContain('codes');
+      expect(dbAnalysis.requestedSections).not.toContain('dryRun');
+
+      // Verify that other requested sections are preserved
+      expect(dbAnalysis.requestedSections).toContain('problemExplanation');
+      expect(dbAnalysis.requestedSections).toContain('hints');
+      expect(dbAnalysis.requestedSections).toContain('approaches');
+      expect(dbAnalysis.requestedSections.length).toBe(3);
+    });
+
     it('should transition both problem and analysis status to failed when Gemini generator rejects', async () => {
       // Stub the globally mocked generator call to reject
       vi.mocked(generateProblemAnalysis).mockRejectedValueOnce(new Error('Gemini pipeline failed'));
@@ -308,7 +337,7 @@ describe('Analysis API Integration Tests', () => {
         .send({});
 
       expect(res.status).toBe(200);
-      
+
       const analysisId = res.body.data.analysis._id;
       const completedAnalysis = await waitForAnalysis(analysisId);
 
@@ -390,7 +419,7 @@ describe('Analysis API Integration Tests', () => {
     it('Test D: should preserve analysisDepth quick or deep', async () => {
       const aliceToken = await getAuthToken(mockUser1);
       const alice = await User.findOne({ email: mockUser1.email });
-      
+
       const probQuick = await createMockProblem(alice._id, {
         requestedSections: ['problemExplanation'],
         analysisDepth: 'quick',
@@ -910,6 +939,157 @@ describe('Analysis API Integration Tests', () => {
           requestedSections: ['pattern', 'hints']
         })
       ).toThrow(/missing requested section: hints/);
+    });
+
+    it('root-level pseudocode accepts empty spacer lines', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResult = JSON.stringify({
+        pseudocode: [
+          'Initialize low = 0, high = n - 1',
+          'While low <= high:',
+          '',
+          '  mid = low + (high - low) / 2',
+          '  ...'
+        ]
+      });
+
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: ['pseudocode']
+      });
+
+      expect(result.pseudocode).toBeDefined();
+      expect(result.pseudocode[2]).toBe('');
+      expect(result.pseudocode.length).toBe(5);
+    });
+
+    it('root-level pseudocode still requires an array with at least one item', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+      const rawResultEmpty = JSON.stringify({
+        pseudocode: []
+      });
+
+      expect(() =>
+        parseAnalysisResult({
+          rawResult: rawResultEmpty,
+          requestedSections: ['pseudocode']
+        })
+      ).toThrow(/pseudocode: Too small/);
+    });
+
+    it('Full Complete Solution initial schema does not require root-level codes or dryRun', async () => {
+      const { parseAnalysisResult } = await import('../validators/analysisResult.validator.js');
+
+      const rawResult = JSON.stringify({
+        problemExplanation: 'Explanation',
+        inputOutput: 'Input output',
+        exampleExplanation: [{ exampleNumber: 1, explanation: 'Walkthrough' }],
+        constraints: [{ constraint: 'Constraint', implication: 'Implication' }],
+        edgeCases: [{ case: 'Edge', reason: 'Reason' }],
+        missingEdgeCases: [{ case: 'Missing', whyItMatters: 'Reason', howItBreaksCurrentApproach: 'Reason', testInput: 'Input' }],
+        pattern: { name: 'Sliding Window', clues: ['clue'], reason: 'reason' },
+        hints: [{ level: 1, hint: 'hint' }],
+        pseudocode: ['pseudocode line'],
+        approaches: [
+          {
+            name: 'Optimal',
+            category: 'optimal',
+            intuition: 'Intuition',
+            steps: ['Step 1'],
+            timeComplexity: 'O(N)',
+            spaceComplexity: 'O(1)',
+            pseudocode: ['pseudocode line']
+          }
+        ],
+        complexities: [
+          {
+            approach: 'Optimal',
+            timeComplexity: 'O(N)',
+            timeReason: 'Linear scan',
+            spaceComplexity: 'O(1)',
+            spaceReason: 'In place'
+          }
+        ],
+        comparison: [
+          {
+            approach: 'Optimal',
+            timeComplexity: 'O(N)',
+            spaceComplexity: 'O(1)',
+            advantages: ['fast'],
+            disadvantages: ['none'],
+            interviewSuitability: 'High'
+          }
+        ],
+        interviewExplanation: 'Interview points',
+        approachImprovement: {
+          currentStrengths: ['simple'],
+          bottlenecks: ['none'],
+          unnecessaryWork: ['none'],
+          nextImprovement: 'none',
+          improvedApproach: 'Optimal',
+          patternToLearn: 'none',
+          questionsToAsk: ['question']
+        }
+      });
+
+      const result = parseAnalysisResult({
+        rawResult,
+        requestedSections: [
+          'problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases',
+          'missingEdgeCases', 'pattern', 'hints', 'approaches', 'pseudocode',
+          'complexities', 'comparison', 'interviewExplanation', 'approachImprovement'
+        ]
+      });
+
+      expect(result.problemExplanation).toBeDefined();
+      expect(result.approaches).toBeDefined();
+      expect(result.codes).toBeUndefined();
+      expect(result.dryRun).toBeUndefined();
+    });
+  });
+
+  describe('buildRequestedAnalysisJsonSchema', () => {
+    it('Complete mode with requestedSections excluding codes and dryRun produces a JSON schema that excludes both', async () => {
+      const { buildRequestedAnalysisJsonSchema } = await vi.importActual('../validators/analysisResult.validator.js');
+      const requestedSections = [
+        'problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases',
+        'missingEdgeCases', 'pattern', 'hints', 'approaches', 'pseudocode',
+        'complexities', 'comparison', 'interviewExplanation', 'approachImprovement'
+      ];
+
+      const schema = buildRequestedAnalysisJsonSchema(requestedSections, true);
+
+      expect(schema.properties.codes).toBeUndefined();
+      expect(schema.properties.dryRun).toBeUndefined();
+      expect(schema.additionalProperties).toBe(false);
+    });
+
+    it('Complete mode still requires all remaining requested sections', async () => {
+      const { buildRequestedAnalysisJsonSchema } = await vi.importActual('../validators/analysisResult.validator.js');
+      const requestedSections = [
+        'problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases',
+        'missingEdgeCases', 'pattern', 'hints', 'approaches', 'pseudocode',
+        'complexities', 'comparison', 'interviewExplanation', 'approachImprovement'
+      ];
+
+      const schema = buildRequestedAnalysisJsonSchema(requestedSections, true);
+
+      expect(schema.required).toEqual(expect.arrayContaining(requestedSections));
+      expect(schema.required.length).toBe(requestedSections.length);
+    });
+
+    it('Non-complete mode behaviour remains unchanged', async () => {
+      const { buildRequestedAnalysisJsonSchema } = await vi.importActual('../validators/analysisResult.validator.js');
+      const requestedSections = ['pattern', 'hints'];
+
+      const schema = buildRequestedAnalysisJsonSchema(requestedSections, false);
+
+      expect(schema.properties.pattern).toBeDefined();
+      expect(schema.properties.hints).toBeDefined();
+      expect(schema.properties.problemExplanation).toBeUndefined();
+      expect(schema.required).toEqual(expect.arrayContaining(['pattern', 'hints']));
+      expect(schema.required.length).toBe(2);
+      expect(schema.additionalProperties).toBe(false);
     });
   });
 });

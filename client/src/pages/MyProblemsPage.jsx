@@ -3,11 +3,17 @@ import { useNavigate, Link } from 'react-router-dom';
 import { getMyProblems, deleteProblem } from '../api/problem.api.js';
 import { getLatestProblemAnalysis, startProblemAnalysis } from '../api/analysis.api.js';
 import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
-import StatusBadge from '../components/common/StatusBadge.jsx';
-import EmptyState from '../components/common/EmptyState.jsx';
-import Loader from '../components/common/Loader.jsx';
-import FormError from '../components/common/FormError.jsx';
-import { Search, RotateCw, Trash2, BookOpen, ExternalLink, PlusCircle, Edit3, Star } from 'lucide-react';
+import {
+  Search,
+  RotateCw,
+  Trash2,
+  BookOpen,
+  PlusCircle,
+  Star,
+  CheckCircle2,
+  Clock,
+  AlertCircle
+} from 'lucide-react';
 
 const MyProblemsPage = () => {
   const navigate = useNavigate();
@@ -36,10 +42,49 @@ const MyProblemsPage = () => {
     hasPreviousPage: false,
   });
 
+  // Stats
+  const [stats, setStats] = useState({
+    total: null,
+    completed: null,
+    processing: null,
+    failed: null,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+
   // Loadings
   const [isLoading, setIsLoading] = useState(true);
   const [generalError, setGeneralError] = useState('');
   const [cardActionLoading, setCardActionLoading] = useState({});
+
+  const fetchStats = async () => {
+    setStatsLoading(true);
+    try {
+      const [totalRes, completedRes, processingRes, queuedRes, failedRes] = await Promise.all([
+        getMyProblems({ limit: 1 }),
+        getMyProblems({ limit: 1, status: 'completed' }),
+        getMyProblems({ limit: 1, status: 'processing' }),
+        getMyProblems({ limit: 1, status: 'queued' }),
+        getMyProblems({ limit: 1, status: 'failed' }),
+      ]);
+
+      setStats({
+        total: totalRes?.pagination?.totalProblems ?? null,
+        completed: completedRes?.pagination?.totalProblems ?? null,
+        processing: (processingRes?.pagination?.totalProblems ?? 0) + (queuedRes?.pagination?.totalProblems ?? 0),
+        failed: failedRes?.pagination?.totalProblems ?? null,
+      });
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+      setStats({
+        total: null,
+        completed: null,
+        processing: null,
+        failed: null,
+      });
+    } finally {
+      setStatsLoading(false);
+    }
+  };
 
   const fetchProblems = async () => {
     setIsLoading(true);
@@ -78,6 +123,10 @@ const MyProblemsPage = () => {
   };
 
   useEffect(() => {
+    fetchStats();
+  }, []);
+
+  useEffect(() => {
     fetchProblems();
   }, [page, language, status, source, difficulty, searchQuery, topic, confidence, isBookmarked, revisionDue]);
 
@@ -112,6 +161,7 @@ const MyProblemsPage = () => {
         ...prev,
         totalProblems: prev.totalProblems - 1,
       }));
+      fetchStats();
     } catch (err) {
       alert(getApiErrorMessage(err));
     }
@@ -153,35 +203,117 @@ const MyProblemsPage = () => {
     return labels[lang] || lang;
   };
 
-  const hasActiveFilters = searchQuery || language || status || topic || confidence || isBookmarked || revisionDue;
+  const getSectionLabel = (section) => {
+    const mapping = {
+      problemExplanation: 'Explanation',
+      exampleExplanation: 'Examples',
+      hints: 'Hints',
+      approachAnalysis: 'Approaches',
+      completeSolution: 'Solution',
+    };
+    return mapping[section] || section;
+  };
+
+  const renderStatusBadge = (probStatus) => {
+    const norm = (probStatus || '').toLowerCase();
+    if (norm === 'completed') {
+      return (
+        <span className="sp-status-badge sp-status-completed">
+          <CheckCircle2 size={13} />
+          <span>Completed</span>
+        </span>
+      );
+    }
+    if (norm === 'processing') {
+      return (
+        <span className="sp-status-badge sp-status-processing">
+          <RotateCw size={13} className="sp-spinner" />
+          <span>Analyzing</span>
+        </span>
+      );
+    }
+    if (norm === 'queued') {
+      return (
+        <span className="sp-status-badge sp-status-queued">
+          <Clock size={13} className="sp-spinner" />
+          <span>Queued</span>
+        </span>
+      );
+    }
+    if (norm === 'failed') {
+      return (
+        <span className="sp-status-badge sp-status-failed">
+          <AlertCircle size={13} />
+          <span>Failed</span>
+        </span>
+      );
+    }
+    return (
+      <span className="sp-status-badge sp-status-draft">
+        <BookOpen size={13} />
+        <span>Draft</span>
+      </span>
+    );
+  };
+
+  const hasActiveFilters = searchQuery || language || status || topic || confidence || isBookmarked || revisionDue || source || difficulty;
 
   return (
     <div className="saved-problems-page container">
-      {/* 1. Page Intro */}
+      {/* 1. Page Header */}
       <section className="sp-intro">
         <div className="sp-intro-text">
-          <span className="sp-intro-eyebrow">Your learning library</span>
-          <h1 className="sp-intro-heading">Saved Problems</h1>
-          <p className="sp-intro-support">Revisit problems, continue unfinished learning, and review what you have already studied.</p>
+          <span className="sp-intro-eyebrow">Your DSA library</span>
+          <h1 className="sp-intro-heading">My Analyses</h1>
+          <p className="sp-intro-support">Revisit your saved DSA problem analyses, track your learning progress, and review key patterns.</p>
         </div>
         <div className="sp-intro-action">
           <Link to="/problems/new" className="sp-btn-primary">
             <PlusCircle size={16} />
-            <span>Learn a Problem</span>
+            <span>Analyze New Problem</span>
           </Link>
         </div>
       </section>
 
-      <div className="sp-divider"></div>
+      <div className="sp-divider" style={{ height: '1px', backgroundColor: '#e2ede6', margin: '24px 0' }}></div>
 
-      {/* 2. Compact Summary Strip */}
-      {pagination.totalProblems !== undefined && (
-        <div className="sp-summary-strip">
-          <span className="sp-summary-item">
-            <span className="sp-dot db-blue"></span>
-            {pagination.totalProblems} saved
-          </span>
+      {/* 2. Summary Cards */}
+      {statsLoading ? (
+        <div className="sp-summary-cards">
+          <div className="sp-summary-card sp-skel-card"></div>
+          <div className="sp-summary-card sp-skel-card"></div>
+          <div className="sp-summary-card sp-skel-card"></div>
+          <div className="sp-summary-card sp-skel-card"></div>
         </div>
+      ) : (
+        (stats.total !== null || stats.completed !== null || stats.processing !== null || stats.failed !== null) && (
+          <div className="sp-summary-cards">
+            {stats.total !== null && (
+              <div className="sp-summary-card">
+                <span className="sp-card-label">Total Analyses</span>
+                <span className="sp-card-value">{stats.total}</span>
+              </div>
+            )}
+            {stats.completed !== null && (
+              <div className="sp-summary-card sp-card-completed">
+                <span className="sp-card-label">Completed</span>
+                <span className="sp-card-value">{stats.completed}</span>
+              </div>
+            )}
+            {stats.processing !== null && (
+              <div className="sp-summary-card sp-card-processing">
+                <span className="sp-card-label">Processing</span>
+                <span className="sp-card-value">{stats.processing}</span>
+              </div>
+            )}
+            {stats.failed !== null && (
+              <div className="sp-summary-card sp-card-failed">
+                <span className="sp-card-label">Failed</span>
+                <span className="sp-card-value">{stats.failed}</span>
+              </div>
+            )}
+          </div>
+        )
       )}
 
       {/* 3. Search and Filter Row */}
@@ -289,9 +421,22 @@ const MyProblemsPage = () => {
 
       {/* 7. Error State */}
       {generalError && (
-        <div className="sp-error-inline">
-          <span>We couldn’t load your saved problems.</span>
-          <button onClick={() => fetchProblems()} className="sp-btn-text">Try Again</button>
+        <div className="sp-error-banner">
+          <div className="sp-error-banner-left">
+            <AlertCircle size={20} className="sp-error-icon" />
+            <div className="sp-error-message-group">
+              <span className="sp-error-title">Unable to load analyses</span>
+              <span className="sp-error-desc">{generalError}</span>
+            </div>
+          </div>
+          <div className="sp-error-actions">
+            <button type="button" onClick={() => fetchProblems()} className="sp-btn-retry">
+              Retry
+            </button>
+            <Link to="/problems/new" className="sp-btn-create-new">
+              Create New Analysis
+            </Link>
+          </div>
         </div>
       )}
 
@@ -308,48 +453,44 @@ const MyProblemsPage = () => {
       ) : problems.length === 0 ? (
         /* 5. Empty State */
         <div className="sp-empty">
-          <p className="sp-empty-text">No saved problems yet.<br/>Start with a problem you want to understand deeply.</p>
-          <Link to="/problems/new" className="sp-btn-primary">Learn a Problem</Link>
+          <div className="sp-empty-icon-wrapper">
+            <BookOpen size={48} className="sp-empty-icon" />
+          </div>
+          <h3 className="sp-empty-heading">No analyses yet</h3>
+          <p className="sp-empty-text">
+            Start by submitting a DSA problem. We will break down the approaches, explain explanations, and generate optimal solutions for your review.
+          </p>
+          <Link to="/problems/new" className="sp-btn-primary-green sp-empty-btn">
+            Analyze Your First Problem
+          </Link>
         </div>
       ) : (
-        /* 4. Saved Problem List */
+        /* 3 & 4. Responsive Card List and Status Design */
         <div className="sp-list">
           {problems.map((problem) => {
             const isCardBusy = !!cardActionLoading[problem._id];
             const normalizedStatus = (problem.status || '').toLowerCase();
             const hasRevisionToday = problem.nextRevisionAt && new Date(problem.nextRevisionAt) <= new Date();
-            
-            // Status mapping
-            let statusText = 'Not started';
-            if (normalizedStatus === 'draft') statusText = 'Not started';
-            else if (normalizedStatus === 'queued') statusText = 'Queued';
-            else if (normalizedStatus === 'processing') statusText = 'Analyzing';
-            else if (normalizedStatus === 'completed') statusText = 'Complete';
-            else if (normalizedStatus === 'failed') statusText = 'Failed';
 
-            // Confidence handling
+            // Confidence level for styling
             const confRaw = (problem.confidence || 'learning').toLowerCase();
             let confPct = 50; 
-            let confColorClass = 'sp-conf-blue';
-            if (confRaw === 'weak') { confPct = 25; confColorClass = 'sp-conf-amber'; }
-            else if (confRaw === 'mastered') { confPct = 90; confColorClass = 'sp-conf-green'; }
-            else if (confRaw === 'confident') { confPct = 75; confColorClass = 'sp-conf-green'; }
-
-            // Row color logic
-            let rowAccent = 'sp-accent-blue'; 
-            if (normalizedStatus === 'completed' || confRaw === 'mastered') rowAccent = 'sp-accent-green';
-            else if (normalizedStatus === 'processing') rowAccent = 'sp-accent-violet';
-            else if (hasRevisionToday) rowAccent = 'sp-accent-amber';
-            else if (normalizedStatus === 'failed') rowAccent = 'sp-accent-red';
+            let confColorClass = 'sp-conf-fill-learning';
+            if (confRaw === 'weak') {
+              confPct = 25;
+              confColorClass = 'sp-conf-fill-weak';
+            } else if (confRaw === 'mastered') {
+              confPct = 90;
+              confColorClass = 'sp-conf-fill-mastered';
+            } else if (confRaw === 'confident') {
+              confPct = 75;
+              confColorClass = 'sp-conf-fill-mastered';
+            }
 
             // Difficulty styling
             const diff = (problem.difficulty || 'unknown').toLowerCase();
-            let diffClass = '';
-            if (diff === 'easy') diffClass = 'sp-diff-easy';
-            if (diff === 'medium') diffClass = 'sp-diff-medium';
-            if (diff === 'hard') diffClass = 'sp-diff-hard';
 
-            // Revision string
+            // Revision text logic
             let revText = 'Not scheduled';
             if (hasRevisionToday) {
               revText = 'Due today';
@@ -360,54 +501,106 @@ const MyProblemsPage = () => {
             }
             
             return (
-              <div key={problem._id} className={`sp-row ${rowAccent}`}>
-                <div className="sp-col-left">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {problem.isBookmarked && <Star size={14} fill="#c98512" stroke="#c98512" />}
-                    <Link to={`/problems/${problem._id}`} className="sp-problem-title">
+              <div key={problem._id} className={`sp-card sp-card-${normalizedStatus}`}>
+                {/* Card Header: Title and Status badges */}
+                <div className="sp-card-header">
+                  <div className="sp-card-title-group">
+                    {problem.isBookmarked && (
+                      <Star size={16} fill="#168b62" stroke="#168b62" />
+                    )}
+                    <Link to={`/problems/${problem._id}`} className="sp-card-title">
                       {problem.title}
                     </Link>
                   </div>
-                  <div className="sp-problem-meta">
-                    {diff !== 'unknown' && <span className={`sp-diff-badge ${diffClass}`}>{diff}</span>}
-                    {diff !== 'unknown' && <span className="sp-dot-separator">·</span>}
-                    <span className="sp-meta-text">
+                  <div className="sp-card-badges">
+                    {renderStatusBadge(problem.status)}
+                    {problem.language && (
+                      <span className="sp-language-badge">
+                        {getLanguageLabel(problem.language)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Card Body: Requested sections, Difficulty, Pattern and Dates */}
+                <div className="sp-card-body">
+                  {problem.requestedSections && problem.requestedSections.length > 0 && (
+                    <div className="sp-card-sections">
+                      <span className="sp-card-sections-label">Sections:</span>
+                      <div className="sp-card-sections-list">
+                        {problem.requestedSections.map((sec) => (
+                          <span key={sec} className="sp-section-pill">
+                            {getSectionLabel(sec)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="sp-card-metadata">
+                    {diff !== 'unknown' && (
+                      <span className={`sp-diff-badge sp-diff-${diff}`}>
+                        {diff}
+                      </span>
+                    )}
+                    {diff !== 'unknown' && <span className="sp-metadata-sep">•</span>}
+                    <span className="sp-metadata-pattern">
                       {problem.patterns && problem.patterns.length > 0 ? problem.patterns[0] : 'Uncategorised'}
                     </span>
-                  </div>
-                  <div className="sp-problem-date">
-                     {problem.updatedAt ? `Last studied ${new Date(problem.updatedAt).toLocaleDateString()}` : 'No activity'}
-                  </div>
-                  <div className="sp-problem-status-text">
-                    {statusText}
+                    <span className="sp-metadata-sep">•</span>
+                    <span className="sp-metadata-date">
+                      Created {new Date(problem.createdAt).toLocaleDateString()}
+                    </span>
+                    <span className="sp-metadata-sep">•</span>
+                    <span className="sp-metadata-date">
+                      Updated {new Date(problem.updatedAt).toLocaleDateString()}
+                    </span>
                   </div>
                 </div>
 
-                <div className="sp-col-center">
-                  <div className="sp-conf-block">
-                    <span className="sp-conf-label">Confidence {confPct}%</span>
-                    <div className="sp-conf-track">
-                      <div className={`sp-conf-fill ${confColorClass}`} style={{ width: `${confPct}%` }}></div>
+                {/* Card Footer: Confidence, Revision and Action buttons */}
+                <div className="sp-card-footer">
+                  <div className="sp-card-actions-left">
+                    <div className="sp-card-confidence">
+                      <span className="sp-conf-label">Confidence: {confPct}%</span>
+                      <div className="sp-conf-track-mini">
+                        <div className={`sp-conf-fill-mini ${confColorClass}`} style={{ width: `${confPct}%` }}></div>
+                      </div>
                     </div>
+                    {revText !== 'Not scheduled' && (
+                      <span className={`sp-card-revision ${hasRevisionToday ? 'sp-rev-due-pill' : ''}`}>
+                        {hasRevisionToday ? 'Revision Due Today' : `Revision: ${revText}`}
+                      </span>
+                    )}
                   </div>
-                  <div className={`sp-rev-block ${hasRevisionToday ? 'sp-rev-due' : ''}`}>
-                    {hasRevisionToday ? 'Revision due' : `Revision in ${revText === 'Not scheduled' ? 'N/A' : revText.replace('In ', '')}`}
-                  </div>
-                </div>
 
-                <div className="sp-col-right">
-                  {normalizedStatus === 'completed' ? (
-                     <button onClick={() => handleViewLatestAnalysis(problem._id)} disabled={isCardBusy} className="sp-btn-text">
-                        Continue →
-                     </button>
-                  ) : (
-                     <button onClick={() => handleRetryAnalysis(problem._id)} disabled={isCardBusy} className="sp-btn-text">
-                        View →
-                     </button>
-                  )}
-                  <button onClick={() => handleDelete(problem._id)} disabled={isCardBusy} className="sp-btn-icon" title="Delete">
-                     <Trash2 size={16} />
-                  </button>
+                  <div className="sp-card-actions-right">
+                    {normalizedStatus === 'completed' ? (
+                      <button
+                        onClick={() => handleViewLatestAnalysis(problem._id)}
+                        disabled={isCardBusy}
+                        className="sp-btn-primary-green"
+                      >
+                        {isCardBusy ? <RotateCw size={14} className="sp-spinner" /> : 'Open Analysis'}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRetryAnalysis(problem._id)}
+                        disabled={isCardBusy}
+                        className="sp-btn-secondary-green"
+                      >
+                        {isCardBusy ? <RotateCw size={14} className="sp-spinner" /> : (normalizedStatus === 'failed' ? 'Retry Analysis' : 'Resume Analysis')}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDelete(problem._id)}
+                      disabled={isCardBusy}
+                      className="sp-btn-delete"
+                      title="Delete Analysis"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

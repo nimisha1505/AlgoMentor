@@ -69,6 +69,22 @@ const compareProblemAnalyses = async (problemId, firstAnalysisId, secondAnalysis
   return response.data.data;
 };
 
+/**
+ * Generate code on-demand for a single approach of an analysis.
+ */
+const generateApproachCode = async (analysisId, approachIndex) => {
+  const response = await axiosClient.post(`/analyses/${analysisId}/approaches/${approachIndex}/code`);
+  return response.data.data;
+};
+
+/**
+ * Generate dry run on-demand for a single approach of an analysis.
+ */
+const generateApproachDryRun = async (analysisId, approachIndex) => {
+  const response = await axiosClient.post(`/analyses/${analysisId}/approaches/${approachIndex}/dry-run`);
+  return response.data.data;
+};
+
 export {
   startProblemAnalysis,
   getLatestProblemAnalysis,
@@ -77,4 +93,6 @@ export {
   createAnalysisFollowUp,
   getAnalysisFollowUps,
   compareProblemAnalyses,
+  generateApproachCode,
+  generateApproachDryRun,
 };

@@ -126,7 +126,7 @@ const analysisResultSchema = z
       )
       .min(1)
       .optional(),
-    pseudocode: z.array(nonEmptyString).min(1).optional(),
+    pseudocode: z.array(z.string()).min(1).optional(),
     userCodeReview: userCodeReviewSchema.optional(),
     approaches: z.array(approachSchema).min(1).optional(),
     approachImprovement: z
@@ -809,10 +809,6 @@ const SUPPORTED_SECTIONS = [
  * Deep-clones base property schemas to prevent unintended mutation.
  */
 const buildRequestedAnalysisJsonSchema = (requestedSections, isCompleteMode = false) => {
-  if (isCompleteMode) {
-    return analysisResultJsonSchema;
-  }
-
   if (!Array.isArray(requestedSections) || requestedSections.length === 0) {
     throw new Error('requestedSections must be a non-empty array');
   }

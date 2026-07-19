@@ -66,11 +66,15 @@ const startProblemAnalysis = asyncHandler(async (req, res) => {
     code: problem.code,
   };
 
-  // 5. Create the Analysis record
+  // 5. Create the Analysis record with filtered requested sections (removing redundant upfront codes/dryRun)
+  const filteredRequestedSections = (problem.requestedSections || []).filter(
+    (sec) => sec !== 'codes' && sec !== 'dryRun'
+  );
+
   const analysis = await Analysis.create({
     problem: problem._id,
     owner: req.user._id,
-    requestedSections: problem.requestedSections,
+    requestedSections: filteredRequestedSections,
     analysisDepth: problem.analysisDepth || 'quick',
     inputSnapshot,
     status: 'queued',
