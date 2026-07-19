@@ -10,12 +10,10 @@ const PublicLayout = () => {
     <div className="layout-wrapper public-layout">
       <AppHeader />
       <main className="main-content">
-        <div className="container">
-          <Outlet />
-        </div>
+        <Outlet />
       </main>
       <footer className="app-footer">
-        <div className="container">
+        <div className="site-container">
           <p>&copy; {new Date().getFullYear()} AlgoMentor. Understand DSA. Don't just memorize it.</p>
         </div>
       </footer>

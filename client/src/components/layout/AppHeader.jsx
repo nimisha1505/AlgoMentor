@@ -23,7 +23,7 @@ const AppHeader = () => {
 
   return (
     <header className="app-header">
-      <div className="header-container container">
+      <div className="header-container site-container">
         <Link to="/" className="brand-link">
           <Terminal size={18} className="brand-icon" />
           <span className="brand-name">AlgoMentor</span>
