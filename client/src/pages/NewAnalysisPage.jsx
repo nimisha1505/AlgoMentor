@@ -6,7 +6,7 @@ import { getApiErrorMessage } from '../utils/getApiErrorMessage.js';
 import { useAuth } from '../hooks/useAuth.js';
 import FormError from '../components/common/FormError.jsx';
 import Loader from '../components/common/Loader.jsx';
-import { Trash2, FileText, Code2, Lightbulb, BookOpenCheck, Target, Sparkles, Brain, ScanSearch, Trophy, ArrowRight } from 'lucide-react';
+import { Trash2, FileText, Code2, Lightbulb, BookOpenCheck, Target, Sparkles, Brain, ScanSearch, Trophy, ArrowRight, BadgeInfo, Lock } from 'lucide-react';
 import CodeEditor from '../components/common/CodeEditor.jsx';
 
 // ============================================================
@@ -22,17 +22,17 @@ const LEARNING_MODES = {
     requestedSections: ['problemExplanation', 'inputOutput', 'exampleExplanation', 'constraints', 'edgeCases'],
     analysisDepth: 'quick',
     requiresCode: false,
-    accentVariant: 'blue',
+    accentVariant: 'understand',
   },
   start: {
     label: 'Help Me Start',
     description: 'Identify the likely pattern and reveal progressive hints without showing the full solution.',
-    buttonLabel: 'Show My First Hint',
+    buttonLabel: 'Show My Hint',
     loadingLabel: 'Finding the key observation...',
     requestedSections: ['pattern', 'hints'],
     analysisDepth: 'quick',
     requiresCode: false,
-    accentVariant: 'amber',
+    accentVariant: 'start',
   },
   build: {
     label: 'Build the Solution With Me',
@@ -42,7 +42,7 @@ const LEARNING_MODES = {
     requestedSections: ['approaches', 'pseudocode', 'complexities', 'comparison'],
     analysisDepth: 'deep',
     requiresCode: false,
-    accentVariant: 'green',
+    accentVariant: 'build',
   },
   review: {
     label: 'Review My Code',
@@ -52,7 +52,7 @@ const LEARNING_MODES = {
     requestedSections: ['userCodeReview', 'missingEdgeCases', 'complexities', 'approachImprovement'],
     analysisDepth: 'deep',
     requiresCode: true,
-    accentVariant: 'violet',
+    accentVariant: 'review',
   },
   complete: {
     label: 'Show Complete Solution',
@@ -66,12 +66,46 @@ const LEARNING_MODES = {
     ],
     analysisDepth: 'deep',
     requiresCode: false,
-    accentVariant: 'teal',
+    accentVariant: 'complete',
   },
 };
 
 const MODE_ORDER = ['understand', 'start', 'build', 'review', 'complete'];
 
+const SECTION_GROUPS = {
+  understand: {
+    title: 'Understand',
+    items: [
+      { value: 'problemExplanation', label: 'Simple explanation' },
+      { value: 'inputOutput', label: 'Input and output' },
+      { value: 'exampleExplanation', label: 'Example walkthrough' },
+      { value: 'constraints', label: 'Constraints implications' },
+      { value: 'edgeCases', label: 'Edge cases list' },
+      { value: 'missingEdgeCases', label: 'Missing edge cases' },
+      { value: 'pattern', label: 'Pattern discovery' },
+    ]
+  },
+  solve: {
+    title: 'Solve & Improve',
+    items: [
+      { value: 'hints', label: 'Progressive hints' },
+      { value: 'pseudocode', label: 'Pseudocode outline' },
+      { value: 'approaches', label: 'All approaches' },
+      { value: 'codes', label: 'Reference code solutions' },
+      { value: 'complexities', label: 'Complexity boundaries' },
+      { value: 'dryRun', label: 'Optimal dry run trace' },
+      { value: 'comparison', label: 'Compare solutions' },
+      { value: 'approachImprovement', label: 'Improve my approach' },
+    ]
+  },
+  prepare: {
+    title: 'Prepare',
+    items: [
+      { value: 'userCodeReview', label: 'Review my code' },
+      { value: 'interviewExplanation', label: 'Interview answer guide' },
+    ]
+  }
+};
 
 const NewAnalysisPage = () => {
   const navigate = useNavigate();
@@ -255,6 +289,72 @@ const NewAnalysisPage = () => {
     setValidationErrors((prev) => ({ ...prev, code: undefined, sections: undefined }));
   };
 
+  const handleSectionToggle = (val) => {
+    let updated;
+    if (requestedSections.includes(val)) {
+      updated = requestedSections.filter((v) => v !== val);
+    } else {
+      updated = [...requestedSections, val];
+    }
+    setRequestedSections(updated);
+    // Automatically infer depth
+    const deepSections = [
+      'approaches',
+      'pseudocode',
+      'codes',
+      'complexities',
+      'dryRun',
+      'comparison',
+      'userCodeReview',
+      'approachImprovement',
+    ];
+    const hasDeep = updated.some(s => deepSections.includes(s));
+    setAnalysisDepth(hasDeep ? 'deep' : 'quick');
+    setValidationErrors((prev) => ({ ...prev, sections: undefined }));
+  };
+
+  const handleToggleAllSections = () => {
+    const allSecs = Object.values(SECTION_GROUPS).flatMap(g => g.items.map(item => item.value));
+    const isAllSelected = allSecs.every(s => requestedSections.includes(s));
+    if (isAllSelected) {
+      setRequestedSections([]);
+    } else {
+      setRequestedSections(allSecs);
+    }
+  };
+
+  // Dynamic deliverables list for summary card
+  const getSelectedDeliverables = () => {
+    const list = [];
+    if (requestedSections.includes('problemExplanation')) list.push('Problem breakdown & understanding');
+    if (requestedSections.includes('pattern')) list.push('Pattern identification');
+    if (requestedSections.includes('hints')) list.push('Approach hint (not full solution)');
+    if (requestedSections.includes('exampleExplanation')) list.push('Examples walkthrough');
+    if (requestedSections.includes('complexities')) list.push('Time & Space complexity');
+    if (requestedSections.includes('approaches')) list.push('Multiple approach solutions');
+    if (requestedSections.includes('pseudocode')) list.push('Structured pseudocode');
+    if (requestedSections.includes('userCodeReview')) list.push('User code review & suggestions');
+    if (requestedSections.includes('dryRun')) list.push('Interactive dry run tables');
+    return list;
+  };
+
+  const getDynamicInfoCallout = () => {
+    switch (selectedMode) {
+      case 'understand':
+        return 'You will get a simplified problem breakdown, examples explanation, and constraint analysis.';
+      case 'start':
+        return 'You will get pattern identification, progressive approach hints, and key observations.';
+      case 'build':
+        return 'You will get brute-force to optimal approaches comparison, pseudocode, and dry run trace.';
+      case 'review':
+        return 'You will get user code analysis, bug checks, missing edge cases, and optimization tips.';
+      case 'complete':
+        return 'You will get the full structured lesson including code solutions, dry run trace, and interview guides.';
+      default:
+        return 'You will get customized analysis based on your selected modules.';
+    }
+  };
+
   // Form Validation
   const validateForm = () => {
     const errors = {};
@@ -391,75 +491,48 @@ const NewAnalysisPage = () => {
         </div>
       )}
 
-      {/* Top Page Header / Hero */}
-      <div className="workspace-hero-container">
-        <button type="button" onClick={() => navigate(-1)} className="hero-back-btn">
-          ← Back
-        </button>
-        <header className="workspace-hero">
-          {/* Left Decorative Area */}
-          <div className="hero-left-decor">
-            <div className="decor-notebook">
-              <FileText className="icon-main" strokeWidth={1.5} />
-              <div className="decor-floating icon-code"><Code2 size={16} /></div>
-              <div className="decor-floating icon-lightbulb"><Lightbulb size={16} /></div>
-              <div className="decor-floating icon-book"><BookOpenCheck size={16} /></div>
+      <Link to="/dashboard" className="back-to-dashboard-link">
+        ← Back to Dashboard
+      </Link>
+
+      {/* Top Page Header */}
+      <div className="new-analysis-header">
+        <div className="header-container-inner">
+          <div className="header-left-col">
+            <div className="header-content">
+              <span className="eyebrow-text">Start a Learning Session</span>
+              <h1 className="header-title">Analyze a New Problem</h1>
+              <p className="header-subtitle">
+                Paste a DSA problem, choose your learning depth, and let AlgoMentor guide you step by step.
+              </p>
             </div>
           </div>
 
-          {/* Center Content */}
-          <div className="hero-center-content">
-            <span className="hero-eyebrow">LEARNING WORKSPACE</span>
-            <h1 className="hero-title">Learn this problem</h1>
-            <p className="hero-subtitle">
-              Add the question, include your code if you have one,<br />and choose where you need help.
-            </p>
-            <div className="hero-indicators">
-              <span className="indicator-pill"><span className="dot dot-green"></span>Problem input</span>
-              <span className="indicator-pill"><span className="dot dot-violet"></span>Optional code</span>
-              <span className="indicator-pill"><span className="dot dot-amber"></span>Guided help</span>
-            </div>
-          </div>
-
-          {/* Right Content */}
-          <div className="hero-right-content">
-            <div className="how-it-works-timeline">
-              <div className="timeline-header">
-                <Sparkles size={14} className="timeline-sparkle" />
-                <span>How it works</span>
+          <div className="header-right-col">
+            <div className="workflow-steps-strip">
+              <div className="workflow-step-item">
+                <div className="workflow-step-icon">
+                  <FileText size={16} />
+                </div>
+                <span className="workflow-step-label">Paste Problem</span>
               </div>
-              <div className="timeline-steps">
-                <div className="timeline-line"></div>
-                <div className="timeline-step">
-                  <div className="step-num step-green">01</div>
-                  <div className="step-text">
-                    <strong>Add the problem</strong>
-                    <span>Paste the full question or import it.</span>
-                  </div>
+              <div className="workflow-connector-line"></div>
+              <div className="workflow-step-item">
+                <div className="workflow-step-icon">
+                  <Brain size={16} />
                 </div>
-                <div className="timeline-step">
-                  <div className="step-num step-violet">02</div>
-                  <div className="step-text">
-                    <strong>Add code if needed</strong>
-                    <span>Code is optional unless you select Review My Code.</span>
-                  </div>
-                </div>
-                <div className="timeline-step">
-                  <div className="step-num step-amber">03</div>
-                  <div className="step-text">
-                    <strong>Choose your help</strong>
-                    <span>Pick understanding, hints, building, review, or complete solution.</span>
-                  </div>
-                </div>
+                <span className="workflow-step-label">Choose Mode</span>
               </div>
-            </div>
-            <div className="hero-target-decor">
-              <div className="target-base">
-                <Target size={42} className="target-icon" strokeWidth={1.5} />
+              <div className="workflow-connector-line"></div>
+              <div className="workflow-step-item">
+                <div className="workflow-step-icon">
+                  <Sparkles size={16} />
+                </div>
+                <span className="workflow-step-label">Generate Analysis</span>
               </div>
             </div>
           </div>
-        </header>
+        </div>
       </div>
 
       {partialFailure && (
@@ -479,35 +552,35 @@ const NewAnalysisPage = () => {
 
       {generalError && <FormError message={generalError} />}
 
-      <form onSubmit={handleSubmit} className="new-analysis-layout">
-        {/* Left Column: Problem Editor Fields */}
-        <div className="main-learning-workspace">
-          {recommendedProblem && (
-            <div className="say-in-interview-callout" style={{ border: '1px solid #E3E8E6', backgroundColor: '#F5F7F6', padding: '16px', borderRadius: '8px', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <span className="callout-title" style={{ color: '#168B62', fontWeight: '700', fontSize: '11px', textTransform: 'uppercase', display: 'block' }}>Recommended practice</span>
-                  <h4 style={{ margin: '4px 0', fontSize: '16px', fontWeight: '800', color: '#17212B' }}>{recommendedProblem.title}</h4>
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
-                    <span className={`difficulty-indicator-${recommendedProblem.difficulty}`} style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', textTransform: 'capitalize' }}>
+      <form onSubmit={handleSubmit} className="new-analysis-form-wrapper">
+        {/* Upper Two-Column Layout */}
+        <div className="upper-columns-layout">
+          {/* Left Column: Problem details & Code */}
+          <div className="workspace-left-column">
+            {recommendedProblem && (
+              <div className="recommended-practice-banner">
+                <div className="banner-info">
+                  <span className="banner-eyebrow">Recommended Practice</span>
+                  <h4 className="banner-title">{recommendedProblem.title}</h4>
+                  <div className="banner-tags">
+                    <span className={`difficulty-tag difficulty-${recommendedProblem.difficulty}`}>
                       {recommendedProblem.difficulty}
                     </span>
                     {recommendedProblem.pattern && (
-                      <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '4px', backgroundColor: '#EAF7F1', color: '#168B62', fontWeight: '600' }}>
+                      <span className="pattern-tag">
                         💡 {recommendedProblem.pattern}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="banner-actions">
                   {recommendedProblem.sourceUrl && (
                     <a
                       href={recommendedProblem.sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="btn btn-secondary btn-sm"
-                      style={{ fontSize: '12.5px', padding: '6px 12px', textDecoration: 'none', height: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                      className="banner-link-btn"
                     >
                       Open original question
                     </a>
@@ -517,412 +590,537 @@ const NewAnalysisPage = () => {
                       type="button"
                       onClick={handleImport}
                       disabled={importLoading}
-                      className="btn btn-primary btn-sm"
-                      style={{ fontSize: '12.5px', padding: '6px 12px', height: 'auto', display: 'inline-flex', alignItems: 'center' }}
+                      className="banner-action-btn"
                     >
                       {importLoading ? 'Importing...' : 'Import problem details'}
                     </button>
                   )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* Section 1: Problem */}
-          <div className="workspace-section">
-            <div className="tab-switch-container">
-              <button
-                type="button"
-                className={`tab-switch-btn ${inputMode === 'paste' ? 'active' : ''}`}
-                onClick={() => setInputMode('paste')}
-              >
-                Paste Problem
-              </button>
-              <button
-                type="button"
-                className={`tab-switch-btn ${inputMode === 'import' ? 'active' : ''}`}
-                onClick={() => setInputMode('import')}
-              >
-                Import Link
-              </button>
-            </div>
-
-            {/* Banners */}
-            {successMessage && (
-              <div className="alert alert-success" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#EAF7F1', color: '#168B62', borderRadius: '8px', border: '1px solid #E3E8E6', fontSize: '13px' }}>
-                <span>{successMessage}</span>
-              </div>
             )}
 
-            {importWarning && (
-              <div className="alert alert-warning" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#FFF7E6', color: '#B7791F', borderRadius: '8px', border: '1px solid #E3E8E6', fontSize: '13px' }}>
-                <span>{importWarning}</span>
-              </div>
-            )}
+            {/* 1. Problem Details Card */}
+            <div className="workspace-section">
+              <h3 className="section-title">1. Problem Details</h3>
+              <p className="section-subtitle-text">
+                Enter the problem description and metadata or import from a URL.
+              </p>
 
-            {importError && (
-              <div className="alert alert-error" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#FFF0F1', color: '#C73E4D', borderRadius: '8px', border: '1px solid #F3B8BF', fontSize: '13px' }}>
-                <span>{importError}</span>
+              <div className="tab-switch-container">
+                <button
+                  type="button"
+                  className={`tab-switch-btn ${inputMode === 'paste' ? 'active' : ''}`}
+                  onClick={() => setInputMode('paste')}
+                >
+                  Paste Problem
+                </button>
+                <button
+                  type="button"
+                  className={`tab-switch-btn ${inputMode === 'import' ? 'active' : ''}`}
+                  onClick={() => setInputMode('import')}
+                >
+                  Import Link
+                </button>
               </div>
-            )}
 
-            {recommendedProblem && !successMessage && !importWarning && !importError && (
-              recommendedProblem.problemStatement ? (
-                <div className="alert alert-success" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#EAF7F1', color: '#168B62', borderRadius: '8px', border: '1px solid #E3E8E6', fontSize: '13px' }}>
-                  <span>Recommended problem loaded. You can edit the details before starting.</span>
+              {/* Banners */}
+              {successMessage && (
+                <div className="alert-banner alert-success">
+                  <span>{successMessage}</span>
                 </div>
-              ) : (
-                <div className="alert alert-warning" style={{ marginBottom: '16px', padding: '10px 16px', backgroundColor: '#FFF7E6', color: '#B7791F', borderRadius: '8px', border: '1px solid #E3E8E6', fontSize: '13px' }}>
-                  <span>Open the original question and paste the full statement below, or use Import Link.</span>
+              )}
+
+              {importWarning && (
+                <div className="alert-banner alert-warning">
+                  <span>{importWarning}</span>
                 </div>
-              )
-            )}
+              )}
 
-            {/* Import Link Mode view */}
-            {inputMode === 'import' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div style={{ display: 'flex', gap: '12px' }}>
-                  <input
-                    type="text"
-                    value={importUrl}
-                    onChange={(e) => setImportUrl(e.target.value)}
-                    placeholder="Paste LeetCode or GeeksforGeeks HTTPS problem URL here..."
-                    disabled={importLoading || isSubmitting}
-                    style={{ flex: 1, padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF', fontSize: '14px' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleImport}
-                    disabled={importLoading || isSubmitting}
-                    className="btn btn-primary"
-                    style={{ padding: '10px 24px', height: '42px', minWidth: '110px', fontSize: '14px', fontWeight: '700', borderRadius: '8px' }}
-                  >
-                    {importLoading ? 'Importing...' : 'Import'}
-                  </button>
+              {importError && (
+                <div className="alert-banner alert-error">
+                  <span>{importError}</span>
                 </div>
+              )}
 
-                <div className="import-platforms" style={{ fontSize: '12px', color: '#667085', display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <span>Supported platforms:</span>
-                  <span className="platform-badge" style={{ backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: '12px', border: '1px solid #E3E8E6', fontWeight: '600' }}>LeetCode</span>
-                  <span className="platform-badge" style={{ backgroundColor: '#FFFFFF', padding: '3px 10px', borderRadius: '12px', border: '1px solid #E3E8E6', fontWeight: '600' }}>GeeksforGeeks</span>
-                </div>
-              </div>
-            )}
-
-            {/* Paste Problem Mode view */}
-            {inputMode === 'paste' && (
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <p className="workspace-section-helper">
-                  Paste the complete problem statement. You can include examples and constraints directly.
-                </p>
-                <textarea
-                  id="problemStatement"
-                  className="problem-textarea"
-                  value={problemStatement}
-                  onChange={(e) => setProblemStatement(e.target.value)}
-                  placeholder={`Example:\nGiven an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].`}
-                  disabled={isSubmitting}
-                />
-                {validationErrors.problemStatement && (
-                  <span className="field-error" style={{ color: 'var(--danger)', fontSize: '12.5px', marginTop: '4px', display: 'block' }}>{validationErrors.problemStatement}</span>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Section 2: Code (Optional) */}
-          <div className="workspace-section">
-            <div className="workspace-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <h3 className="workspace-section-title">Your Code <span className="workspace-section-badge">Optional</span></h3>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#667085' }}>Choose Language</span>
-                <select
-                id="language"
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                disabled={isSubmitting}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid #E3E8E6',
-                  fontSize: '13px',
-                  outline: 'none',
-                  backgroundColor: '#FFFFFF',
-                  fontWeight: '600'
-                }}
-              >
-                <option value="cpp">C++</option>
-                <option value="java">Java</option>
-                <option value="python">Python</option>
-                <option value="javascript">JavaScript</option>
-                <option value="c">C</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
-          </div>
-
-            <div className="monaco-editor-frame-open">
-              <CodeEditor
-                value={code}
-                onChange={setCode}
-                language={language}
-                disabled={isSubmitting}
-                height="320px"
-                isCodeReviewSelected={selectedMode === 'review'}
-              />
-            </div>
-            {validationErrors.code && (
-              <span className="field-error" style={{ margin: '8px 4px 0 4px', display: 'block', color: 'var(--danger)', fontSize: '12.5px' }}>
-                {validationErrors.code}
-              </span>
-            )}
-          </div>
-
-          {/* Section 3: Optional problem details accordion */}
-          <div className="workspace-section" style={{ marginBottom: '16px' }}>
-            <button
-              type="button"
-              onClick={() => setOptionalOpen(!optionalOpen)}
-              className="optional-details-trigger"
-            >
-              <span>Optional Problem Details</span>
-              <span>{optionalOpen ? '▲' : '▼'}</span>
-            </button>
-
-            {optionalOpen && (
-              <div className="optional-details-content">
-                <div className="form-group">
-                  <label htmlFor="title" style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Title (Optional)</label>
-                  <input
-                    id="title"
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Two Sum (Auto-generated if blank)"
-                    disabled={isSubmitting}
-                    style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
-                  />
-                  {validationErrors.title && (
-                    <span className="field-error" style={{ color: 'var(--danger)', fontSize: '12.5px' }}>{validationErrors.title}</span>
-                  )}
-                </div>
-
-                <div className="form-row" style={{ display: 'flex', gap: '16px' }}>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label htmlFor="source" style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Source</label>
-                    <select
-                      id="source"
-                      value={source}
-                      onChange={(e) => setSource(e.target.value)}
-                      disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
-                    >
-                      <option value="custom">Custom</option>
-                      <option value="leetcode">LeetCode</option>
-                      <option value="gfg">GeeksforGeeks</option>
-                      <option value="code360">Code360</option>
-                      <option value="codeforces">Codeforces</option>
-                    </select>
+              {recommendedProblem && !successMessage && !importWarning && !importError && (
+                recommendedProblem.problemStatement ? (
+                  <div className="alert-banner alert-success">
+                    <span>Recommended problem loaded. You can edit details before starting.</span>
                   </div>
-
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label htmlFor="difficulty" style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Difficulty</label>
-                    <select
-                      id="difficulty"
-                      value={difficulty}
-                      onChange={(e) => setDifficulty(e.target.value)}
-                      disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
-                    >
-                      <option value="unknown">Unknown</option>
-                      <option value="easy">Easy</option>
-                      <option value="medium">Medium</option>
-                      <option value="hard">Hard</option>
-                    </select>
+                ) : (
+                  <div className="alert-banner alert-warning">
+                    <span>Open the original question and paste the full statement below, or use Import Link.</span>
                   </div>
-                </div>
+                )
+              )}
 
-                <div className="form-row" style={{ display: 'flex', gap: '16px' }}>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label htmlFor="sourceUrl" style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Source URL</label>
+              {/* Import Link View */}
+              {inputMode === 'import' && (
+                <div className="import-container">
+                  <div className="import-row">
                     <input
-                      id="sourceUrl"
                       type="text"
-                      value={sourceUrl}
-                      onChange={(e) => setSourceUrl(e.target.value)}
-                      placeholder="https://leetcode.com/problems/..."
-                      disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
+                      value={importUrl}
+                      onChange={(e) => setImportUrl(e.target.value)}
+                      placeholder="Paste LeetCode or GeeksforGeeks HTTPS problem URL here..."
+                      disabled={importLoading || isSubmitting}
+                      className="form-input"
                     />
-                  </div>
-
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label htmlFor="externalProblemId" style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>External ID (Slug)</label>
-                    <input
-                      id="externalProblemId"
-                      type="text"
-                      value={externalProblemId}
-                      onChange={(e) => setExternalProblemId(e.target.value)}
-                      placeholder="e.g. two-sum"
-                      disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
-                    />
-                  </div>
-                </div>
-
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#17212B' }}>Constraints</label>
                     <button
                       type="button"
-                      onClick={addConstraint}
-                      disabled={isSubmitting}
-                      className="clear-text-btn"
-                      style={{ padding: 0, border: 'none', background: 'none', color: '#168B62', fontWeight: '600', cursor: 'pointer' }}
+                      onClick={handleImport}
+                      disabled={importLoading || isSubmitting}
+                      className="import-btn"
                     >
-                      + Add constraint
+                      {importLoading ? 'Importing...' : 'Import'}
                     </button>
                   </div>
+                  <div className="supported-platforms">
+                    <span>Supported platforms:</span>
+                    <span className="platform-tag">LeetCode</span>
+                    <span className="platform-tag">GeeksforGeeks</span>
+                  </div>
+                </div>
+              )}
 
-                  <div className="dynamic-row-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {constraints.map((c, idx) => (
-                      <div key={idx} className="dynamic-row-item" style={{ display: 'flex', gap: '12px' }}>
+              {/* Paste Problem View */}
+              {inputMode === 'paste' && (
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <label htmlFor="problemStatement" className="form-label required">
+                      Problem Description <span className="required-marker">*</span>
+                    </label>
+                    <span className="char-counter" style={{ fontSize: '12px', color: '#667085' }}>
+                      {problemStatement.length} / 10000
+                    </span>
+                  </div>
+                  <textarea
+                    id="problemStatement"
+                    className="problem-textarea"
+                    value={problemStatement}
+                    onChange={(e) => setProblemStatement(e.target.value.slice(0, 10000))}
+                    placeholder={`Paste the problem statement here...\nInclude the full problem statement along with examples and constraints.`}
+                    disabled={isSubmitting}
+                  />
+                  {validationErrors.problemStatement && (
+                    <span className="field-error">{validationErrors.problemStatement}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Metadata row */}
+              <div className="form-row-metadata">
+                <div className="form-group-meta">
+                  <label htmlFor="difficulty" className="form-label required">Difficulty <span className="required-marker">*</span></label>
+                  <select
+                    id="difficulty"
+                    value={difficulty}
+                    onChange={(e) => setDifficulty(e.target.value)}
+                    disabled={isSubmitting}
+                    className="form-select"
+                  >
+                    <option value="unknown">Select difficulty</option>
+                    <option value="easy">Easy</option>
+                    <option value="medium">Medium</option>
+                    <option value="hard">Hard</option>
+                  </select>
+                </div>
+
+                <div className="form-group-meta">
+                  <label htmlFor="topics" className="form-label required">Topic / Category <span className="required-marker">*</span></label>
+                  <select
+                    id="topics"
+                    value={topics[0] || ''}
+                    onChange={(e) => setTopics(e.target.value ? [e.target.value] : [])}
+                    disabled={isSubmitting}
+                    className="form-select"
+                  >
+                    <option value="">Select topic</option>
+                    <option value="arrays">Arrays & Hashing</option>
+                    <option value="two-pointers">Two Pointers</option>
+                    <option value="sliding-window">Sliding Window</option>
+                    <option value="stack">Stack & Queue</option>
+                    <option value="binary-search">Binary Search</option>
+                    <option value="trees">Trees & Graphs</option>
+                    <option value="dynamic-programming">Dynamic Programming</option>
+                    <option value="greedy">Greedy Algorithms</option>
+                    <option value="recursion">Recursion & Backtracking</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div className="form-group-meta">
+                  <label htmlFor="source" className="form-label">Source (Optional)</label>
+                  <input
+                    id="source"
+                    type="text"
+                    value={source}
+                    onChange={(e) => setSource(e.target.value)}
+                    placeholder="e.g. LeetCode, GFG"
+                    disabled={isSubmitting}
+                    className="form-input"
+                  />
+                </div>
+              </div>
+
+              {/* Accordion Additional Details */}
+              <div className="optional-details-wrapper">
+                <button
+                  type="button"
+                  onClick={() => setOptionalOpen(!optionalOpen)}
+                  className="optional-details-trigger"
+                >
+                  <span>Additional Details (Optional)</span>
+                  <span className="trigger-arrow">{optionalOpen ? '▲' : '▼'}</span>
+                </button>
+
+                {optionalOpen && (
+                  <div className="optional-details-content">
+                    <div className="form-group">
+                      <label htmlFor="title" className="form-label">Title</label>
+                      <input
+                        id="title"
+                        type="text"
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
+                        placeholder="e.g. Two Sum (Auto-generated if blank)"
+                        disabled={isSubmitting}
+                        className="form-input"
+                      />
+                      {validationErrors.title && (
+                        <span className="field-error">{validationErrors.title}</span>
+                      )}
+                    </div>
+
+                    <div className="form-row">
+                      <div className="form-group">
+                        <label htmlFor="sourceUrl" className="form-label">Source URL</label>
                         <input
+                          id="sourceUrl"
                           type="text"
-                          value={c}
-                          onChange={(e) => handleConstraintChange(idx, e.target.value)}
-                          placeholder="e.g. 1 <= nums.length <= 10^4"
+                          value={sourceUrl}
+                          onChange={(e) => setSourceUrl(e.target.value)}
+                          placeholder="https://leetcode.com/problems/..."
                           disabled={isSubmitting}
-                          style={{ flex: 1, padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF' }}
+                          className="form-input"
                         />
+                      </div>
+
+                      <div className="form-group">
+                        <label htmlFor="externalProblemId" className="form-label">External ID (Slug)</label>
+                        <input
+                          id="externalProblemId"
+                          type="text"
+                          value={externalProblemId}
+                          onChange={(e) => setExternalProblemId(e.target.value)}
+                          placeholder="e.g. two-sum"
+                          disabled={isSubmitting}
+                          className="form-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="patterns" className="form-label">Patterns</label>
+                      <input
+                        id="patterns"
+                        type="text"
+                        value={patterns.join(', ')}
+                        onChange={(e) => setPatterns(e.target.value.split(',').map((p) => p.trim()).filter(Boolean))}
+                        placeholder="e.g. slidingWindow, twoPointers"
+                        disabled={isSubmitting}
+                        className="form-input"
+                      />
+                    </div>
+
+                    {/* Constraints */}
+                    <div className="form-group">
+                      <div className="field-list-header">
+                        <label className="form-label">Constraints</label>
                         <button
                           type="button"
-                          onClick={() => removeConstraint(idx)}
+                          onClick={addConstraint}
                           disabled={isSubmitting}
-                          className="row-action-btn"
-                          style={{ border: '1px solid #E3E8E6', background: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', backgroundColor: '#FFFFFF' }}
+                          className="add-item-btn"
                         >
-                          <Trash2 size={14} />
+                          + Add constraint
                         </button>
                       </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="form-group">
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#17212B' }}>Examples</label>
-                    <button
-                      type="button"
-                      onClick={addExample}
-                      disabled={isSubmitting}
-                      className="clear-text-btn"
-                      style={{ padding: 0, border: 'none', background: 'none', color: '#168B62', fontWeight: '600', cursor: 'pointer' }}
-                    >
-                      + Add example
-                    </button>
-                  </div>
-
-                  {validationErrors.examples && (
-                    <div className="field-error" style={{ marginBottom: '8px', color: 'var(--danger)', fontSize: '12.5px' }}>
-                      {validationErrors.examples}
-                    </div>
-                  )}
-
-                  <div className="examples-edit-grid" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {examples.map((ex, idx) => (
-                      <div key={idx} className="example-edit-item" style={{ padding: '16px', border: '1px solid #E3E8E6', borderRadius: '8px', backgroundColor: '#F5F7F6' }}>
-                        <div className="example-edit-header" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-                          <strong style={{ fontSize: '13px' }}>Example {idx + 1}</strong>
-                          <button
-                            type="button"
-                            onClick={() => removeExample(idx)}
-                            disabled={isSubmitting}
-                            className="row-action-btn"
-                            style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#667085' }}
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                        <div className="example-edit-body" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          <input
-                            type="text"
-                            value={ex.input}
-                            onChange={(e) => handleExampleChange(idx, 'input', e.target.value)}
-                            placeholder="Input: nums = [2,7], target = 9"
-                            disabled={isSubmitting}
-                            style={{ padding: '8px 12px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF' }}
-                          />
-                          <input
-                            type="text"
-                            value={ex.output}
-                            onChange={(e) => handleExampleChange(idx, 'output', e.target.value)}
-                            placeholder="Output: [0,1]"
-                            disabled={isSubmitting}
-                            style={{ padding: '8px 12px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF' }}
-                          />
-                          <textarea
-                            rows={1}
-                            value={ex.explanation}
-                            onChange={(e) => handleExampleChange(idx, 'explanation', e.target.value)}
-                            placeholder="Explanation..."
-                            disabled={isSubmitting}
-                            style={{ padding: '8px 12px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', backgroundColor: '#FFFFFF', resize: 'vertical' }}
-                          />
-                        </div>
+                      <div className="dynamic-inputs-list">
+                        {constraints.map((c, idx) => (
+                          <div key={idx} className="dynamic-input-row">
+                            <input
+                              type="text"
+                              value={c}
+                              onChange={(e) => handleConstraintChange(idx, e.target.value)}
+                              placeholder="e.g. 1 <= nums.length <= 10^4"
+                              disabled={isSubmitting}
+                              className="form-input"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeConstraint(idx)}
+                              disabled={isSubmitting}
+                              className="remove-row-btn"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
+                    </div>
 
-                <div className="form-row" style={{ display: 'flex', gap: '16px' }}>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Topics</label>
-                    <input
-                      type="text"
-                      value={topics.join(', ')}
-                      onChange={(e) => setTopics(e.target.value.split(',').map((t) => t.trim()).filter(Boolean))}
-                      placeholder="e.g. arrays, hashing"
-                      disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
-                    />
-                  </div>
-                  <div className="form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: '13px', fontWeight: '600', color: '#17212B', marginBottom: '6px', display: 'block' }}>Patterns</label>
-                    <input
-                      type="text"
-                      value={patterns.join(', ')}
-                      onChange={(e) => setPatterns(e.target.value.split(',').map((p) => p.trim()).filter(Boolean))}
-                      placeholder="e.g. slidingWindow"
-                      disabled={isSubmitting}
-                      style={{ padding: '10px 16px', border: '1px solid #E3E8E6', borderRadius: '8px', outline: 'none', width: '100%', backgroundColor: '#FFFFFF' }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+                    {/* Examples */}
+                    <div className="form-group">
+                      <div className="field-list-header">
+                        <label className="form-label">Examples</label>
+                        <button
+                          type="button"
+                          onClick={addExample}
+                          disabled={isSubmitting}
+                          className="add-item-btn"
+                        >
+                          + Add example
+                        </button>
+                      </div>
 
-        {/* Right Learning Rail */}
-        <div className="learning-rail">
-          <div>
-            <div className="rail-header">
-              <div>
-                <h3 className="rail-heading">Where are you stuck?</h3>
-                <p className="rail-subtitle">Choose one option. You can change it before continuing.</p>
+                      {validationErrors.examples && (
+                        <span className="field-error" style={{ marginBottom: '12px', display: 'block' }}>
+                          {validationErrors.examples}
+                        </span>
+                      )}
+
+                      <div className="examples-inputs-grid">
+                        {examples.map((ex, idx) => (
+                          <div key={idx} className="example-item-card">
+                            <div className="example-item-header">
+                              <strong>Example {idx + 1}</strong>
+                              <button
+                                type="button"
+                                onClick={() => removeExample(idx)}
+                                disabled={isSubmitting}
+                                className="remove-row-btn-text"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <div className="example-item-body">
+                              <input
+                                type="text"
+                                value={ex.input}
+                                onChange={(e) => handleExampleChange(idx, 'input', e.target.value)}
+                                placeholder="Input: nums = [2,7], target = 9"
+                                disabled={isSubmitting}
+                                className="form-input"
+                              />
+                              <input
+                                type="text"
+                                value={ex.output}
+                                onChange={(e) => handleExampleChange(idx, 'output', e.target.value)}
+                                placeholder="Output: [0,1]"
+                                disabled={isSubmitting}
+                                className="form-input"
+                              />
+                              <textarea
+                                rows={1}
+                                value={ex.explanation}
+                                onChange={(e) => handleExampleChange(idx, 'explanation', e.target.value)}
+                                placeholder="Explanation..."
+                                disabled={isSubmitting}
+                                className="form-textarea-compact"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="rail-options-container">
+            {/* 2. Your Code Card */}
+            <div className="workspace-section">
+              <div className="section-header-row">
+                <div>
+                  <h3 className="section-title">2. Your Code <span className="optional-badge">Optional</span></h3>
+                  <p className="section-subtitle-text">
+                    Add your code if you have already attempted this problem.
+                  </p>
+                </div>
+                <div className="language-selector-wrap">
+                  <label htmlFor="language" className="select-label">Language</label>
+                  <select
+                    id="language"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    disabled={isSubmitting}
+                    className="form-select-sm"
+                  >
+                    <option value="cpp">C++</option>
+                    <option value="java">Java</option>
+                    <option value="python">Python</option>
+                    <option value="javascript">JavaScript</option>
+                    <option value="c">C</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="editor-frame-container">
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  language={language}
+                  disabled={isSubmitting}
+                  height="320px"
+                  isCodeReviewSelected={selectedMode === 'review'}
+                />
+              </div>
+              {validationErrors.code && (
+                <span className="field-error" style={{ marginTop: '8px', display: 'block' }}>
+                  {validationErrors.code}
+                </span>
+              )}
+            </div>
+
+          </div>
+
+          {/* Right Column: Sticky Summary */}
+          <div className="workspace-right-column">
+            <div className="learning-rail">
+              <div className="sticky-summary-card">
+                <div className="summary-card-header">
+                  <Sparkles size={16} className="summary-sparkle-icon" />
+                  <h3 className="summary-title">Learning Summary</h3>
+                </div>
+                <div className="summary-details-list">
+                  <div className="summary-detail-row">
+                    <span className="detail-label">Learning Mode</span>
+                    <span className="detail-val mode-name green-accent">
+                      {LEARNING_MODES[selectedMode]?.label || 'Custom'}
+                    </span>
+                  </div>
+                  <div className="summary-detail-row">
+                    <span className="detail-label">Language</span>
+                    <span className="detail-val green-accent text-uppercase">
+                      {language === 'cpp' ? 'C++' : language}
+                    </span>
+                  </div>
+
+                  <div className="summary-detail-row">
+                    <span className="detail-label">Modules Selected</span>
+                    <span className="detail-val green-accent">
+                      {requestedSections.length} sections
+                    </span>
+                  </div>
+
+                  <div className="summary-detail-row">
+                    <span className="detail-label">Code Provided</span>
+                    <span className="detail-val green-accent">
+                      {code && code.trim().length > 0 ? 'Yes' : 'No'}
+                    </span>
+                  </div>
+
+                  {LEARNING_MODES[selectedMode] && (
+                    <div className="summary-detail-row">
+                      <span className="detail-label">Analysis Depth</span>
+                      <span className="detail-val depth-pill">
+                        {LEARNING_MODES[selectedMode].analysisDepth === 'deep' ? 'DEEP' : 'GUIDED'}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Mint Info Callout */}
+                <div className="summary-info-note">
+                  <BadgeInfo size={16} className="note-sparkle" />
+                  <span>{getDynamicInfoCallout()}</span>
+                </div>
+
+                {/* Deliverables checklist */}
+                <div className="summary-deliverables">
+                  <span className="deliverables-title">What you'll get:</span>
+                  <ul className="deliverables-list">
+                    {getSelectedDeliverables().slice(0, 5).map((deliv, idx) => (
+                      <li key={idx} className="deliverable-item">
+                        <span className="check-icon">✓</span>
+                        <span>{deliv}</span>
+                      </li>
+                    ))}
+                    {getSelectedDeliverables().length > 5 && (
+                      <li className="deliverable-item more">
+                        <span>...and more</span>
+                      </li>
+                    )}
+                    {getSelectedDeliverables().length === 0 && (
+                      <li className="deliverable-item none">
+                        <span>Select modules to see deliverables</span>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+
+                {selectedMode === 'review' && (!code || code.trim().length === 0) && (
+                  <p className="summary-warning-text">
+                    ⚠️ Please provide code to use the "Review My Code" mode.
+                  </p>
+                )}
+
+                {Object.keys(validationErrors).length > 0 && (
+                  <div className="summary-error-box">
+                    <span className="box-title">Form Errors</span>
+                    <ul className="box-list">
+                      {Object.entries(validationErrors).map(([key, err]) => (
+                        <li key={key}>{err}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={
+                    isSubmitting ||
+                    requestedSections.length === 0 ||
+                    (LEARNING_MODES[selectedMode]?.requiresCode && (!code || code.trim().length === 0))
+                  }
+                  className="analyze-submit-btn"
+                >
+                  {isSubmitting ? (
+                    <span>{LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing...'}</span>
+                  ) : (
+                    <>
+                      <Target size={16} />
+                      <span>{LEARNING_MODES[selectedMode]?.buttonLabel ?? 'Analyze Problem'}</span>
+                    </>
+                  )}
+                </button>
+
+                <p className="summary-footer-text">
+                  <Lock size={12} className="lock-icon" />
+                  <span>Your data is secure and used only to generate your analysis.</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* Lower Full-Width Layout */}
+        <div className="lower-full-width-layout">
+          {/* 3. Choose Learning Mode Card */}
+          <div className="workspace-section full-width-card">
+            <h3 className="section-title">3. Choose Learning Mode</h3>
+            <p className="section-subtitle-text">
+              Select how you want to learn and what level of guidance you need.
+            </p>
+
+            <div className="learning-modes-grid-row">
               {MODE_ORDER.map((modeId) => {
                 const m = LEARNING_MODES[modeId];
                 const isSelected = selectedMode === modeId;
-                const accentClass = isSelected
-                  ? `selected-${m.accentVariant}`
-                  : '';
                 let Icon = Brain;
                 if (modeId === 'start') Icon = Lightbulb;
                 if (modeId === 'build') Icon = Code2;
@@ -933,21 +1131,33 @@ const NewAnalysisPage = () => {
                   <div
                     key={modeId}
                     onClick={() => handleModeSelection(modeId)}
-                    className={`rail-option-row ${accentClass}`}
+                    className={`mode-card mode-${modeId} ${isSelected ? 'selected' : ''}`}
                     role="radio"
                     aria-checked={isSelected}
                     tabIndex={0}
                     onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleModeSelection(modeId); }}
                   >
-                    <div className="rail-radio-circle">
-                      <div className="rail-radio-dot"></div>
+                    <div className="mode-card-header">
+                      <div className="mode-icon">
+                        <Icon size={20} strokeWidth={1.5} />
+                      </div>
+                      <div className="mode-radio">
+                        <div className="mode-radio-dot"></div>
+                      </div>
                     </div>
-                    <div className="rail-option-content">
-                      <span className="rail-option-label">{m.label}</span>
-                      <span className="rail-option-description">{m.description}</span>
+
+                    <div className="mode-card-body">
+                      <h4 className="mode-card-title">{m.label}</h4>
+                      <p className="mode-card-description">{m.description}</p>
                     </div>
-                    <div className={`rail-option-icon icon-${m.accentVariant}`} aria-hidden="true">
-                      <Icon size={24} strokeWidth={1.5} />
+
+                    <div className="mode-card-footer">
+                      <span className="mode-depth-badge">
+                        {m.analysisDepth === 'deep' ? 'DEEP' : 'QUICK'}
+                      </span>
+                      <span className="mode-sections-count">
+                        {m.requestedSections.length} sections
+                      </span>
                     </div>
                   </div>
                 );
@@ -955,42 +1165,65 @@ const NewAnalysisPage = () => {
             </div>
           </div>
 
-          <div>
-            {/* Review My Code inline validation */}
-            {selectedMode === 'review' && (!code || code.trim().length === 0) && (
-              <p style={{ fontSize: '12.5px', color: 'var(--danger)', marginBottom: '10px' }}>
-                Add your code to use Review My Code.
-              </p>
-            )}
-
-            {validationErrors.sections && (
-              <div className="field-error" style={{ marginBottom: '12px', color: 'var(--danger)', fontSize: '12.5px' }}>
-                {validationErrors.sections}
+          {/* 4. Customize Analysis Modules Card */}
+          <div className="workspace-section full-width-card">
+            <div className="section-header-row">
+              <div>
+                <h3 className="section-title">4. Customize Analysis Modules <span className="optional-badge">Optional</span></h3>
+                <p className="section-subtitle-text">
+                  Pick specific sections you want in your analysis. Selected preset modules can be modified here.
+                </p>
               </div>
-            )}
+              <button
+                type="button"
+                onClick={handleToggleAllSections}
+                className="select-all-btn"
+              >
+                {Object.values(SECTION_GROUPS).flatMap(g => g.items.map(item => item.value)).every(s => requestedSections.includes(s))
+                  ? 'Clear All'
+                  : 'Select All'}
+              </button>
+            </div>
 
-            <button
-              type="submit"
-              disabled={
-                isSubmitting ||
-                requestedSections.length === 0 ||
-                (LEARNING_MODES[selectedMode]?.requiresCode && (!code || code.trim().length === 0))
-              }
-              className={`rail-submit-btn btn-${LEARNING_MODES[selectedMode]?.accentVariant || 'blue'}`}
-            >
-              <span>
-                {isSubmitting
-                  ? (LEARNING_MODES[selectedMode]?.loadingLabel ?? 'Preparing...')
-                  : (LEARNING_MODES[selectedMode]?.buttonLabel ?? 'Get Help')}
+            <div className="custom-sections-groups">
+              {Object.entries(SECTION_GROUPS).map(([groupKey, group]) => (
+                <div key={groupKey} className="custom-section-group">
+                  <h4 className="group-title-label">{group.title}</h4>
+                  <div className="chips-list">
+                    {group.items.map((item) => {
+                      const isSelected = requestedSections.includes(item.value);
+                      return (
+                        <label
+                          key={item.value}
+                          className={`custom-checkbox-chip ${isSelected ? 'selected' : ''}`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleSectionToggle(item.value)}
+                            disabled={isSubmitting}
+                            className="hidden-checkbox"
+                          />
+                          <span className="chip-checkbox-box">
+                            {isSelected && <span className="chip-checkbox-check">✓</span>}
+                          </span>
+                          <span className="chip-label">{item.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {validationErrors.sections && (
+              <span className="field-error" style={{ marginTop: '12px', display: 'block' }}>
+                {validationErrors.sections}
               </span>
-              {!isSubmitting && <ArrowRight size={16} />}
-            </button>
-
-            <p className="db-primary-helper" style={{ fontSize: '13px', color: '#667085', marginTop: '16px', textAlign: 'center' }}>
-              Your problem is saved so you can revisit and improve it later.
-            </p>
+            )}
           </div>
+
         </div>
+
       </form>
     </div>
   );
