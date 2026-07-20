@@ -9498,3 +9498,46 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   max-width: 280px;
   margin: 0 0 20px 0;
 }
+
+/* Analysis Details Problem Understanding Formatter Styles */
+.analysis-points-list {
+  margin: 0;
+  padding-left: 20px;
+  list-style-type: disc;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analysis-points-list li {
+  line-height: 1.6;
+  color: var(--text-primary, #1e293b);
+  font-size: 14.5px;
+}
+
+.analysis-points-list li::marker {
+  color: #168B62;
+}
+
+.analysis-paragraph-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.analysis-paragraph {
+  margin: 0;
+  line-height: 1.6;
+  color: var(--text-primary, #1e293b);
+  font-size: 14.5px;
+}
+
+.adp-inline-code {
+  font-family: var(--font-mono, monospace);
+  background-color: rgba(22, 139, 98, 0.08);
+  color: #168b62;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-weight: 500;
+}

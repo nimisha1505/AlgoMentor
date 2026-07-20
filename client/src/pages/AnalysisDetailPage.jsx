@@ -75,16 +75,184 @@ const safeStringify = (val) => {
   return String(val);
 };
 
-const parseProblemExplanation = (val) => {
-  if (!val) return [];
-  if (Array.isArray(val)) {
-    return val.map(v => typeof v === 'string' ? v.trim() : safeStringify(v)).filter(Boolean);
-  }
-  const str = typeof val === 'string' ? val : String(val);
+const decodeHtmlEntities = (str) => {
+  if (!str || typeof str !== 'string') return '';
   return str
-    .split(/(?:\r?\n|(?:\s|^)(?:[-•*]|\d+\.)\s+)/)
-    .map(item => item.trim())
-    .filter(Boolean);
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+};
+
+const STRIP_HTML_TAGS_REGEX = /<\/?(?:p|br|span|strong|b|em|i|code|div|ul|ol|li|a|h1|h2|h3|h4|h5|h6|mark|small|sub|sup|del|ins)\b[^>]*\/?>/gi;
+
+const stripSimpleHtmlTags = (str) => {
+  if (!str || typeof str !== 'string') return '';
+  const withNewlines = str.replace(/<br\s*\/?>/gi, '\n');
+  return withNewlines.replace(STRIP_HTML_TAGS_REGEX, '');
+};
+
+const renderInlineFormattedText = (text, keyPrefix = 'txt') => {
+  if (!text || typeof text !== 'string') return text;
+
+  const decoded = decodeHtmlEntities(text);
+  const lines = decoded.split('\n');
+
+  return lines.map((line, lineIdx) => {
+    const parts = line.split(/`([^`]+)`/g);
+    const lineContent = parts.map((part, partIdx) => {
+      if (partIdx % 2 === 1) {
+        return (
+          <code key={`${keyPrefix}-l${lineIdx}-c${partIdx}`} className="adp-inline-code">
+            {part}
+          </code>
+        );
+      }
+      return part;
+    });
+
+    return (
+      <React.Fragment key={`${keyPrefix}-l${lineIdx}`}>
+        {lineIdx > 0 && <br />}
+        {lineContent}
+      </React.Fragment>
+    );
+  });
+};
+
+const parseAndRenderProblemExplanation = (val) => {
+  if (!val) return null;
+
+  let rawString = '';
+  const isArrayInput = Array.isArray(val);
+
+  if (isArrayInput) {
+    const strItems = val.map(v => typeof v === 'string' ? v : safeStringify(v)).filter(Boolean);
+    if (strItems.length === 0) return null;
+    rawString = strItems.join('\n');
+  } else if (typeof val === 'object') {
+    rawString = safeStringify(val);
+  } else {
+    rawString = String(val);
+  }
+
+  rawString = rawString.trim();
+  if (!rawString) return null;
+
+  // 1. Check for literal <li> tags in HTML list
+  const hasLiTags = /<li\b[^>]*>/i.test(rawString);
+  if (hasLiTags) {
+    const listItems = [];
+    const liRegex = /<li\b[^>]*>([\s\S]*?)(?:<\/li>|$)/gi;
+    let match;
+    while ((match = liRegex.exec(rawString)) !== null) {
+      const itemContent = stripSimpleHtmlTags(match[1]).trim();
+      if (itemContent) {
+        listItems.push(itemContent);
+      }
+    }
+
+    if (listItems.length > 0) {
+      return (
+        <ul className="analysis-points-list">
+          {listItems.map((item, idx) => (
+            <li key={idx} className="adp-body-text">
+              {renderInlineFormattedText(item, `prob-exp-li-${idx}`)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  }
+
+  // 2. Check for Markdown-style bullet lines or array items
+  const lines = rawString.split(/\r?\n/);
+  const nonEmpLines = lines.map(l => l.trim()).filter(Boolean);
+
+  const hasMarkdownBullets = nonEmpLines.some(l => /^(?:[-•*]|\d+\.)\s+/.test(l));
+
+  if (hasMarkdownBullets || (isArrayInput && nonEmpLines.length > 0)) {
+    const listItems = nonEmpLines.map(line => {
+      const unbulleted = line.replace(/^(?:[-•*]|\d+\.)\s+/, '');
+      return stripSimpleHtmlTags(unbulleted).trim();
+    }).filter(Boolean);
+
+    if (listItems.length > 0) {
+      return (
+        <ul className="analysis-points-list">
+          {listItems.map((item, idx) => (
+            <li key={idx} className="adp-body-text">
+              {renderInlineFormattedText(item, `prob-exp-md-${idx}`)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  }
+
+  // 3. Newline-separated points (multiple lines, no double newline or <p> tags)
+  if (nonEmpLines.length > 1 && !rawString.includes('<p>') && !rawString.includes('\n\n')) {
+    const listItems = nonEmpLines.map(line => stripSimpleHtmlTags(line).trim()).filter(Boolean);
+    if (listItems.length > 0) {
+      return (
+        <ul className="analysis-points-list">
+          {listItems.map((item, idx) => (
+            <li key={idx} className="adp-body-text">
+              {renderInlineFormattedText(item, `prob-exp-nl-${idx}`)}
+            </li>
+          ))}
+        </ul>
+      );
+    }
+  }
+
+  // 4. Non-list content (Paragraphs)
+  const hasPTags = /<p\b[^>]*>/i.test(rawString);
+  let paragraphs = [];
+
+  if (hasPTags) {
+    const pRegex = /<p\b[^>]*>([\s\S]*?)(?:<\/p>|$)/gi;
+    let match;
+    while ((match = pRegex.exec(rawString)) !== null) {
+      const pContent = stripSimpleHtmlTags(match[1]).trim();
+      if (pContent) {
+        paragraphs.push(pContent);
+      }
+    }
+  }
+
+  if (paragraphs.length === 0) {
+    paragraphs = rawString
+      .split(/(?:\r?\n){2,}/)
+      .map(p => stripSimpleHtmlTags(p).trim())
+      .filter(Boolean);
+  }
+
+  if (paragraphs.length === 0) {
+    const fallback = stripSimpleHtmlTags(rawString).trim();
+    if (!fallback) return null;
+    paragraphs = [fallback];
+  }
+
+  if (paragraphs.length === 1) {
+    return (
+      <p className="analysis-paragraph adp-body-text">
+        {renderInlineFormattedText(paragraphs[0], 'prob-exp-p-0')}
+      </p>
+    );
+  }
+
+  return (
+    <div className="analysis-paragraph-block">
+      {paragraphs.map((para, idx) => (
+        <p key={idx} className="analysis-paragraph adp-body-text">
+          {renderInlineFormattedText(para, `prob-exp-p-${idx}`)}
+        </p>
+      ))}
+    </div>
+  );
 };
 
 const parseInputOutput = (val) => {
@@ -1055,19 +1223,13 @@ const AnalysisDetailPage = () => {
               <main className="adp-lesson-col">
 
                 {/* 1. Problem Explanation */}
-                {parseProblemExplanation(result.problemExplanation).length > 0 && (
+                {Boolean(result.problemExplanation) && parseAndRenderProblemExplanation(result.problemExplanation) !== null && (
                   <LessonSection
                     id="problemExplanation"
                     icon={Target}
                     title="Problem Understanding"
                   >
-                    <ul className="adp-bullet-list">
-                      {parseProblemExplanation(result.problemExplanation).map((item, idx) => (
-                        <li key={idx} className="adp-body-text adp-white-space-pre-line">
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
+                    {parseAndRenderProblemExplanation(result.problemExplanation)}
                   </LessonSection>
                 )}
 
