@@ -295,18 +295,24 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .auth-split-layout {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
-  min-height: 100vh;
+  min-height: auto;
+  max-width: 980px;
+  margin: 0 auto;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
   background-color: var(--bg-surface);
+  overflow: hidden;
 }
 
 .auth-split-left-visual {
   background: linear-gradient(145deg, #e8f5ef, #edf1ff);
   border-right: 1px solid var(--border);
-  padding: 64px;
+  padding: 36px 40px;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 40px;
+  gap: 28px;
   position: relative;
   overflow: hidden;
 }
@@ -324,57 +330,58 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 }
 
 .visual-hero-copy {
-  max-width: 460px;
+  max-width: 380px;
   z-index: 2;
 }
 
 .visual-hero-title {
-  font-size: 32px;
+  font-size: 24px;
   font-weight: 800;
   line-height: 1.25;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
   letter-spacing: -0.5px;
   color: var(--text-primary);
 }
 
 .visual-hero-desc {
   color: var(--text-secondary);
-  font-size: 15px;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .visual-mock-workspace {
   background-color: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.05);
   overflow: hidden;
-  max-width: 440px;
+  max-width: 360px;
   z-index: 2;
 }
 
 .mock-window-header {
   background-color: var(--bg-soft);
   border-bottom: 1px solid var(--border);
-  padding: 8px 16px;
+  padding: 8px 14px;
   display: flex;
   justify-content: space-between;
-  font-size: 11px;
+  font-size: 10px;
   font-family: monospace;
   color: var(--text-secondary);
 }
 
 .mock-window-body {
-  padding: 20px;
+  padding: 14px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .mock-item-row {
   display: flex;
   justify-content: space-between;
-  font-size: 12px;
-  padding-bottom: 8px;
+  font-size: 11px;
+  padding-bottom: 6px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -392,26 +399,50 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 48px;
+  padding: 32px 36px;
   background-color: var(--bg-surface);
 }
 
 .auth-split-focused-area {
   width: 100%;
-  max-width: 420px;
+  max-width: 380px;
+}
+
+.auth-split-focused-area input.dark-form-input,
+.auth-split-focused-area .dark-form-input {
+  height: 44px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+
+.auth-split-focused-area .form-group label {
+  font-size: 13px;
 }
 
 .auth-split-form-title {
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
   color: var(--text-primary);
 }
 
 .auth-split-form-subtitle {
   color: var(--text-secondary);
   font-size: 13px;
-  margin-top: 6px;
+  margin-top: 4px;
+}
+
+@media (max-width: 868px) {
+  .auth-split-layout {
+    grid-template-columns: 1fr;
+    max-width: 420px;
+  }
+  .auth-split-left-visual {
+    display: none;
+  }
+  .auth-split-right-form {
+    padding: 24px 20px;
+  }
 }
 
 /* Home Page Redesign */
@@ -723,8 +754,8 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 
 .form-group-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 /* Buttons */
