@@ -107,6 +107,90 @@ const SECTION_GROUPS = {
   }
 };
 
+const TOPIC_NORMALIZATION_MAP = {
+  'arrays': 'arrays',
+  'array': 'arrays',
+  'arrays & hashing': 'arrays',
+  'arrays and hashing': 'arrays',
+  'strings': 'strings',
+  'string': 'strings',
+  'hashing': 'hashing',
+  'linkedlist': 'linkedList',
+  'linked list': 'linkedList',
+  'linked-list': 'linkedList',
+  'stack': 'stack',
+  'queue': 'queue',
+  'stack & queue': 'stack',
+  'stack and queue': 'stack',
+  'binarysearch': 'binarySearch',
+  'binary search': 'binarySearch',
+  'binary-search': 'binarySearch',
+  'recursion': 'recursion',
+  'backtracking': 'backtracking',
+  'recursion & backtracking': 'recursion',
+  'recursion and backtracking': 'recursion',
+  'trees': 'trees',
+  'tree': 'trees',
+  'trees & graphs': 'trees',
+  'trees and graphs': 'trees',
+  'bst': 'bst',
+  'heap': 'heap',
+  'graph': 'graph',
+  'graphs': 'graph',
+  'dynamicprogramming': 'dynamicProgramming',
+  'dynamic programming': 'dynamicProgramming',
+  'dynamic-programming': 'dynamicProgramming',
+  'dp': 'dynamicProgramming',
+  'greedy': 'greedy',
+  'greedy algorithms': 'greedy',
+  'greedy-algorithms': 'greedy',
+  'slidingwindow': 'slidingWindow',
+  'sliding window': 'slidingWindow',
+  'sliding-window': 'slidingWindow',
+  'twopointers': 'twoPointers',
+  'two pointers': 'twoPointers',
+  'two-pointers': 'twoPointers',
+  'prefixsum': 'prefixSum',
+  'prefix sum': 'prefixSum',
+  'prefix-sum': 'prefixSum',
+  'bitmanipulation': 'bitManipulation',
+  'bit manipulation': 'bitManipulation',
+  'bit-manipulation': 'bitManipulation',
+  'mathematics': 'mathematics',
+  'math': 'mathematics',
+  'maths': 'mathematics',
+  'other': 'other'
+};
+
+const normalizeTopic = (topic) => {
+  if (!topic || typeof topic !== 'string') return 'other';
+  const clean = topic.trim().toLowerCase();
+
+  if (TOPIC_NORMALIZATION_MAP[clean]) {
+    return TOPIC_NORMALIZATION_MAP[clean];
+  }
+
+  const simplified = clean.replace(/[^a-z0-9]/g, '');
+  if (TOPIC_NORMALIZATION_MAP[simplified]) {
+    return TOPIC_NORMALIZATION_MAP[simplified];
+  }
+
+  const backendEnums = [
+    'arrays', 'strings', 'hashing', 'linkedList', 'stack', 'queue',
+    'binarySearch', 'recursion', 'backtracking', 'trees', 'bst',
+    'heap', 'graph', 'dynamicProgramming', 'greedy', 'slidingWindow',
+    'twoPointers', 'prefixSum', 'bitManipulation', 'mathematics', 'other'
+  ];
+
+  const exactMatch = backendEnums.find(e => e.toLowerCase() === clean);
+  if (exactMatch) return exactMatch;
+
+  const simplifiedMatch = backendEnums.find(e => e.toLowerCase() === simplified);
+  if (simplifiedMatch) return simplifiedMatch;
+
+  return 'other';
+};
+
 const NewAnalysisPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -161,7 +245,7 @@ const NewAnalysisPage = () => {
       setImportUrl(recommendedProblem.sourceUrl ?? "");
       setExternalProblemId(recommendedProblem.externalId ?? "");
       setDifficulty(recommendedProblem.difficulty ?? "unknown");
-      setTopics(recommendedProblem.topic ? [recommendedProblem.topic] : []);
+      setTopics(recommendedProblem.topic ? [normalizeTopic(recommendedProblem.topic)] : []);
       setPatterns(recommendedProblem.pattern ? [recommendedProblem.pattern] : []);
 
       if (recommendedProblem.problemStatement) {
@@ -251,7 +335,7 @@ const NewAnalysisPage = () => {
         }
         
         if (data.topics && data.topics.length > 0) {
-          setTopics(data.topics);
+          setTopics(data.topics.map(normalizeTopic));
         }
         
         if (data.patterns && data.patterns.length > 0) {
@@ -445,7 +529,7 @@ const NewAnalysisPage = () => {
             : requestedSections
         )),
         analysisDepth: analysisDepth,
-        topics,
+        topics: topics.map(normalizeTopic),
         patterns,
         source,
         sourceUrl,
@@ -731,18 +815,18 @@ const NewAnalysisPage = () => {
                   <select
                     id="topics"
                     value={topics[0] || ''}
-                    onChange={(e) => setTopics(e.target.value ? [e.target.value] : [])}
+                    onChange={(e) => setTopics(e.target.value ? [normalizeTopic(e.target.value)] : [])}
                     disabled={isSubmitting}
                     className="form-select"
                   >
                     <option value="">Select topic</option>
                     <option value="arrays">Arrays & Hashing</option>
-                    <option value="two-pointers">Two Pointers</option>
-                    <option value="sliding-window">Sliding Window</option>
+                    <option value="twoPointers">Two Pointers</option>
+                    <option value="slidingWindow">Sliding Window</option>
                     <option value="stack">Stack & Queue</option>
-                    <option value="binary-search">Binary Search</option>
+                    <option value="binarySearch">Binary Search</option>
                     <option value="trees">Trees & Graphs</option>
-                    <option value="dynamic-programming">Dynamic Programming</option>
+                    <option value="dynamicProgramming">Dynamic Programming</option>
                     <option value="greedy">Greedy Algorithms</option>
                     <option value="recursion">Recursion & Backtracking</option>
                     <option value="other">Other</option>
