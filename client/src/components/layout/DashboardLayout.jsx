@@ -17,6 +17,7 @@ const DashboardLayout = () => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [recentProblems, setRecentProblems] = useState([]);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // Fetch recent problems for sidebar whenever user or path changes
   useEffect(() => {
@@ -35,11 +36,33 @@ const DashboardLayout = () => {
     }
   }, [user, location.pathname]);
 
-  const handleLogout = async () => {
+  // Handle closing logout modal on Escape key press
+  useEffect(() => {
+    if (!showLogoutModal) return;
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowLogoutModal(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showLogoutModal]);
+
+  const handleLogout = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    if (isLoggingOut) return;
     setIsLoggingOut(true);
     try {
       await logout();
-      navigate('/login');
+      setShowLogoutModal(false);
+      navigate('/');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
@@ -384,6 +407,112 @@ const DashboardLayout = () => {
       <main className="dashboard-main">
         <Outlet />
       </main>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutModal && (
+        <div
+          className="logout-modal-backdrop"
+          onClick={() => setShowLogoutModal(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            className="logout-modal-content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-title"
+            aria-describedby="logout-desc"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor: 'var(--bg-surface, #ffffff)',
+              borderRadius: 'var(--radius-md, 12px)',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              width: '100%',
+              maxWidth: '400px',
+              padding: '24px',
+              border: '1px solid var(--border, #E2EFE7)',
+              margin: '16px',
+            }}
+          >
+            <h2
+              id="logout-title"
+              style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: 'var(--text-primary, #1C2E24)',
+                margin: '0 0 12px 0',
+              }}
+            >
+              Log out?
+            </h2>
+            <p
+              id="logout-desc"
+              style={{
+                fontSize: '14.5px',
+                color: 'var(--text-secondary, #4A5D4E)',
+                margin: '0 0 24px 0',
+                lineHeight: '1.5',
+              }}
+            >
+              Are you sure you want to log out of AlgoMentor?
+            </p>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+              }}
+            >
+              <button
+                autoFocus
+                onClick={() => setShowLogoutModal(false)}
+                className="btn btn-secondary btn-sm"
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-sm, 6px)',
+                  border: '1px solid #E2EFE7',
+                  backgroundColor: '#FAFDFB',
+                  color: 'var(--text-secondary, #4A5D4E)',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                disabled={isLoggingOut}
+                className="btn btn-primary btn-sm"
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: 'var(--radius-sm, 6px)',
+                  backgroundColor: '#168B62',
+                  borderColor: '#168B62',
+                  color: '#ffffff',
+                  cursor: isLoggingOut ? 'not-allowed' : 'pointer',
+                  fontWeight: '600',
+                  fontSize: '13px',
+                  opacity: isLoggingOut ? 0.7 : 1,
+                }}
+              >
+                {isLoggingOut ? 'Logging out...' : 'Log out'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
