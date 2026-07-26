@@ -10,7 +10,8 @@ import { Terminal, Home, PlusCircle, Database, LogOut, Menu, X, RefreshCw, Slide
  * and responsive navigation toggles on mobile viewport sizes.
  */
 const DashboardLayout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAuthenticated } = useAuth();
+  const brandDestination = isAuthenticated ? '/dashboard' : '/';
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -77,7 +78,7 @@ const DashboardLayout = () => {
       <aside className="dashboard-sidebar">
         <div className="sidebar-top">
           <div className="sidebar-logo" style={{ height: '72px', display: 'flex', alignItems: 'center', padding: '0 16px', borderBottom: '1px solid var(--bg-sidebar-hover)' }}>
-            <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit', width: '100%' }}>
+            <Link to={brandDestination} style={{ display: 'flex', alignItems: 'center', gap: '10px', textDecoration: 'none', color: 'inherit', width: '100%' }}>
               <Terminal size={22} className="brand-icon" style={{ color: 'var(--primary)' }} />
               <span style={{ fontWeight: '600', fontSize: '17px', letterSpacing: '-0.5px', color: 'var(--text-inverse)' }}>AlgoMentor</span>
             </Link>
@@ -219,7 +220,7 @@ const DashboardLayout = () => {
 
       {/* Mobile Top Header */}
       <div className="mobile-top-bar">
-        <Link to="/" className="mobile-header-left" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
+        <Link to={brandDestination} className="mobile-header-left" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none', color: 'inherit' }}>
           <Terminal size={18} className="brand-icon" style={{ color: 'var(--primary)' }} />
           <span style={{ fontWeight: '700', fontSize: '14px', marginLeft: '6px', color: 'var(--text-inverse)' }}>AlgoMentor</span>
         </Link>
@@ -236,7 +237,7 @@ const DashboardLayout = () => {
       <div className={`mobile-drawer-overlay ${mobileMenuOpen ? 'open' : ''}`} onClick={() => setMobileMenuOpen(false)}></div>
       <aside className={`mobile-drawer ${mobileMenuOpen ? 'open' : ''}`}>
         <div className="drawer-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', height: '72px', padding: '0 16px', borderBottom: '1px solid var(--bg-sidebar-hover)' }}>
-          <Link to="/" onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
+          <Link to={brandDestination} onClick={() => setMobileMenuOpen(false)} style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
             <Terminal size={22} className="brand-icon" style={{ color: 'var(--primary)' }} />
             <span style={{ fontWeight: '800', fontSize: '17px', letterSpacing: '-0.5px', color: 'var(--text-inverse)' }}>AlgoMentor</span>
           </Link>

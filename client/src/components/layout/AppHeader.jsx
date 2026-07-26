@@ -1,12 +1,15 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Terminal } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth.js';
 
 /**
  * Redesigned AppHeader for guest public views.
  */
 const AppHeader = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const brandDestination = isAuthenticated ? '/dashboard' : '/';
 
   const handleAnchorClick = (e, targetId) => {
     e.preventDefault();
@@ -24,7 +27,7 @@ const AppHeader = () => {
   return (
     <header className="app-header">
       <div className="header-container site-container">
-        <Link to="/" className="brand-link">
+        <Link to={brandDestination} className="brand-link">
           <Terminal size={18} className="brand-icon" />
           <span className="brand-name">AlgoMentor</span>
         </Link>

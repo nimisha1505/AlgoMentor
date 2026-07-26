@@ -122,6 +122,107 @@ const renderInlineFormattedText = (text, keyPrefix = 'txt') => {
   });
 };
 
+const formatAiTextString = (str) => {
+  if (str === null || str === undefined) return '';
+  let formatted = String(str);
+
+  // Convert <li>...</li> into bullet lines
+  formatted = formatted.replace(/<li\b[^>]*>/gi, '- ');
+  formatted = formatted.replace(/<\/li>/gi, '\n');
+
+  // Remove <ul> and </ul>
+  formatted = formatted.replace(/<\/?ul\b[^>]*>/gi, '');
+
+  // Remove <ol> and </ol>
+  formatted = formatted.replace(/<\/?ol\b[^>]*>/gi, '');
+
+  // Convert <br>, <br/>, and <br /> into line breaks
+  formatted = formatted.replace(/<br\s*\/?>/gi, '\n');
+
+  // Convert <p> and </p> into line breaks
+  formatted = formatted.replace(/<p\b[^>]*>/gi, '\n');
+  formatted = formatted.replace(/<\/p>/gi, '\n');
+
+  // Remove remaining HTML tags safely (keeping math operators)
+  formatted = formatted.replace(/<\/?[a-zA-Z][^>]*>/g, '');
+
+  // Decode HTML entities
+  formatted = decodeHtmlEntities(formatted);
+
+  // Preserve readable line breaks (remove multiple empty lines)
+  const lines = formatted.split('\n').map(line => line.trim());
+  const cleanedLines = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i] === '' && (i === 0 || lines[i - 1] === '')) {
+      continue;
+    }
+    cleanedLines.push(lines[i]);
+  }
+
+  return cleanedLines.join('\n').trim();
+};
+
+const renderSafeInlineFormattedText = (text, keyPrefix = 'ai-txt') => {
+  if (!text || typeof text !== 'string') return text;
+
+  const parts = text.split(/`([^`]+)`/g);
+  return parts.map((part, idx) => {
+    if (idx % 2 === 1) {
+      return (
+        <code key={`${keyPrefix}-c${idx}`} className="adp-inline-code">
+          {part}
+        </code>
+      );
+    }
+    return part;
+  });
+};
+
+const renderAiText = (val, keyPrefix = 'ai', inline = false) => {
+  if (val === null || val === undefined) return null;
+
+  if (Array.isArray(val)) {
+    const items = val.map(item => {
+      if (item === null || item === undefined) return null;
+      if (typeof item === 'object') {
+        return item.constraint || item.case || item.hint || safeStringify(item);
+      }
+      return String(item);
+    }).filter(Boolean);
+
+    if (items.length === 0) return null;
+
+    return (
+      <ul className="analysis-points-list adp-bullet-list" style={{ margin: 0, paddingLeft: '20px' }}>
+        {items.map((item, idx) => (
+          <li key={idx} className="adp-body-text" style={{ whiteSpace: 'pre-line' }}>
+            {renderSafeInlineFormattedText(formatAiTextString(item), `${keyPrefix}-arr-${idx}`)}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  let str = '';
+  if (typeof val === 'object') {
+    str = val.constraint || val.case || val.hint || safeStringify(val);
+  } else {
+    str = String(val);
+  }
+
+  const formatted = formatAiTextString(str);
+  if (!formatted) return null;
+
+  const Wrapper = inline ? 'span' : 'div';
+
+  return (
+    <Wrapper className="adp-body-text" style={{ whiteSpace: 'pre-line', display: inline ? 'inline' : 'block' }}>
+      {renderSafeInlineFormattedText(formatted, `${keyPrefix}-str`)}
+    </Wrapper>
+  );
+};
+
+
 const parseAndRenderProblemExplanation = (val) => {
   if (!val) return null;
 
@@ -571,6 +672,8 @@ const AnalysisDetailPage = () => {
   const [followUpMode, setFollowUpMode] = useState('explain');
   const [isSubmittingFollowUp, setIsSubmittingFollowUp] = useState(false);
   const [followUpError, setFollowUpError] = useState('');
+  const [selectedFollowUpQuestion, setSelectedFollowUpQuestion] = useState('');
+  const [validationError, setValidationError] = useState('');
 
   useEffect(() => {
     let pollingInterval = null;
@@ -614,17 +717,29 @@ const AnalysisDetailPage = () => {
 
   const handleAskMentor = async (e) => {
     e.preventDefault();
-    if (!newQuestion.trim()) return;
+
+    const typedQuestion = newQuestion.trim();
+    const selectedQuestion = selectedFollowUpQuestion?.trim() || '';
+    // Prefer the custom typed question if it is non-empty; otherwise use the selected option.
+    const finalQuestion = typedQuestion || selectedQuestion;
+
+    if (!finalQuestion) {
+      setValidationError('Select a suggested question or type your own question.');
+      return;
+    }
 
     setIsSubmittingFollowUp(true);
     setFollowUpError('');
+    setValidationError('');
+
     try {
       const result = await createAnalysisFollowUp(analysisId, {
-        question: newQuestion.trim(),
+        question: finalQuestion,
         mode: followUpMode,
       });
       setFollowUps((prev) => [...prev, result]);
       setNewQuestion('');
+      setSelectedFollowUpQuestion('');
     } catch (err) {
       setFollowUpError(getApiErrorMessage(err));
     } finally {
@@ -633,8 +748,17 @@ const AnalysisDetailPage = () => {
   };
 
   const handleChipClick = (questionText, targetMode) => {
-    setNewQuestion(questionText);
+    setSelectedFollowUpQuestion(questionText);
     setFollowUpMode(targetMode);
+    setNewQuestion(''); // Clear custom typed text when a recommended option is selected
+    setValidationError('');
+  };
+
+  const handlePresetModeSelect = (targetMode) => {
+    setFollowUpMode(targetMode);
+    setSelectedFollowUpQuestion(PRESET_MODE_QUESTIONS[targetMode] || '');
+    setNewQuestion(''); // Clear custom typed text when a preset action chip is selected
+    setValidationError('');
   };
 
   const handleRetryAnalysis = async () => {
@@ -715,6 +839,14 @@ const AnalysisDetailPage = () => {
       other: 'Other',
     };
     return labels[lang] || lang;
+  };
+
+  const PRESET_MODE_QUESTIONS = {
+    explain: 'Explain this analysis in simpler words.',
+    hint: 'Give me the next progressive hint without revealing the complete solution.',
+    improve: 'How can I improve my current approach?',
+    edgeCase: 'Which important edge cases am I missing?',
+    interview: 'How should I explain this solution in an interview?',
   };
 
   const getModeLabel = (modeVal) => {
@@ -839,45 +971,31 @@ const AnalysisDetailPage = () => {
     const hasField = (fieldNames) => comparisonData.some(row => fieldNames.some(f => row[f] !== undefined && row[f] !== null));
 
     const cols = [];
-    cols.push({ header: 'Approach', render: (row) => <strong>{row.approach}</strong> });
+    cols.push({ header: 'Approach', render: (row) => <strong>{renderAiText(row.approach, 'comp-app', true)}</strong> });
 
     if (hasField(['mainIdea', 'idea'])) {
-      cols.push({ header: 'Main Idea', render: (row) => row.mainIdea || row.idea || '' });
+      cols.push({ header: 'Main Idea', render: (row) => renderAiText(row.mainIdea || row.idea || '', 'comp-idea', true) });
     }
     if (hasField(['timeComplexity'])) {
-      cols.push({ header: 'Time', render: (row) => <code className="adp-inline-code">{row.timeComplexity}</code> });
+      cols.push({ header: 'Time', render: (row) => <code className="adp-inline-code">{renderAiText(row.timeComplexity, 'comp-tc', true)}</code> });
     }
     if (hasField(['spaceComplexity'])) {
-      cols.push({ header: 'Space', render: (row) => <code className="adp-inline-code">{row.spaceComplexity}</code> });
+      cols.push({ header: 'Space', render: (row) => <code className="adp-inline-code">{renderAiText(row.spaceComplexity, 'comp-sc', true)}</code> });
     }
     if (hasField(['advantages'])) {
       cols.push({
         header: 'Advantages',
-        render: (row) => {
-          const advs = row.advantages || [];
-          return (
-            <ul style={{ margin: 0, paddingLeft: '14px', listStyleType: 'disc' }}>
-              {advs.map((adv, idx) => <li key={idx}>{adv}</li>)}
-            </ul>
-          );
-        }
+        render: (row) => renderAiText(row.advantages || [], 'comp-advantages')
       });
     }
     if (hasField(['limitations', 'disadvantages'])) {
       cols.push({
         header: 'Limitations',
-        render: (row) => {
-          const lims = row.limitations || row.disadvantages || [];
-          return (
-            <ul style={{ margin: 0, paddingLeft: '14px', listStyleType: 'disc' }}>
-              {lims.map((lim, idx) => <li key={idx}>{lim}</li>)}
-            </ul>
-          );
-        }
+        render: (row) => renderAiText(row.limitations || row.disadvantages || [], 'comp-limitations')
       });
     }
     if (hasField(['recommendedUse', 'interviewSuitability'])) {
-      cols.push({ header: 'Best Used When', render: (row) => row.recommendedUse || row.interviewSuitability || '' });
+      cols.push({ header: 'Best Used When', render: (row) => renderAiText(row.recommendedUse || row.interviewSuitability || '', 'comp-rec', true) });
     }
     return cols;
   };
@@ -1223,13 +1341,13 @@ const AnalysisDetailPage = () => {
               <main className="adp-lesson-col">
 
                 {/* 1. Problem Explanation */}
-                {Boolean(result.problemExplanation) && parseAndRenderProblemExplanation(result.problemExplanation) !== null && (
+                {Boolean(result.problemExplanation) && (
                   <LessonSection
                     id="problemExplanation"
                     icon={Target}
                     title="Problem Understanding"
                   >
-                    {parseAndRenderProblemExplanation(result.problemExplanation)}
+                    {renderAiText(result.problemExplanation, 'prob-exp')}
                   </LessonSection>
                 )}
 
@@ -1244,13 +1362,17 @@ const AnalysisDetailPage = () => {
                       {parsedIO.input && (
                         <div className="adp-io-box" style={{ width: '100%' }}>
                           <span className="adp-io-label" style={{ color: '#168B62' }}>Input</span>
-                          <p className="adp-body-text adp-white-space-pre-line" style={{ marginTop: '6px' }}>{parsedIO.input}</p>
+                          <div style={{ marginTop: '6px' }}>
+                            {renderAiText(parsedIO.input, 'io-input')}
+                          </div>
                         </div>
                       )}
                       {parsedIO.output && (
                         <div className="adp-io-box" style={{ width: '100%' }}>
                           <span className="adp-io-label" style={{ color: '#15803D' }}>Output</span>
-                          <p className="adp-body-text adp-white-space-pre-line" style={{ marginTop: '6px' }}>{parsedIO.output}</p>
+                          <div style={{ marginTop: '6px' }}>
+                            {renderAiText(parsedIO.output, 'io-output')}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1270,24 +1392,20 @@ const AnalysisDetailPage = () => {
                           {ex.input && (
                             <div className="adp-example-row">
                               <span className="adp-example-field">Input</span>
-                              <span className="adp-example-value">{ex.input}</span>
+                              <span className="adp-example-value">{renderAiText(ex.input, `ex-input-${idx}`, true)}</span>
                             </div>
                           )}
                           {ex.output && (
                             <div className="adp-example-row">
                               <span className="adp-example-field">Output</span>
-                              <span className="adp-example-value">{ex.output}</span>
+                              <span className="adp-example-value">{renderAiText(ex.output, `ex-output-${idx}`, true)}</span>
                             </div>
                           )}
                           {ex.explanation && (
                             <div className="adp-example-row">
                               <span className="adp-example-field">Explanation</span>
                               <div className="adp-example-value" style={{ color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                {parseExplanationPoints(ex.explanation).map((pt, pIdx) => (
-                                  <p key={pIdx} className="adp-body-text adp-white-space-pre-line" style={{ margin: 0, color: 'inherit', fontSize: 'inherit', lineHeight: 'inherit' }}>
-                                    {pt}
-                                  </p>
-                                ))}
+                                {renderAiText(ex.explanation, `ex-explanation-${idx}`)}
                               </div>
                             </div>
                           )}
@@ -1310,9 +1428,11 @@ const AnalysisDetailPage = () => {
                     <ul className="adp-bullet-list">
                       {validConstraints.map((c, idx) => (
                         <li key={idx}>
-                          <code className="adp-inline-code">{c.constraint || c}</code>
+                          {renderAiText(c.constraint || c, `constraint-${idx}`, true)}
                           {c.implication && (
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}> — {c.implication}</span>
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                              {' — '}{renderAiText(c.implication, `constraint-implication-${idx}`, true)}
+                            </span>
                           )}
                         </li>
                       ))}
@@ -1332,8 +1452,12 @@ const AnalysisDetailPage = () => {
                     <ul className="adp-bullet-list">
                       {validEdgeCases.map((ec, idx) => (
                         <li key={idx}>
-                          <strong>{ec.case || ec}</strong>
-                          {ec.reason && <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}> — {ec.reason}</span>}
+                          <strong>{renderAiText(ec.case || ec, `edge-case-${idx}`, true)}</strong>
+                          {ec.reason && (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '13px' }}>
+                              {' — '}{renderAiText(ec.reason, `edge-case-reason-${idx}`, true)}
+                            </span>
+                          )}
                         </li>
                       ))}
                     </ul>
@@ -1353,19 +1477,23 @@ const AnalysisDetailPage = () => {
                       {validMissingEdgeCases.map((ec, idx) => (
                         <div key={idx} className="adp-missing-ec-row">
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                            <strong style={{ fontSize: '14px', color: '#3E5A44' }}>Case {idx + 1}: {ec.case}</strong>
+                            <strong style={{ fontSize: '14px', color: '#3E5A44' }}>
+                              Case {idx + 1}: {renderAiText(ec.case, `missing-ec-${idx}`, true)}
+                            </strong>
                             {ec.testInput && (
-                              <code className="adp-inline-code" style={{ fontSize: '11px' }}>Input: {safeStringify(ec.testInput)}</code>
+                              <code className="adp-inline-code" style={{ fontSize: '11px' }}>
+                                Input: {renderAiText(safeStringify(ec.testInput), `missing-ec-input-${idx}`, true)}
+                              </code>
                             )}
                           </div>
                           {ec.whyItMatters && (
                             <p className="adp-body-text" style={{ margin: '4px 0 0 0', fontSize: '13px' }}>
-                              <strong>Why it matters:</strong> {ec.whyItMatters}
+                              <strong>Why it matters:</strong> {renderAiText(ec.whyItMatters, `missing-ec-why-${idx}`, true)}
                             </p>
                           )}
                           {ec.howItBreaksCurrentApproach && (
                             <p className="adp-body-text" style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#3E5A44' }}>
-                              <strong>How it breaks:</strong> {ec.howItBreaksCurrentApproach}
+                              <strong>How it breaks:</strong> {renderAiText(ec.howItBreaksCurrentApproach, `missing-ec-breaks-${idx}`, true)}
                             </p>
                           )}
                         </div>
@@ -1383,28 +1511,30 @@ const AnalysisDetailPage = () => {
                   >
                     {result.pattern.name && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                        <span className="adp-pattern-chip">{result.pattern.name}</span>
+                        <span className="adp-pattern-chip">{renderAiText(result.pattern.name, 'pattern-name', true)}</span>
                       </div>
                     )}
                     {result.pattern.reason && (
-                      <p className="adp-body-text" style={{ marginBottom: '16px' }}>{result.pattern.reason}</p>
+                      <div style={{ marginBottom: '16px' }}>
+                        {renderAiText(result.pattern.reason, 'pattern-reason')}
+                      </div>
                     )}
                     {(result.pattern.clues?.length > 0 || result.pattern.whyItFits) && (
                       <div className="adp-pattern-grid">
                         {result.pattern.clues?.length > 0 && (
                           <div className="adp-pattern-col">
                             <span className="adp-pattern-col-label" style={{ color: '#168B62' }}>Clues</span>
-                            <ul className="adp-bullet-list" style={{ marginTop: '6px' }}>
-                              {result.pattern.clues.map((clue, idx) => (
-                                <li key={idx}>{clue}</li>
-                              ))}
-                            </ul>
+                            <div style={{ marginTop: '6px' }}>
+                              {renderAiText(result.pattern.clues, 'pattern-clues')}
+                            </div>
                           </div>
                         )}
                         {result.pattern.whyItFits && (
                           <div className="adp-pattern-col">
                             <span className="adp-pattern-col-label" style={{ color: '#15803D' }}>Why It Fits</span>
-                            <p className="adp-body-text" style={{ marginTop: '6px' }}>{result.pattern.whyItFits}</p>
+                            <div style={{ marginTop: '6px' }}>
+                              {renderAiText(result.pattern.whyItFits, 'pattern-whyitfits')}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -1461,7 +1591,7 @@ const AnalysisDetailPage = () => {
                                 </div>
                                 <div style={{ marginTop: '6px' }}>
                                   {isRevealed ? (
-                                    <p className="adp-body-text">{h.hint}</p>
+                                    renderAiText(h.hint, `hint-${level}`)
                                   ) : (
                                     <p className="adp-hint-placeholder">Hidden — reveal when ready.</p>
                                   )}
@@ -1511,14 +1641,14 @@ const AnalysisDetailPage = () => {
 
                             {/* 3. Intuition / Explanation */}
                             {ap.intuition && (
-                              <p className="adp-body-text" style={{ marginBottom: '12px' }}>
-                                <strong>Intuition:</strong> {ap.intuition}
-                              </p>
+                              <div style={{ marginBottom: '12px' }}>
+                                <strong>Intuition:</strong> {renderAiText(ap.intuition, `approach-intuition-${idx}`, true)}
+                              </div>
                             )}
                             {ap.explanation && !ap.intuition && (
-                              <p className="adp-body-text" style={{ marginBottom: '12px' }}>
-                                {ap.explanation}
-                              </p>
+                              <div style={{ marginBottom: '12px' }}>
+                                {renderAiText(ap.explanation, `approach-explanation-${idx}`)}
+                              </div>
                             )}
 
                             {/* 4. Numbered steps */}
@@ -1527,7 +1657,7 @@ const AnalysisDetailPage = () => {
                                 <strong style={{ fontSize: '13px', display: 'block', marginBottom: '6px' }}>Steps:</strong>
                                 <ol className="adp-ordered-list">
                                   {ap.steps.map((step, sIdx) => (
-                                    <li key={sIdx}>{step}</li>
+                                    <li key={sIdx}>{renderAiText(step, `approach-step-${idx}-${sIdx}`, true)}</li>
                                   ))}
                                 </ol>
                               </div>
@@ -1691,44 +1821,42 @@ const AnalysisDetailPage = () => {
                       {result.approachImprovement.currentStrengths?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: '#168B62', display: 'block', marginBottom: '5px' }}>Strengths</span>
-                          <ul className="adp-bullet-list">
-                            {result.approachImprovement.currentStrengths.map((str, idx) => <li key={idx}>{str}</li>)}
-                          </ul>
+                          {renderAiText(result.approachImprovement.currentStrengths, 'imp-strengths')}
                         </div>
                       )}
                       {result.approachImprovement.bottlenecks?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '5px' }}>Bottlenecks</span>
-                          <ul className="adp-bullet-list" style={{ color: 'var(--danger)' }}>
-                            {result.approachImprovement.bottlenecks.map((bn, idx) => <li key={idx}>{bn}</li>)}
-                          </ul>
+                          <div style={{ color: 'var(--danger)' }}>
+                            {renderAiText(result.approachImprovement.bottlenecks, 'imp-bottlenecks')}
+                          </div>
                         </div>
                       )}
                       {result.approachImprovement.unnecessaryWork?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: '#4D6B53', display: 'block', marginBottom: '5px' }}>Unnecessary work</span>
-                          <ul className="adp-bullet-list" style={{ color: '#4D6B53' }}>
-                            {result.approachImprovement.unnecessaryWork.map((uw, idx) => <li key={idx}>{uw}</li>)}
-                          </ul>
+                          <div style={{ color: '#4D6B53' }}>
+                            {renderAiText(result.approachImprovement.unnecessaryWork, 'imp-unnecessary')}
+                          </div>
                         </div>
                       )}
                       {result.approachImprovement.nextImprovement && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Next improvement step</span>
-                          <p className="adp-body-text">{result.approachImprovement.nextImprovement}</p>
+                          {renderAiText(result.approachImprovement.nextImprovement, 'imp-next')}
                         </div>
                       )}
                       {result.approachImprovement.improvedApproach && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Recommended approach</span>
-                          <p className="adp-body-text">{result.approachImprovement.improvedApproach}</p>
+                          {renderAiText(result.approachImprovement.improvedApproach, 'imp-improved')}
                         </div>
                       )}
                       {result.approachImprovement.patternToLearn && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: '#15803D', display: 'block', marginBottom: '5px' }}>Pattern to study</span>
                           <div style={{ backgroundColor: '#EAF7F1', padding: '12px 14px', borderRadius: 'var(--radius-sm)', borderLeft: '3px solid #15803D', fontSize: '13px', color: '#064E3B' }}>
-                            {result.approachImprovement.patternToLearn}
+                            {renderAiText(result.approachImprovement.patternToLearn, 'imp-pattern', true)}
                           </div>
                         </div>
                       )}
@@ -1739,7 +1867,7 @@ const AnalysisDetailPage = () => {
                             {result.approachImprovement.questionsToAsk.map((q, idx) => (
                               <label key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', cursor: 'pointer', fontSize: '13px' }}>
                                 <input type="checkbox" style={{ marginTop: '3px' }} />
-                                <span>{q}</span>
+                                <span>{renderAiText(q, `imp-question-${idx}`, true)}</span>
                               </label>
                             ))}
                           </div>
@@ -1794,7 +1922,9 @@ const AnalysisDetailPage = () => {
                       <span style={{ fontSize: '11px', fontWeight: '700', color: '#168B62', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <Award size={12} /> How to explain in an interview
                       </span>
-                      <div className="adp-body-text" style={{ marginTop: '8px', lineHeight: '1.7', whiteSpace: 'pre-wrap', color: '#064E3B' }}>{result.interviewExplanation}</div>
+                      <div className="adp-body-text" style={{ marginTop: '8px', lineHeight: '1.7', color: '#064E3B' }}>
+                        {renderAiText(result.interviewExplanation, 'interview-exp')}
+                      </div>
                     </div>
                   </LessonSection>
                 )}
@@ -1816,39 +1946,35 @@ const AnalysisDetailPage = () => {
                       {result.userCodeReview.summary && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>What you did well</span>
-                          <p className="adp-body-text">{result.userCodeReview.summary}</p>
+                          {renderAiText(result.userCodeReview.summary, 'rev-summary')}
                         </div>
                       )}
                       {result.userCodeReview.strengths?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Key Strengths</span>
-                          <ul className="adp-bullet-list">
-                            {result.userCodeReview.strengths.map((str, idx) => <li key={idx}>{str}</li>)}
-                          </ul>
+                          {renderAiText(result.userCodeReview.strengths, 'rev-strengths')}
                         </div>
                       )}
                       {result.userCodeReview.bugs?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '5px' }}>Problems found</span>
-                          <ul className="adp-bullet-list" style={{ color: 'var(--danger)' }}>
-                            {result.userCodeReview.bugs.map((bug, idx) => <li key={idx}>{bug}</li>)}
-                          </ul>
+                          <div style={{ color: 'var(--danger)' }}>
+                            {renderAiText(result.userCodeReview.bugs, 'rev-bugs')}
+                          </div>
                         </div>
                       )}
                       {result.userCodeReview.missedEdgeCases?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--danger)', display: 'block', marginBottom: '5px' }}>Missed edge cases</span>
-                          <ul className="adp-bullet-list" style={{ color: 'var(--danger)' }}>
-                            {result.userCodeReview.missedEdgeCases.map((ec, idx) => <li key={idx}>{ec}</li>)}
-                          </ul>
+                          <div style={{ color: 'var(--danger)' }}>
+                            {renderAiText(result.userCodeReview.missedEdgeCases, 'rev-missed')}
+                          </div>
                         </div>
                       )}
                       {result.userCodeReview.improvements?.length > 0 && (
                         <div>
                           <span style={{ fontSize: '12px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '5px' }}>Improvements</span>
-                          <ul className="adp-bullet-list">
-                            {result.userCodeReview.improvements.map((imp, idx) => <li key={idx}>{imp}</li>)}
-                          </ul>
+                          {renderAiText(result.userCodeReview.improvements, 'rev-improvements')}
                         </div>
                       )}
                       {result.userCodeReview.correctedCode && (
@@ -1888,7 +2014,7 @@ const AnalysisDetailPage = () => {
                         <div key={idx}>
                           {sol.approach && (
                             <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#168B62', marginBottom: '8px' }}>
-                              {sol.approach}
+                              {renderAiText(sol.approach, `legacy-sol-app-${idx}`, true)}
                             </h4>
                           )}
                           <CodeBlock code={sol.code} language={sol.language} />
@@ -1918,12 +2044,12 @@ const AnalysisDetailPage = () => {
                         <tbody>
                           {complexityRows.map((row, idx) => (
                             <tr key={idx}>
-                              <td style={{ fontWeight: '600' }}>{row.approach}</td>
-                              <td><code className="adp-inline-code" style={{ color: '#168B62' }}>{row.timeComplexity}</code></td>
-                              <td><code className="adp-inline-code" style={{ color: '#15803D' }}>{row.spaceComplexity}</code></td>
+                              <td style={{ fontWeight: '600' }}>{renderAiText(row.approach, `legacy-comp-app-${idx}`, true)}</td>
+                              <td><code className="adp-inline-code" style={{ color: '#168B62' }}>{renderAiText(row.timeComplexity, `legacy-comp-tc-${idx}`, true)}</code></td>
+                              <td><code className="adp-inline-code" style={{ color: '#15803D' }}>{renderAiText(row.spaceComplexity, `legacy-comp-sc-${idx}`, true)}</code></td>
                               <td style={{ fontSize: '12px', lineHeight: '1.4' }}>
-                                <strong>Time:</strong> {row.timeReason}<br />
-                                <strong>Space:</strong> {row.spaceReason}
+                                <strong>Time:</strong> {renderAiText(row.timeReason, `legacy-comp-tr-${idx}`, true)}<br />
+                                <strong>Space:</strong> {renderAiText(row.spaceReason, `legacy-comp-sr-${idx}`, true)}
                               </td>
                             </tr>
                           ))}
@@ -1966,7 +2092,7 @@ const AnalysisDetailPage = () => {
                               </span>
                             </div>
                             <p style={{ fontSize: '13.5px', fontStyle: 'italic', color: 'var(--text-primary)', margin: '0 0 6px 0', paddingLeft: '8px', borderLeft: '2px solid #168B62' }}>
-                              "{item.question}"
+                              "{renderAiText(item.question, `qa-q-${idx}`, true)}"
                             </p>
                             <div style={{ display: 'flex', gap: '12px', marginTop: '6px', alignItems: 'flex-start' }}>
                               <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#168B62', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: '800', flexShrink: 0 }}>
@@ -1974,7 +2100,7 @@ const AnalysisDetailPage = () => {
                               </div>
                               <div>
                                 <span style={{ fontWeight: '700', fontSize: '12px', display: 'block', color: '#168B62', textTransform: 'uppercase', marginBottom: '4px' }}>Mentor Insights</span>
-                                <div className="adp-body-text" style={{ whiteSpace: 'pre-wrap' }}>{item.answer}</div>
+                                {renderAiText(item.answer, `qa-a-${idx}`)}
                               </div>
                             </div>
                           </div>
@@ -1984,22 +2110,100 @@ const AnalysisDetailPage = () => {
 
                     {/* Chip suggestions */}
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '16px' }}>
-                      <button onClick={() => handleChipClick('Why is this approach optimal?', 'explain')} className="adp-chip-btn" type="button">Why is this approach optimal?</button>
-                      <button onClick={() => handleChipClick('Which edge case am I missing?', 'edgeCase')} className="adp-chip-btn" type="button">Which edge case am I missing?</button>
+                      <button
+                        onClick={() => handleChipClick('Why is this approach optimal?', 'explain')}
+                        className="adp-chip-btn"
+                        type="button"
+                        style={{
+                          backgroundColor: selectedFollowUpQuestion === 'Why is this approach optimal?' ? 'var(--primary-soft)' : '',
+                          borderColor: selectedFollowUpQuestion === 'Why is this approach optimal?' ? 'var(--primary)' : '',
+                          color: selectedFollowUpQuestion === 'Why is this approach optimal?' ? 'var(--primary)' : ''
+                        }}
+                      >
+                        Why is this approach optimal?
+                      </button>
+                      <button
+                        onClick={() => handleChipClick('Which edge case am I missing?', 'edgeCase')}
+                        className="adp-chip-btn"
+                        type="button"
+                        style={{
+                          backgroundColor: selectedFollowUpQuestion === 'Which edge case am I missing?' ? 'var(--primary-soft)' : '',
+                          borderColor: selectedFollowUpQuestion === 'Which edge case am I missing?' ? 'var(--primary)' : '',
+                          color: selectedFollowUpQuestion === 'Which edge case am I missing?' ? 'var(--primary)' : ''
+                        }}
+                      >
+                        Which edge case am I missing?
+                      </button>
                       {revealedLevel < totalHints && (
-                        <button onClick={() => handleChipClick('Give me one more hint', 'hint')} className="adp-chip-btn" type="button">Give me one more hint</button>
+                        <button
+                          onClick={() => handleChipClick('Give me one more hint', 'hint')}
+                          className="adp-chip-btn"
+                          type="button"
+                          style={{
+                            backgroundColor: selectedFollowUpQuestion === 'Give me one more hint' ? 'var(--primary-soft)' : '',
+                            borderColor: selectedFollowUpQuestion === 'Give me one more hint' ? 'var(--primary)' : '',
+                            color: selectedFollowUpQuestion === 'Give me one more hint' ? 'var(--primary)' : ''
+                          }}
+                        >
+                          Give me one more hint
+                        </button>
                       )}
-                      <button onClick={() => handleChipClick('How can I explain this in an interview?', 'interview')} className="adp-chip-btn" type="button">How can I explain this in an interview?</button>
-                      <button onClick={() => handleChipClick('How can I improve my code?', 'improve')} className="adp-chip-btn" type="button">How can I improve my code?</button>
+                      <button
+                        onClick={() => handleChipClick('How can I explain this in an interview?', 'interview')}
+                        className="adp-chip-btn"
+                        type="button"
+                        style={{
+                          backgroundColor: selectedFollowUpQuestion === 'How can I explain this in an interview?' ? 'var(--primary-soft)' : '',
+                          borderColor: selectedFollowUpQuestion === 'How can I explain this in an interview?' ? 'var(--primary)' : '',
+                          color: selectedFollowUpQuestion === 'How can I explain this in an interview?' ? 'var(--primary)' : ''
+                        }}
+                      >
+                        How can I explain this in an interview?
+                      </button>
+                      <button
+                        onClick={() => handleChipClick('How can I improve my code?', 'improve')}
+                        className="adp-chip-btn"
+                        type="button"
+                        style={{
+                          backgroundColor: selectedFollowUpQuestion === 'How can I improve my code?' ? 'var(--primary-soft)' : '',
+                          borderColor: selectedFollowUpQuestion === 'How can I improve my code?' ? 'var(--primary)' : '',
+                          color: selectedFollowUpQuestion === 'How can I improve my code?' ? 'var(--primary)' : ''
+                        }}
+                      >
+                        How can I improve my code?
+                      </button>
                     </div>
 
                     {/* Form */}
                     <form onSubmit={handleAskMentor} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '20px' }}>
                       <FormError message={followUpError} />
+                      {validationError && (
+                        <div className="validation-error" style={{ color: 'var(--danger)', fontSize: '13px', fontWeight: '500', padding: '8px 12px', backgroundColor: 'var(--danger-soft)', borderRadius: 'var(--radius-sm)', border: '1px solid rgba(22, 139, 98, 0.1)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <AlertCircle size={14} style={{ flexShrink: 0 }} />
+                          <span>{validationError}</span>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         {['explain', 'hint', 'improve', 'edgeCase', 'interview'].map((m) => (
-                          <label key={m} className="adp-mode-chip" style={{ backgroundColor: followUpMode === m ? '#EAF7F1' : '#FAFDFB', borderColor: followUpMode === m ? '#168B62' : '#E2EFE7', color: followUpMode === m ? '#168B62' : 'inherit' }}>
-                            <input type="radio" name="followUpMode" checked={followUpMode === m} onChange={() => setFollowUpMode(m)} disabled={isSubmittingFollowUp} style={{ display: 'none' }} />
+                          <label
+                            key={m}
+                            className="adp-mode-chip"
+                            onClick={() => handlePresetModeSelect(m)}
+                            style={{
+                              backgroundColor: followUpMode === m ? '#EAF7F1' : '#FAFDFB',
+                              borderColor: followUpMode === m ? '#168B62' : '#E2EFE7',
+                              color: followUpMode === m ? '#168B62' : 'inherit',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <input
+                              type="radio"
+                              name="followUpMode"
+                              checked={followUpMode === m}
+                              onChange={() => handlePresetModeSelect(m)}
+                              disabled={isSubmittingFollowUp}
+                              style={{ display: 'none' }}
+                            />
                             {getModeLabel(m)}
                           </label>
                         ))}
@@ -2007,10 +2211,13 @@ const AnalysisDetailPage = () => {
                       <div className="form-group" style={{ marginBottom: 0 }}>
                         <textarea
                           value={newQuestion}
-                          onChange={(e) => setNewQuestion(e.target.value)}
+                          onChange={(e) => {
+                            setNewQuestion(e.target.value);
+                            setSelectedFollowUpQuestion('');
+                            setValidationError('');
+                          }}
                           placeholder="Ask the AI mentor to elaborate on a concept, provide code suggestions, or test inputs..."
                           maxLength={2000}
-                          required
                           rows={3}
                           disabled={isSubmittingFollowUp}
                           style={{ padding: '12px', minHeight: '80px', fontSize: '13px', borderRadius: 'var(--radius-sm)', border: '1px solid #E2EFE7', width: '100%', outline: 'none', resize: 'vertical' }}
@@ -2020,7 +2227,7 @@ const AnalysisDetailPage = () => {
                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{newQuestion.length}/2000 characters</span>
                         <button
                           type="submit"
-                          disabled={isSubmittingFollowUp || !newQuestion.trim()}
+                          disabled={isSubmittingFollowUp}
                           className="btn btn-primary btn-sm icon-btn"
                           style={{ padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#168B62', borderColor: '#168B62', color: '#ffffff' }}
                         >
@@ -2056,7 +2263,7 @@ const AnalysisDetailPage = () => {
                       <div>
                         <span className="adp-rail-label">Learning Mode</span>
                         <strong className="adp-rail-value">{modeLabel}</strong>
-                        {modeDesc && <span className="adp-rail-sub">{modeDesc}</span>}
+                        {modeDesc && <span className="adp-rail-sub">{renderAiText(modeDesc, 'rail-modedesc', true)}</span>}
                       </div>
                     </div>
                   )}
@@ -2070,7 +2277,7 @@ const AnalysisDetailPage = () => {
                       <div>
                         <span className="adp-rail-label">Detected Pattern</span>
                         <strong className="adp-rail-value" style={{ color: 'var(--primary)' }}>{patternName}</strong>
-                        {patternReason && <span className="adp-rail-sub">{patternReason}</span>}
+                        {patternReason && <span className="adp-rail-sub">{renderAiText(patternReason, 'rail-patreason', true)}</span>}
                       </div>
                     </div>
                   )}
@@ -2084,7 +2291,7 @@ const AnalysisDetailPage = () => {
                       <div>
                         <span className="adp-rail-label">Analysis Depth</span>
                         <strong className="adp-rail-value">{depthLabel}</strong>
-                        {depthDesc && <span className="adp-rail-sub">{depthDesc}</span>}
+                        {depthDesc && <span className="adp-rail-sub">{renderAiText(depthDesc, 'rail-depthdesc', true)}</span>}
                       </div>
                     </div>
                   )}
@@ -2109,7 +2316,7 @@ const AnalysisDetailPage = () => {
                           })}
                         </div>
                         {result.confidenceReason && (
-                          <span className="adp-rail-sub">{result.confidenceReason}</span>
+                          <span className="adp-rail-sub">{renderAiText(result.confidenceReason, 'rail-confreason', true)}</span>
                         )}
                       </div>
                     </div>

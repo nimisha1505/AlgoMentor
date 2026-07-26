@@ -5,7 +5,8 @@ import FormError from '../components/common/FormError.jsx';
 import { Terminal } from 'lucide-react';
 
 const LoginPage = () => {
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+  const brandDestination = isAuthenticated ? '/dashboard' : '/';
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -59,7 +60,7 @@ const LoginPage = () => {
       <div className="auth-split-left-visual">
         <div className="auth-visual-grid-bg"></div>
         
-        <Link to="/" className="brand-logo" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit', zIndex: 10 }}>
+        <Link to={brandDestination} className="brand-logo" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit', zIndex: 10 }}>
           <Terminal size={18} className="brand-icon" style={{ color: 'var(--primary)' }} />
           <span style={{ fontSize: '17px', fontWeight: '800', color: 'var(--text-primary)' }}>AlgoMentor</span>
         </Link>
@@ -128,7 +129,7 @@ const LoginPage = () => {
       <div className="auth-split-right-form">
         <div className="auth-split-focused-area">
           {/* Small mobile brand header */}
-          <Link to="/" className="mobile-only-header" style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
+          <Link to={brandDestination} className="mobile-only-header" style={{ marginBottom: '18px', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none', color: 'inherit' }}>
             <Terminal size={18} className="brand-icon" style={{ color: 'var(--primary)' }} />
             <span style={{ fontWeight: '800', fontSize: '15px', color: 'var(--text-primary)' }}>AlgoMentor</span>
           </Link>
