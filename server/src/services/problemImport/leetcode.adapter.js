@@ -81,8 +81,10 @@ const importLeetCodeProblem = async (urlStr) => {
 
     if (response.ok) {
       const resData = await response.json();
+      console.log('LeetCode GraphQL response:', resData); // Debugging log
       if (resData?.data?.question) {
         const q = resData.data.question;
+        console.log('Parsed question data:', q); // Debugging log
       const htmlContent = q.content || '';
 
       // Strip all HTML tags securely to keep only plaintext
@@ -90,6 +92,7 @@ const importLeetCodeProblem = async (urlStr) => {
         .replace(/<[^>]*>/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+        console.log('Cleaned problem statement:', cleanText); // Debugging log
 
       // Normalize topic tags
       const mappedTopics = (q.topicTags || [])
